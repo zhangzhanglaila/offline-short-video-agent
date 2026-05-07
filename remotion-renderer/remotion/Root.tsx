@@ -16,6 +16,8 @@ export const RemotionRoot: React.FC = () => {
 			return {
 				durationInFrames: getLayoutDurationInFrames(layout),
 				fps: layout.fps ?? 30,
+				width: layout.width ?? 1080,
+				height: layout.height ?? 1920,
 			};
 		},
 		[],

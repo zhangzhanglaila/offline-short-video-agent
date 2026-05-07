@@ -1251,6 +1251,64 @@
             transition: background 150ms ease, color 150ms ease;
         }
         .chat-sessions-popup__delete:hover { background: rgba(220, 60, 60, 0.15); color: #dc3c3c; }
+
+        /* ========== Thinking Panel ========== */
+        .thinking-phase {
+            display: flex; align-items: center; gap: 10px; padding: 8px 0;
+            font-size: 13px; color: #909090; transition: all 0.3s;
+        }
+        .thinking-phase.active { color: #FB7299; font-weight: 600; }
+        .thinking-phase.done { color: #52c41a; }
+        .thinking-phase-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #ddd; transition: all 0.3s; flex-shrink: 0;
+        }
+        .thinking-phase.active .thinking-phase-dot { background: #FB7299; box-shadow: 0 0 8px rgba(251,114,153,0.5); }
+        .thinking-phase.done .thinking-phase-dot { background: #52c41a; }
+        .thinking-module-item {
+            display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+            margin-bottom: 4px; border-radius: 6px; cursor: pointer;
+            font-size: 13px; transition: all 0.2s; border: 1px solid transparent;
+        }
+        .thinking-module-item:hover { background: #f5f5f5; }
+        .thinking-module-item.active { background: #fff0f4; border-color: #FB7299; }
+        .thinking-module-item .module-status {
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        }
+        .thinking-module-item .module-status.pending { background: #ddd; }
+        .thinking-module-item .module-status.generating { background: #faad14; animation: pulse 1s infinite; }
+        .thinking-module-item .module-status.ready { background: #52c41a; }
+        .thinking-module-item .module-status.approved { background: #1890ff; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .thinking-sentence {
+            display: flex; align-items: flex-start; gap: 8px; padding: 8px;
+            margin-bottom: 4px; border-radius: 6px; background: #fafafa;
+            border: 1px solid #f0f0f0; font-size: 13px; transition: all 0.2s;
+        }
+        .thinking-sentence:hover { border-color: #FB7299; }
+        .thinking-sentence .sent-idx {
+            color: #FB7299; font-weight: 700; min-width: 24px; text-align: center;
+            padding-top: 2px; flex-shrink: 0;
+        }
+        .thinking-sentence .sent-text { flex: 1; line-height: 1.6; }
+        .thinking-sentence .sent-actions { display: flex; gap: 4px; flex-shrink: 0; }
+        .thinking-sentence .sent-btn {
+            width: 24px; height: 24px; border: none; border-radius: 4px;
+            background: transparent; cursor: pointer; font-size: 12px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+        }
+        .thinking-sentence .sent-btn:hover { background: #e8e8e8; }
+        .thinking-log-line {
+            padding: 2px 0; white-space: pre-wrap; word-break: break-all;
+        }
+        .thinking-log-line.event { color: #73d13d; }
+        .thinking-log-line.thinking { color: #40a9ff; }
+        .thinking-log-line.error { color: #ff4d4f; }
+        .thinking-log-line.phase { color: #faad14; font-weight: 600; }
+        .thinking-log-line.reasoning { color: #b37feb; font-style: italic; }
+        .thinking-log-line.decision { color: #36cfc9; font-weight: 600; }
+        .thinking-log-line.status { color: #8c8c8c; }
     </style>
 </head>
 <body>
@@ -1267,6 +1325,7 @@
             <a class="nav-item" data-page="works" onclick="showPage('works')">我的投稿</a>
             <a class="nav-item" data-page="stats" onclick="showPage('stats')">数据中心</a>
             <a class="nav-item" data-page="agent" onclick="showPage('agent')">🤖 AI助手</a>
+            <a class="nav-item" data-page="thinking" onclick="showPage('thinking')">🧠 智能导演</a>
         </nav>
     </header>
 
@@ -1779,6 +1838,102 @@
                     </div>
                     <div style="margin-top: 8px; font-size: 11px; color: #909090;">
                         💡 支持自然语言描述需求，AI会自动调用相应工具完成操作
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== 智能导演 Thinking Panel ========== -->
+        <div id="page-thinking" class="page">
+            <div style="display: flex; gap: 16px; height: calc(100vh - 120px);">
+
+                <!-- 左侧: 控制面板 + 步骤进度 -->
+                <div style="width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;">
+                    <!-- 新建/加载 Session -->
+                    <div class="bili-card" style="padding: 16px;">
+                        <div class="card-header" style="padding: 0; margin-bottom: 12px;">
+                            <span class="card-title">🎬 智能导演</span>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <input type="text" id="thinking-topic" class="bili-input" placeholder="输入视频主题，如：数据结构-二叉树" style="flex:1;">
+                            <button class="bili-btn bili-btn-primary" onclick="thinkingStartSession()">创建</button>
+                        </div>
+                        <div id="thinking-session-info" style="font-size: 12px; color: #909090;"></div>
+                    </div>
+
+                    <!-- 步骤进度 -->
+                    <div class="bili-card" style="padding: 16px; flex: 1; overflow-y: auto;">
+                        <div style="font-weight: 600; margin-bottom: 12px; font-size: 14px;">执行进度</div>
+                        <div id="thinking-phases">
+                            <div class="thinking-phase" data-phase="analyzing">
+                                <div class="thinking-phase-dot"></div>
+                                <div class="thinking-phase-label">分析主题</div>
+                            </div>
+                            <div class="thinking-phase" data-phase="script">
+                                <div class="thinking-phase-dot"></div>
+                                <div class="thinking-phase-label">生成文案</div>
+                            </div>
+                            <div class="thinking-phase" data-phase="graph">
+                                <div class="thinking-phase-dot"></div>
+                                <div class="thinking-phase-label">知识图谱</div>
+                            </div>
+                            <div class="thinking-phase" data-phase="audio">
+                                <div class="thinking-phase-dot"></div>
+                                <div class="thinking-phase-label">语音合成</div>
+                            </div>
+                            <div class="thinking-phase" data-phase="render">
+                                <div class="thinking-phase-dot"></div>
+                                <div class="thinking-phase-label">渲染视频</div>
+                            </div>
+                        </div>
+
+                        <!-- 模块列表 -->
+                        <div style="font-weight: 600; margin: 16px 0 8px; font-size: 14px;">模块</div>
+                        <div id="thinking-modules-list"></div>
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="bili-card" style="padding: 12px 16px;">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button class="bili-btn bili-btn-primary" id="thinking-run-btn" onclick="thinkingRun()" disabled>▶ 执行</button>
+                            <button class="bili-btn bili-btn-secondary" id="thinking-render-btn" onclick="thinkingRender()" disabled>🎬 渲染</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧: 思考流 + 编辑器 -->
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0;">
+
+                    <!-- 思考流 (实时) -->
+                    <div class="bili-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                        <div class="card-header" style="padding: 12px 16px;">
+                            <span class="card-title">💭 思考流</span>
+                            <button class="bili-btn bili-btn-secondary" onclick="thinkingClearLog()" style="font-size: 12px; padding: 4px 12px;">清空</button>
+                        </div>
+                        <div id="thinking-log" style="flex: 1; overflow-y: auto; padding: 12px 16px; font-size: 13px; font-family: monospace; background: #1a1a2e; color: #e0e0e0; border-radius: 0 0 4px 4px; line-height: 1.8;"></div>
+                    </div>
+
+                    <!-- 用户指令输入 -->
+                    <div class="bili-card" style="padding: 12px 16px;">
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="thinking-instruction" class="bili-input" placeholder="输入指令：修改第3句为... / 删除第5句 / 加一句：... / 重新生成 / 确认" style="flex: 1;" onkeyup="if(event.key==='Enter')thinkingSendInstruction()">
+                            <button class="bili-btn bili-btn-primary" onclick="thinkingSendInstruction()">发送</button>
+                        </div>
+                        <div style="margin-top: 6px; font-size: 11px; color: #909090;">
+                            💡 支持: "修改第X句为..." / "删除第X句" / "加一句：..." / "重新生成" / "确认"
+                        </div>
+                    </div>
+
+                    <!-- 文案编辑器 (选中模块时展开) -->
+                    <div class="bili-card" id="thinking-editor-card" style="display: none; padding: 16px; max-height: 40vh; overflow-y: auto;">
+                        <div class="card-header" style="padding: 0; margin-bottom: 12px;">
+                            <span class="card-title" id="thinking-editor-title">📝 文案编辑</span>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="bili-btn bili-btn-secondary" onclick="thinkingRegenScript()" style="font-size: 12px; padding: 4px 12px;">🔄 重新生成</button>
+                                <button class="bili-btn bili-btn-primary" onclick="thinkingApproveScript()" style="font-size: 12px; padding: 4px 12px;">✓ 确认文案</button>
+                            </div>
+                        </div>
+                        <div id="thinking-sentences"></div>
                     </div>
                 </div>
             </div>
@@ -3513,6 +3668,570 @@
                     });
             });
         }
+
+        // ==================== 智能导演 Thinking Panel ====================
+        var thinkingSessionId = null;
+        var thinkingEventSource = null;
+        var thinkingCurrentModule = null;
+
+        // 创建 Session
+        function thinkingStartSession() {
+            var topic = document.getElementById('thinking-topic').value.trim();
+            if (!topic) { showToast('提示', '请输入视频主题', 'warning'); return; }
+
+            fetch(API + '/thinking/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ topic: topic, width: 1920, height: 1080 })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.session_id) {
+                    thinkingSessionId = data.session_id;
+                    document.getElementById('thinking-session-info').innerHTML =
+                        '<span style="color:#52c41a;">✓</span> Session: <b>' + data.session_id + '</b> | 主题: ' + topic;
+                    document.getElementById('thinking-run-btn').disabled = false;
+                    thinkingAddLog('event', '🎬 Session 已创建: ' + data.session_id);
+                    thinkingAddLog('thinking', '主题: ' + topic);
+                    showToast('创建成功', 'Thinking Session 已就绪', 'success');
+                }
+            })
+            .catch(function(err) {
+                showToast('创建失败', err.message, 'error');
+            });
+        }
+
+        // 执行 Thinking 流程
+        function thinkingRun() {
+            if (!thinkingSessionId) { showToast('提示', '请先创建 Session', 'warning'); return; }
+            if (thinkingEventSource) { thinkingEventSource.close(); thinkingEventSource = null; }
+
+            document.getElementById('thinking-run-btn').disabled = true;
+            thinkingAddLog('phase', '▶ 开始执行...');
+
+            // Use fetch + ReadableStream for SSE (POST request)
+            fetch(API + '/thinking/' + thinkingSessionId + '/run', { method: 'POST' })
+            .then(function(response) {
+                var reader = response.body.getReader();
+                var decoder = new TextDecoder();
+                var buffer = '';
+
+                function read() {
+                    reader.read().then(function(result) {
+                        if (result.done) {
+                            document.getElementById('thinking-run-btn').disabled = false;
+                            return;
+                        }
+                        buffer += decoder.decode(result.value, { stream: true });
+                        var lines = buffer.split('\n');
+                        buffer = lines.pop(); // keep incomplete line
+                        for (var i = 0; i < lines.length; i++) {
+                            var line = lines[i].trim();
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    var event = JSON.parse(line.substring(6));
+                                    thinkingHandleEvent(event);
+                                } catch(e) {}
+                            }
+                        }
+                        read();
+                    });
+                }
+                read();
+            })
+            .catch(function(err) {
+                thinkingAddLog('error', '❌ 执行失败: ' + err.message);
+                document.getElementById('thinking-run-btn').disabled = false;
+            });
+        }
+
+        // 处理 SSE 事件
+        function thinkingHandleEvent(event) {
+            var type = event.type || '';
+            var data = event.data;
+
+            switch(type) {
+                case 'connected':
+                    thinkingAddLog('event', '🔗 已连接');
+                    break;
+                case 'start':
+                    thinkingAddLog('event', '🚀 ' + (typeof data === 'string' ? data : JSON.stringify(data)));
+                    break;
+                case 'phase':
+                    thinkingUpdatePhase(typeof data === 'string' ? data : '');
+                    thinkingAddLog('phase', '📌 ' + (typeof data === 'string' ? data : JSON.stringify(data)));
+                    break;
+                case 'thinking':
+                    thinkingAddLog('thinking', typeof data === 'string' ? data : JSON.stringify(data));
+                    break;
+                case 'reasoning':
+                    thinkingAddLog('reasoning', '🧠 ' + (typeof data === 'string' ? data : JSON.stringify(data)));
+                    break;
+                case 'decision':
+                    thinkingAddLog('decision', '⚡ ' + (typeof data === 'string' ? data : JSON.stringify(data)));
+                    break;
+                case 'status':
+                    thinkingAddLog('status', '▸ ' + (typeof data === 'string' ? data : JSON.stringify(data)));
+                    break;
+                case 'outline':
+                    thinkingAddLog('event', '📋 大纲生成完成');
+                    if (data && data.modules) {
+                        thinkingRenderModules(data.modules);
+                    }
+                    break;
+                case 'module_start':
+                    if (data) {
+                        thinkingAddLog('event', '🔨 开始处理: ' + (data.title || data.module_id) + ' [' + (data.step || '') + ']');
+                        thinkingHighlightModule(data.module_id);
+                    }
+                    break;
+                case 'script_ready':
+                    if (data) {
+                        thinkingAddLog('event', '📝 文案就绪: ' + (data.title || data.module_id));
+                        if (data.module_id === thinkingCurrentModule) {
+                            thinkingRenderEditor(data);
+                        }
+                    }
+                    break;
+                case 'all_scripts_ready':
+                    thinkingAddLog('event', '✅ 所有文案已就绪');
+                    thinkingSetPhaseDone('script');
+                    document.getElementById('thinking-render-btn').disabled = false;
+                    if (data && data.modules) {
+                        thinkingRenderModules(data.modules);
+                    }
+                    break;
+                case 'graph_ready':
+                    if (data) {
+                        thinkingAddLog('event', '🗺️ 图谱就绪: ' + data.module_id);
+                    }
+                    break;
+                case 'graph_ready':
+                    thinkingSetPhaseDone('graph');
+                    break;
+                case 'audio_ready':
+                    if (data) {
+                        thinkingAddLog('event', '🔊 音频就绪: ' + data.module_id + ' (' + (data.tracks || 0) + ' tracks)');
+                    }
+                    break;
+                case 'all_ready':
+                    thinkingSetPhaseDone('audio');
+                    thinkingAddLog('event', '🎉 所有模块已就绪！');
+                    document.getElementById('thinking-render-btn').disabled = false;
+                    break;
+                case 'interrupted':
+                    thinkingAddLog('phase', '⏸ 用户打断: ' + (data ? data.instruction : ''));
+                    break;
+                case 'updated':
+                    thinkingAddLog('event', '✏️ 已更新: ' + JSON.stringify(data));
+                    if (thinkingCurrentModule) {
+                        thinkingRefreshModule(thinkingSessionId, thinkingCurrentModule);
+                    }
+                    break;
+                case 'approved':
+                    thinkingAddLog('event', '✓ 已确认: ' + (data ? data.module_id : ''));
+                    break;
+                case 'regenerating':
+                    thinkingAddLog('event', '🔄 重新生成中...');
+                    break;
+                case 'rendered':
+                    thinkingAddLog('event', '🎬 渲染完成: ' + (data ? data.video_path : ''));
+                    showToast('渲染完成', '视频已生成', 'success');
+                    break;
+                case 'error':
+                    thinkingAddLog('error', '❌ ' + (typeof data === 'string' ? data : JSON.stringify(data)));
+                    break;
+                case 'done':
+                    thinkingAddLog('event', '─── 流程结束 ───');
+                    document.getElementById('thinking-run-btn').disabled = false;
+                    break;
+                case 'ping':
+                    break;
+                default:
+                    thinkingAddLog('thinking', '[' + type + '] ' + JSON.stringify(data));
+            }
+        }
+
+        // 思考流日志
+        function thinkingAddLog(cls, text) {
+            var log = document.getElementById('thinking-log');
+            var line = document.createElement('div');
+            line.className = 'thinking-log-line ' + cls;
+            var now = new Date();
+            var ts = now.getHours().toString().padStart(2,'0') + ':' +
+                     now.getMinutes().toString().padStart(2,'0') + ':' +
+                     now.getSeconds().toString().padStart(2,'0');
+            line.textContent = '[' + ts + '] ' + text;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function thinkingClearLog() {
+            document.getElementById('thinking-log').innerHTML = '';
+        }
+
+        // 步骤进度
+        function thinkingUpdatePhase(phaseText) {
+            var phaseMap = {
+                '分析': 'analyzing', 'analyzing': 'analyzing',
+                '文案': 'script', 'script': 'script',
+                '图谱': 'graph', 'graph': 'graph',
+                '音频': 'audio', 'audio': 'audio',
+                '渲染': 'render', 'render': 'render',
+            };
+            for (var key in phaseMap) {
+                if (phaseText.indexOf(key) >= 0) {
+                    var el = document.querySelector('.thinking-phase[data-phase="' + phaseMap[key] + '"]');
+                    if (el) {
+                        document.querySelectorAll('.thinking-phase').forEach(function(p) {
+                            p.classList.remove('active');
+                        });
+                        el.classList.add('active');
+                    }
+                    break;
+                }
+            }
+        }
+
+        function thinkingSetPhaseDone(phase) {
+            var el = document.querySelector('.thinking-phase[data-phase="' + phase + '"]');
+            if (el) {
+                el.classList.remove('active');
+                el.classList.add('done');
+            }
+        }
+
+        // 模块列表
+        function thinkingRenderModules(modules) {
+            var container = document.getElementById('thinking-modules-list');
+            container.innerHTML = '';
+            modules.forEach(function(m) {
+                var item = document.createElement('div');
+                item.className = 'thinking-module-item' + (m.id === thinkingCurrentModule ? ' active' : '');
+                item.setAttribute('data-module-id', m.id);
+                var status = m.status || (m.approved ? 'approved' : 'pending');
+                item.innerHTML =
+                    '<div class="module-status ' + status + '"></div>' +
+                    '<div style="flex:1;">' +
+                        '<div style="font-weight:600;">' + (m.title || m.id) + '</div>' +
+                        '<div style="font-size:11px;color:#909090;">' +
+                            (m.sentences !== undefined ? m.sentences + '句' : '') +
+                            (m.script_approved ? ' ✓文案' : '') +
+                            (m.graphs_approved ? ' ✓图谱' : '') +
+                            (m.audio_approved ? ' ✓音频' : '') +
+                        '</div>' +
+                    '</div>';
+                item.onclick = function() {
+                    thinkingSelectModule(m.id, m.title || m.id);
+                };
+                container.appendChild(item);
+            });
+        }
+
+        function thinkingHighlightModule(moduleId) {
+            document.querySelectorAll('.thinking-module-item').forEach(function(el) {
+                el.classList.toggle('active', el.getAttribute('data-module-id') === moduleId);
+            });
+        }
+
+        // 选择模块 → 加载文案编辑器
+        function thinkingSelectModule(moduleId, title) {
+            thinkingCurrentModule = moduleId;
+            thinkingHighlightModule(moduleId);
+            thinkingRefreshModule(thinkingSessionId, moduleId);
+        }
+
+        function thinkingRefreshModule(sessionId, moduleId) {
+            fetch(API + '/thinking/' + sessionId + '/modules/' + moduleId + '/script')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                thinkingRenderEditor(data);
+            })
+            .catch(function() {});
+        }
+
+        function thinkingRenderEditor(data) {
+            var card = document.getElementById('thinking-editor-card');
+            card.style.display = 'block';
+            document.getElementById('thinking-editor-title').textContent =
+                '📝 ' + (data.title || data.module_id) + ' 文案编辑';
+
+            var container = document.getElementById('thinking-sentences');
+            container.innerHTML = '';
+
+            var sentences = data.sentences || [];
+            sentences.forEach(function(s, idx) {
+                var div = document.createElement('div');
+                div.className = 'thinking-sentence';
+                div.innerHTML =
+                    '<div class="sent-idx">' + (idx + 1) + '</div>' +
+                    '<div class="sent-text">' + escapeHtml(s.text) + '</div>' +
+                    '<div class="sent-actions">' +
+                        '<button class="sent-btn" title="编辑" onclick="thinkingEditSentence(\'' + s.id + '\', ' + idx + ')">✏️</button>' +
+                        '<button class="sent-btn" title="删除" onclick="thinkingDeleteSentence(\'' + s.id + '\')">🗑️</button>' +
+                    '</div>';
+                container.appendChild(div);
+            });
+        }
+
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 编辑句子
+        function thinkingEditSentence(sentenceId, idx) {
+            var newText = prompt('修改第' + (idx+1) + '句:');
+            if (!newText) return;
+            fetch(API + '/thinking/' + thinkingSessionId + '/edit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    module_id: thinkingCurrentModule,
+                    sentence_id: sentenceId,
+                    new_text: newText
+                })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function() {
+                thinkingRefreshModule(thinkingSessionId, thinkingCurrentModule);
+                thinkingAddLog('event', '✏️ 已修改第' + (idx+1) + '句');
+            });
+        }
+
+        // 删除句子
+        function thinkingDeleteSentence(sentenceId) {
+            if (!confirm('确定删除此句?')) return;
+            fetch(API + '/thinking/' + thinkingSessionId + '/remove-sentence', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    module_id: thinkingCurrentModule,
+                    sentence_id: sentenceId
+                })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function() {
+                thinkingRefreshModule(thinkingSessionId, thinkingCurrentModule);
+                thinkingAddLog('event', '🗑️ 已删除句子');
+            });
+        }
+
+        // 重新生成当前模块文案
+        function thinkingRegenScript() {
+            if (!thinkingCurrentModule) return;
+            thinkingAddLog('event', '🔄 重新生成文案...');
+            fetch(API + '/thinking/' + thinkingSessionId + '/regenerate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    module_id: thinkingCurrentModule,
+                    component: 'script'
+                })
+            })
+            .then(function(response) {
+                var reader = response.body.getReader();
+                var decoder = new TextDecoder();
+                var buffer = '';
+                function read() {
+                    reader.read().then(function(result) {
+                        if (result.done) return;
+                        buffer += decoder.decode(result.value, { stream: true });
+                        var lines = buffer.split('\n');
+                        buffer = lines.pop();
+                        for (var i = 0; i < lines.length; i++) {
+                            var line = lines[i].trim();
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    var event = JSON.parse(line.substring(6));
+                                    thinkingHandleEvent(event);
+                                } catch(e) {}
+                            }
+                        }
+                        read();
+                    });
+                }
+                read();
+            });
+        }
+
+        // 确认当前模块文案
+        function thinkingApproveScript() {
+            if (!thinkingCurrentModule) return;
+            fetch(API + '/thinking/' + thinkingSessionId + '/approve', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    module_id: thinkingCurrentModule,
+                    component: 'script'
+                })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function() {
+                thinkingAddLog('event', '✓ 已确认模块文案: ' + thinkingCurrentModule);
+                showToast('已确认', '文案已确认', 'success');
+            });
+        }
+
+        // 发送用户指令
+        function thinkingSendInstruction() {
+            var input = document.getElementById('thinking-instruction');
+            var instruction = input.value.trim();
+            if (!instruction || !thinkingSessionId) return;
+
+            thinkingAddLog('thinking', '👤 用户: ' + instruction);
+            input.value = '';
+
+            fetch(API + '/thinking/' + thinkingSessionId + '/interrupt', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ instruction: instruction })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function() {
+                thinkingAddLog('event', '⏸ 指令已发送');
+            });
+        }
+
+        // 渲染视频
+        function thinkingRender() {
+            if (!thinkingSessionId) return;
+            thinkingAddLog('phase', '🎬 开始渲染...');
+            thinkingUpdatePhase('渲染');
+
+            fetch(API + '/thinking/' + thinkingSessionId + '/render', { method: 'POST' })
+            .then(function(response) {
+                var reader = response.body.getReader();
+                var decoder = new TextDecoder();
+                var buffer = '';
+                function read() {
+                    reader.read().then(function(result) {
+                        if (result.done) return;
+                        buffer += decoder.decode(result.value, { stream: true });
+                        var lines = buffer.split('\n');
+                        buffer = lines.pop();
+                        for (var i = 0; i < lines.length; i++) {
+                            var line = lines[i].trim();
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    var event = JSON.parse(line.substring(6));
+                                    thinkingHandleEvent(event);
+                                } catch(e) {}
+                            }
+                        }
+                        read();
+                    });
+                }
+                read();
+            })
+            .catch(function(err) {
+                thinkingAddLog('error', '❌ 渲染失败: ' + err.message);
+            });
+        }
+
+        // ==================== Thinking LLM 配置 ====================
+        var thinkingLLMChecked = false;
+        var thinkingLLMConfigured = false;
+
+        // 检查 LLM 配置状态
+        function thinkingCheckLLM() {
+            if (thinkingLLMChecked) return Promise.resolve(thinkingLLMConfigured);
+            return fetch(API + '/thinking/llm/check')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                thinkingLLMChecked = true;
+                thinkingLLMConfigured = data.configured;
+                if (!data.configured) {
+                    showThinkingLLMModal();
+                }
+                return data.configured;
+            })
+            .catch(function() {
+                thinkingLLMChecked = true;
+                return true; // Assume configured on error
+            });
+        }
+
+        function showThinkingLLMModal() {
+            var modal = document.getElementById('thinking-llm-modal');
+            modal.style.display = 'flex';
+            thinkingProviderChanged();
+        }
+
+        function closeThinkingLLMModal() {
+            document.getElementById('thinking-llm-modal').style.display = 'none';
+        }
+
+        function thinkingProviderChanged() {
+            var provider = document.getElementById('thinking-llm-provider').value;
+            var baseInput = document.getElementById('thinking-llm-base');
+            var modelInput = document.getElementById('thinking-llm-model');
+            if (provider === 'deepseek') {
+                baseInput.value = 'https://api.deepseek.com/v1';
+                modelInput.value = 'deepseek-chat';
+                baseInput.placeholder = 'https://api.deepseek.com/v1';
+            } else {
+                baseInput.value = '';
+                modelInput.value = '';
+                baseInput.placeholder = 'https://api.openai.com/v1';
+            }
+        }
+
+        function saveThinkingLLMConfig() {
+            var provider = document.getElementById('thinking-llm-provider').value;
+            var key = document.getElementById('thinking-llm-key').value.trim();
+            var base = document.getElementById('thinking-llm-base').value.trim();
+            var model = document.getElementById('thinking-llm-model').value.trim();
+
+            if (!key) {
+                var statusEl = document.getElementById('thinking-llm-status');
+                statusEl.style.display = 'block';
+                statusEl.style.background = '#fff2f0';
+                statusEl.style.color = '#ff4d4f';
+                statusEl.textContent = '请输入 API Key';
+                return;
+            }
+
+            var statusEl = document.getElementById('thinking-llm-status');
+            statusEl.style.display = 'block';
+            statusEl.style.background = '#f6ffed';
+            statusEl.style.color = '#52c41a';
+            statusEl.textContent = '保存中...';
+
+            fetch(API + '/thinking/llm/configure', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    api_key: key,
+                    api_base: base,
+                    model: model,
+                    provider: provider,
+                })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.status === 'saved') {
+                    thinkingLLMConfigured = true;
+                    statusEl.textContent = '✓ 配置已保存！';
+                    setTimeout(closeThinkingLLMModal, 1000);
+                }
+            })
+            .catch(function(err) {
+                statusEl.style.background = '#fff2f0';
+                statusEl.style.color = '#ff4d4f';
+                statusEl.textContent = '保存失败: ' + err.message;
+            });
+        }
+
+        // 拦截 thinkingStartSession，在创建前检查 LLM
+        var _origThinkingStartSession = thinkingStartSession;
+        thinkingStartSession = function() {
+            thinkingCheckLLM().then(function(configured) {
+                // 无论是否配置，都允许创建（降级到规则引擎）
+                _origThinkingStartSession();
+            });
+        };
     </script>
 
     <!-- API配置弹窗 -->
@@ -3530,6 +4249,56 @@
                 <button class="btn btn-cancel" onclick="closeApiConfigModal()">取消</button>
                 <button class="btn btn-save" onclick="saveApiConfig()">保存并重试</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Thinking LLM 配置弹窗 -->
+    <div id="thinking-llm-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; justify-content:center; align-items:center;">
+        <div style="background:#fff; border-radius:16px; padding:32px; width:440px; max-width:90vw; box-shadow:0 20px 60px rgba(0,0,0,0.3); border-top:4px solid #FB7299;">
+            <div style="text-align:center; margin-bottom:24px;">
+                <div style="font-size:40px; margin-bottom:8px;">🧠</div>
+                <h3 style="margin:0; color:#232529; font-size:20px;">配置智能导演</h3>
+                <p style="margin:8px 0 0; color:#909090; font-size:13px;">智能导演需要 LLM 来分析主题、生成文案和理解指令</p>
+            </div>
+
+            <div id="thinking-llm-status" style="padding:12px 16px; background:#f0f9ff; border-radius:8px; margin-bottom:20px; font-size:13px; color:#1890ff; display:none;">
+                检测中...
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:13px; font-weight:600; color:#232529; margin-bottom:6px;">服务商</label>
+                <select id="thinking-llm-provider" style="width:100%; padding:10px 12px; border:1px solid #E3E5E7; border-radius:8px; font-size:14px; background:#fff;" onchange="thinkingProviderChanged()">
+                    <option value="deepseek">DeepSeek (推荐，国内访问快)</option>
+                    <option value="openai">OpenAI / 兼容接口</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:13px; font-weight:600; color:#232529; margin-bottom:6px;">API Key</label>
+                <input type="password" id="thinking-llm-key" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off"
+                    style="width:100%; padding:10px 12px; border:1px solid #E3E5E7; border-radius:8px; font-size:14px; box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:13px; font-weight:600; color:#232529; margin-bottom:6px;">接口地址</label>
+                <input type="text" id="thinking-llm-base" placeholder="https://api.deepseek.com/v1" autocomplete="off"
+                    style="width:100%; padding:10px 12px; border:1px solid #E3E5E7; border-radius:8px; font-size:14px; box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:24px;">
+                <label style="display:block; font-size:13px; font-weight:600; color:#232529; margin-bottom:6px;">模型</label>
+                <input type="text" id="thinking-llm-model" placeholder="deepseek-chat" autocomplete="off"
+                    style="width:100%; padding:10px 12px; border:1px solid #E3E5E7; border-radius:8px; font-size:14px; box-sizing:border-box;">
+            </div>
+
+            <div style="display:flex; gap:12px;">
+                <button onclick="closeThinkingLLMModal()" style="flex:1; padding:12px; border:1px solid #E3E5E7; border-radius:8px; background:#fff; color:#606773; font-size:14px; cursor:pointer; transition:all 0.2s;">跳过（使用规则引擎）</button>
+                <button onclick="saveThinkingLLMConfig()" style="flex:1; padding:12px; border:none; border-radius:8px; background:linear-gradient(135deg, #FB7299, #FFA4C4); color:#fff; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s;">保存并开始</button>
+            </div>
+
+            <p style="margin:16px 0 0; font-size:11px; color:#bbb; text-align:center;">
+                配置将保存到 .env 文件，下次启动自动加载
+            </p>
         </div>
     </div>
 </body>

@@ -10,6 +10,7 @@ from . import topic_api
 from . import work_api
 from . import tts_api
 from . import dual_mode_api
+from . import thinking_api
 
 __all__ = [
     'agent_api',
@@ -20,4 +21,5 @@ __all__ = [
     'work_api',
     'tts_api',
     'dual_mode_api',
+    'thinking_api',
 ]
