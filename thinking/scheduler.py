@@ -33,6 +33,7 @@ from thinking.patch import (
     RemoveSentencePatch, ApproveModulePatch, EditGraphNodePatch, BatchPatch,
 )
 from thinking.event_bus import Event, get_event_bus
+from thinking.artifacts import UpdateArtifactPatch, ArtifactType
 
 
 # ── Patch-to-Node mapping ──
@@ -46,6 +47,20 @@ PATCH_NODE_MAP: dict[type, list[str]] = {
     ApproveModulePatch: [],  # Approval doesn't require recomputation
 }
 
+# Artifact type → Runtime Graph node IDs affected when this artifact changes
+_ARTIFACT_NODE_MAP: dict[ArtifactType, list[str]] = {
+    ArtifactType.SCRIPT: ["tts", "layout"],
+    ArtifactType.KNOWLEDGE_GRAPH: ["layout"],
+    ArtifactType.SHOTS: ["layout"],
+    ArtifactType.TTS_AUDIO: ["layout"],
+    ArtifactType.TTS_SENTENCE: ["layout"],
+    ArtifactType.TIMELINE: ["layout"],
+    ArtifactType.RENDER_PLAN: ["render"],
+    ArtifactType.SCENE_IR: ["render"],
+    ArtifactType.SCENE_VIDEO: ["render"],
+    ArtifactType.VIDEO: [],
+}
+
 
 class Scheduler:
     """Incremental recomputation scheduler with memoization.
@@ -57,7 +72,7 @@ class Scheduler:
       - Memoize: same inputs → cached result (no recompute)
     """
 
-    def __init__(self, graph: RuntimeGraph = None):
+    def __init__(self, graph: RuntimeGraph = None, max_retries: int = 3, base_delay: float = 0.1):
         self.graph = graph or RuntimeGraph()
         self._compute_fns: dict[str, Callable] = {}
         self._last_run: dict[str, float] = {}
@@ -65,6 +80,9 @@ class Scheduler:
         self._cache: dict[str, tuple[str, Any]] = {}
         self._cache_hits: int = 0
         self._cache_misses: int = 0
+        # Retry config
+        self.max_retries = max_retries
+        self.base_delay = base_delay
 
     def register_compute_fn(self, node_id: str, fn: Callable):
         """Register a compute function for a graph node."""
@@ -109,13 +127,14 @@ class Scheduler:
         if patch_type in PATCH_NODE_MAP:
             affected.extend(PATCH_NODE_MAP[patch_type])
 
+        # Artifact-level patches: map artifact type → runtime graph nodes
+        if isinstance(patch, UpdateArtifactPatch):
+            affected.extend(_ARTIFACT_NODE_MAP.get(patch.artifact_type, []))
+
         # Special handling for BatchPatch
         if isinstance(patch, BatchPatch):
             for sub_patch in patch.patches:
                 affected.extend(self._get_affected_nodes(sub_patch))
-
-        # If patch has a module_id, we could scope invalidation
-        # to module-specific nodes in the future
 
         return list(set(affected))  # Deduplicate
 
@@ -159,25 +178,34 @@ class Scheduler:
                 executed.append(node)
                 continue
 
-            # Cache miss — execute
+            # Cache miss — execute with retry
             self._cache_misses += 1
             if node.compute_fn:
                 node.status = NodeStatus.COMPUTING
                 node.started_at = time.time()
-                try:
-                    dep_results = {}
-                    for dep_id in self.graph._reverse_adj.get(node.id, []):
-                        if dep_id in self.graph.nodes and self.graph.nodes[dep_id].result is not None:
-                            dep_results[dep_id] = self.graph.nodes[dep_id].result
+                dep_results = {}
+                for dep_id in self.graph._reverse_adj.get(node.id, []):
+                    if dep_id in self.graph.nodes and self.graph.nodes[dep_id].result is not None:
+                        dep_results[dep_id] = self.graph.nodes[dep_id].result
 
-                    node.result = node.compute_fn(state, **dep_results)
-                    node.status = NodeStatus.DONE
-                    node.finished_at = time.time()
-                    # Store in cache
-                    self._cache[node.id] = (cache_key, node.result)
-                except Exception as e:
+                last_error = None
+                for attempt in range(self.max_retries):
+                    try:
+                        node.result = node.compute_fn(state, **dep_results)
+                        node.status = NodeStatus.DONE
+                        node.finished_at = time.time()
+                        self._cache[node.id] = (cache_key, node.result)
+                        last_error = None
+                        break
+                    except Exception as e:
+                        last_error = e
+                        if attempt < self.max_retries - 1:
+                            import threading
+                            threading.Event().wait(self.base_delay * (2 ** attempt))
+
+                if last_error is not None:
                     node.status = NodeStatus.FAILED
-                    node.error = str(e)
+                    node.error = str(last_error)
                     node.finished_at = time.time()
             else:
                 node.status = NodeStatus.DONE

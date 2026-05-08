@@ -363,6 +363,10 @@ export interface GraphSceneData {
   _emphasis?: string[];
   /** LLM director pace setting */
   _pace?: string;
+  /** Color theme: "light" (default) or "dark" */
+  theme?: "light" | "dark";
+  /** Layout mode: "full" (default) or "split" (text panel + graph) */
+  layoutMode?: "full" | "split";
 }
 
 export interface Shot {

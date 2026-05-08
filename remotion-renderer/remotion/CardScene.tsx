@@ -1,21 +1,16 @@
 import React from "react";
 import {AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from "remotion";
 import {FONT_FAMILY} from "./constants";
+import type {VideoTheme} from "./theme";
 
 interface CardSceneProps {
 	title: string;
 	items: string[];
 	durationInFrames: number;
+	theme: VideoTheme;
 }
 
-const CARD_COLORS = [
-	{gradient: "linear-gradient(135deg, rgba(98,217,255,0.18), rgba(56,168,255,0.08))", border: "rgba(98,217,255,0.45)"},
-	{gradient: "linear-gradient(135deg, rgba(138,180,255,0.16), rgba(108,148,255,0.07))", border: "rgba(138,180,255,0.40)"},
-	{gradient: "linear-gradient(135deg, rgba(98,255,200,0.14), rgba(56,224,180,0.06))", border: "rgba(98,255,200,0.38)"},
-	{gradient: "linear-gradient(135deg, rgba(255,180,98,0.14), rgba(255,148,56,0.06))", border: "rgba(255,180,98,0.38)"},
-];
-
-export const CardScene: React.FC<CardSceneProps> = ({title, items, durationInFrames}) => {
+export const CardScene: React.FC<CardSceneProps> = ({title, items, durationInFrames, theme}) => {
 	const frame = useCurrentFrame();
 	const {fps} = useVideoConfig();
 
@@ -37,8 +32,7 @@ export const CardScene: React.FC<CardSceneProps> = ({title, items, durationInFra
 	return (
 		<AbsoluteFill
 			style={{
-				background:
-					"radial-gradient(circle at 50% 30%, rgba(98,217,255,0.12), transparent 40%), linear-gradient(180deg, #070b10 0%, #091018 100%)",
+				background: theme.bgGradient,
 				fontFamily: FONT_FAMILY,
 			}}
 		>
@@ -60,7 +54,7 @@ export const CardScene: React.FC<CardSceneProps> = ({title, items, durationInFra
 						fontSize: 44,
 						fontWeight: 800,
 						textAlign: "center",
-						textShadow: "0 0 24px rgba(98,217,255,0.25)",
+						textShadow: `0 0 24px ${theme.accentGlow}`,
 						marginBottom: 48,
 						transform: `translateY(${interpolate(titleAppear, [0, 1], [-20, 0])}px)`,
 						opacity: titleAppear,
@@ -75,7 +69,7 @@ export const CardScene: React.FC<CardSceneProps> = ({title, items, durationInFra
 							fps,
 							config: {damping: 15, stiffness: 90, mass: 0.85},
 						});
-						const colors = CARD_COLORS[i % CARD_COLORS.length];
+						const colors = {gradient: theme.cardGradients[i % theme.cardGradients.length], border: theme.cardBorders[i % theme.cardBorders.length]};
 						return (
 							<div
 								key={i}
@@ -90,12 +84,12 @@ export const CardScene: React.FC<CardSceneProps> = ({title, items, durationInFra
 									justifyContent: "center",
 									opacity: cardSpring,
 									transform: `translateY(${interpolate(cardSpring, [0, 1], [36, 0])}px) scale(${interpolate(cardSpring, [0, 1], [0.92, 1])})`,
-									boxShadow: `0 0 ${20 * cardSpring}px rgba(98,217,255,0.1)`,
+									boxShadow: `0 0 ${20 * cardSpring}px ${theme.accentGlow}`,
 								}}
 							>
 								<span
 									style={{
-										color: "#eef6ff",
+										color: theme.cardText,
 										fontSize: 28,
 										fontWeight: 700,
 										textAlign: "center",

@@ -1,6 +1,7 @@
 import React from "react";
 import {interpolate, spring, useVideoConfig} from "remotion";
 import {FONT_FAMILY} from "../constants";
+import type {VideoTheme} from "../theme";
 import type {GraphNode} from "../types";
 
 type NodeTier = "hero" | "secondary" | "other";
@@ -15,6 +16,7 @@ interface NodeRevealProps {
 	missEffect?: boolean;
 	tier?: NodeTier;
 	emphasized?: boolean;
+	theme: VideoTheme;
 }
 
 const tierStyles: Record<NodeTier, {glowMulti: number; scaleBump: number; fontSize: number; zBase: number; opacityBase: number}> = {
@@ -33,9 +35,11 @@ export const NodeReveal: React.FC<NodeRevealProps> = ({
 	missEffect = false,
 	tier = "secondary",
 	emphasized = false,
+	theme,
 }) => {
 	const {fps} = useVideoConfig();
 	if (!visible) return null;
+	const heroColor = tier === "hero" ? theme.heroBorder : (node.color ?? theme.nodeBorder);
 	const ts = tierStyles[tier];
 	const appear = spring({
 		frame: frame - index * 6,
@@ -49,9 +53,8 @@ export const NodeReveal: React.FC<NodeRevealProps> = ({
 		? 0.9 + Math.sin(frame * 0.09) * 0.1 * intensity * ts.glowMulti + (emphasized ? 0.35 : 0)
 		: 0.2;
 	const shakeX = missEffect ? Math.sin(frame * 0.5) * 8 : 0;
-	const heroColor = tier === "hero" ? "#62d9ff" : (node.color ?? "#9bb7ff");
 	const borderColor = missEffect
-		? `rgba(255, 72, 72, ${0.6 + Math.sin(frame * 0.7) * 0.4})`
+		? `${theme.missRed}${0.6 + Math.sin(frame * 0.7) * 0.4})`
 		: heroColor;
 
 	return (
@@ -79,7 +82,7 @@ export const NodeReveal: React.FC<NodeRevealProps> = ({
 				alignItems: "center",
 				justifyContent: "center",
 				padding: "0 18px",
-				color: tier === "hero" ? "#f8fbff" : "#eef6ff",
+				color: tier === "hero" ? theme.heroText : theme.nodeText,
 				fontFamily: FONT_FAMILY,
 				fontSize: ts.fontSize,
 				fontWeight: tier === "hero" ? 820 : (tier === "secondary" ? 760 : 680),
@@ -96,7 +99,7 @@ export const NodeReveal: React.FC<NodeRevealProps> = ({
 							marginTop: 8,
 							fontSize: tier === "hero" ? 16 : (tier === "secondary" ? 15 : 13),
 							fontWeight: 600,
-							color: tier === "hero" ? "rgba(98,217,255,0.85)" : "rgba(238,246,255,0.58)",
+							color: tier === "hero" ? theme.accent : theme.nodeRoleText,
 							textTransform: "uppercase",
 						}}
 					>

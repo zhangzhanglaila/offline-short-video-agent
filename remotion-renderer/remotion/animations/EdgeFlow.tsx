@@ -2,6 +2,7 @@ import React from "react";
 import {Easing, interpolate} from "remotion";
 import {FONT_FAMILY} from "../constants";
 import type {GraphEdge, GraphNode} from "../types";
+import type {VideoTheme} from "../theme";
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
@@ -52,6 +53,7 @@ interface EdgeFlowProps {
 	active: boolean;
 	intensity: number;
 	frame: number;
+	theme: VideoTheme;
 }
 
 export const EdgeFlow: React.FC<EdgeFlowProps> = ({
@@ -61,6 +63,7 @@ export const EdgeFlow: React.FC<EdgeFlowProps> = ({
 	active,
 	intensity,
 	frame,
+	theme,
 }) => {
 	const path = pathForEdge(edge, nodes);
 	const intro = clamp01(
@@ -74,7 +77,7 @@ export const EdgeFlow: React.FC<EdgeFlowProps> = ({
 	const FLOW_BASE = 0.52;
 	const flowSpeed = FLOW_BASE * (active ? 1.25 : 1.0);
 	const flow = ((frame * flowSpeed + index * 73) % 220) / 220;
-	const color = edge.color ?? "#9bb7ff";
+	const color = edge.color ?? theme.edgeStroke;
 
 	const lp = labelPos(edge, nodes);
 
@@ -83,7 +86,7 @@ export const EdgeFlow: React.FC<EdgeFlowProps> = ({
 			<path
 				d={path}
 				fill="none"
-				stroke="rgba(130,155,190,0.24)"
+				stroke={theme.edgeGhost}
 				strokeWidth={5}
 				strokeLinecap="round"
 				strokeDasharray="1000"
@@ -116,13 +119,13 @@ export const EdgeFlow: React.FC<EdgeFlowProps> = ({
 				<text
 					x={lp.x}
 					y={lp.y}
-					fill={active ? "#f8fbff" : "rgba(222,235,255,0.62)"}
+					fill={active ? theme.edgeLabel : theme.textMuted}
 					fontFamily={FONT_FAMILY}
 					fontSize={18}
 					fontWeight={650}
 					textAnchor="middle"
 					paintOrder="stroke"
-					stroke="#070b10"
+					stroke={theme.edgeLabelStroke}
 					strokeWidth={5}
 					opacity={intro}
 				>

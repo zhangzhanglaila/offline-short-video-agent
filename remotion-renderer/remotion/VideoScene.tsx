@@ -29,6 +29,7 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, Audio, Sequence, useCurrentFrame, useVideoConfig, interpolate, Easing, Img, spring } from "remotion";
 import { FONT_FAMILY } from "./constants";
+import { getTheme } from "./theme";
 import type { VideoLayout, VideoElement, TextElement, ImageElement, StickerElement, BackgroundElement, ShapeElement, Shot } from "./types";
 import { getCameraShotTransform } from "./cameraExpression";
 import { evaluateDirector, type DirectorState } from "./directorEval";
@@ -2656,6 +2657,7 @@ const SceneFade: React.FC<{
 export const VideoScene: React.FC<{ layout: VideoLayout }> = ({ layout }) => {
   const frame = useCurrentFrame();
   const { width, height, background } = layout;
+  const theme = getTheme(layout.graph?.theme as "light" | "dark" | undefined);
   const elements = getElements(layout);
 
   // 按 zIndex 排序
@@ -2792,12 +2794,12 @@ export const VideoScene: React.FC<{ layout: VideoLayout }> = ({ layout }) => {
                   fadeInFrames={overlapBefore}
                   fadeOutFrames={overlapAfter}
                 >
-                  {scene.type === "hook" && <HookScene text={scene.text} durationInFrames={scene.duration} />}
+                  {scene.type === "hook" && <HookScene text={scene.text} durationInFrames={scene.duration} theme={theme} />}
                   {scene.type === "graph" && scene.graph && (
-                    <GraphScene graph={scene.graph} width={width} height={height} />
+                    <GraphScene graph={scene.graph} width={width} height={height} theme={theme} />
                   )}
                   {scene.type === "cards" && (
-                    <CardScene title={scene.title ?? ""} items={scene.items ?? []} durationInFrames={scene.duration} />
+                    <CardScene title={scene.title ?? ""} items={scene.items ?? []} durationInFrames={scene.duration} theme={theme} />
                   )}
                 </SceneFade>
               </Sequence>
@@ -2808,7 +2810,7 @@ export const VideoScene: React.FC<{ layout: VideoLayout }> = ({ layout }) => {
         /* v10.3: Shot 渲染层（镜头系统 + 切换连续性） */
         /* 渲染在 elements 下方（zIndex=-1），当前+下一 shot 同时渲染，transition 区间渐变 */
         layout.scene_type === "graph" && layout.graph ? (
-          <GraphScene graph={layout.graph} width={width} height={height} />
+          <GraphScene graph={layout.graph} width={width} height={height} theme={theme} />
         ) : null
       )}
       {(() => {

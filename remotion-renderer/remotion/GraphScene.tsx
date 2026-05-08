@@ -6,6 +6,8 @@ import {
 	useCurrentFrame,
 } from "remotion";
 import {FONT_FAMILY} from "./constants";
+import {getTheme} from "./theme";
+import type {VideoTheme} from "./theme";
 import type {GraphSceneData, GraphShot, GraphStep, GraphTimelineEvent} from "./types";
 import {
 	DataPulse,
@@ -94,12 +96,15 @@ function resolveCameraValues(
 	}
 }
 
-export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height: number}> = ({
+export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height: number; theme?: VideoTheme}> = ({
 	graph,
 	width,
 	height,
+	theme: themeProp,
 }) => {
 	const frame = useCurrentFrame();
+	const theme = themeProp ?? getTheme(graph.theme);
+	const isSplit = graph.layoutMode === "split";
 	const nodes = useMemo(
 		() => new Map(graph.nodes.map((node) => [node.id, node])),
 		[graph.nodes],
@@ -327,10 +332,10 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 						top: titleY,
 						opacity: titleOpacity,
 						textAlign: "center",
-						color: "#f8fbff",
-						fontSize: 54,
+						color: theme.textPrimary,
+						fontSize: isSplit ? 42 : 54,
 						fontWeight: 820,
-						textShadow: "0 0 28px rgba(98,217,255,0.35)",
+						textShadow: `0 0 28px ${theme.accentGlow}`,
 						zIndex: 10,
 					}}
 				>
@@ -345,7 +350,7 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 							top: 150,
 							opacity: titleOpacity * 0.78,
 							textAlign: "center",
-							color: "rgba(221,235,255,0.68)",
+							color: theme.textSecondary,
 							fontSize: 24,
 							lineHeight: 1.35,
 							zIndex: 10,
@@ -370,13 +375,13 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 								extrapolateLeft: "clamp",
 								extrapolateRight: "clamp",
 							})}px)`,
-							color: "#dbeafe",
+							color: theme.textPrimary,
 							fontSize: 28,
 							fontWeight: 680,
 							textAlign: "center",
 							lineHeight: 1.35,
 							zIndex: 10,
-							textShadow: "0 2px 18px rgba(0,0,0,0.65)",
+							textShadow: `0 2px 18px ${theme.edgeLabelStroke}88`,
 						}}
 					>
 						{activeBeat.text}
@@ -418,6 +423,7 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 								active={animState.activeEdgeIds.has(edge.id)}
 								intensity={edgeIntensity}
 								frame={frame}
+								theme={theme}
 							/>
 						);
 					})}
@@ -436,6 +442,7 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 							missEffect={"missNodeIds" in animState && animState.missNodeIds.has(node.id)}
 							emphasized={emphasisSet.has(node.id)}
 							tier={nodeTier.get(node.id) ?? "other"}
+							theme={theme}
 						/>
 					);
 				})}
@@ -448,6 +455,7 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 							node={node}
 							progress={progress}
 							intensity={animState.glowIntensity}
+							theme={theme}
 						/>
 					);
 				})}
@@ -457,8 +465,8 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 							position: 'absolute',
 							left: 12,
 							bottom: 12,
-							background: 'rgba(0,0,0,0.72)',
-							color: '#0f0',
+							background: theme.debugBg,
+							color: theme.debugText,
 							fontSize: 13,
 							fontFamily: 'monospace',
 							padding: '6px 10px',

@@ -252,6 +252,53 @@ class EditGraphNodePatch(PatchOperation):
 
 
 @dataclass
+class ConditionalPatch(PatchOperation):
+    """Patch that only applies if a condition is met.
+
+    The condition is evaluated at apply-time against the current state.
+    If the condition returns False, the patch is a no-op (apply returns True
+    but nothing changes). Revert is also a no-op if the inner patch was
+    never applied.
+    """
+    condition_fn: Any = None    # Callable[[VideoProjectState], bool]
+    inner_patch: PatchOperation = None
+    _applied: bool = field(default=False, repr=False)
+
+    def apply(self, state: VideoProjectState) -> bool:
+        if self.condition_fn and not self.condition_fn(state):
+            return True  # Condition not met — no-op
+        if self.inner_patch:
+            self._applied = True
+            return self.inner_patch.apply(state)
+        return True
+
+    def revert(self, state: VideoProjectState) -> bool:
+        if not self._applied:
+            return True  # Nothing to revert
+        if self.inner_patch:
+            return self.inner_patch.revert(state)
+        return True
+
+    def to_dict(self) -> dict:
+        return {
+            "type": "conditional", "id": self.id, "timestamp": self.timestamp,
+            "target": self.target, "description": self.description,
+            "inner_patch": self.inner_patch.to_dict() if self.inner_patch else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ConditionalPatch:
+        inner = _patch_from_dict(data["inner_patch"]) if data.get("inner_patch") else None
+        return cls(
+            id=data.get("id", ""),
+            timestamp=data.get("timestamp", 0),
+            target=data.get("target", ""),
+            description=data.get("description", ""),
+            inner_patch=inner,
+        )
+
+
+@dataclass
 class BatchPatch(PatchOperation):
     """A composite patch that groups multiple operations atomically."""
     patches: list[PatchOperation] = field(default_factory=list)
@@ -369,6 +416,7 @@ _PATCH_TYPES = {
     "remove_sentence": RemoveSentencePatch,
     "approve_module": ApproveModulePatch,
     "edit_graph_node": EditGraphNodePatch,
+    "conditional": ConditionalPatch,
     "batch": BatchPatch,
 }
 

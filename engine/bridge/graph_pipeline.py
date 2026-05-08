@@ -1056,10 +1056,12 @@ def build_graph_video_layout(
     voice: str = DEFAULT_TTS_VOICE,
     rate: int = 0,
     use_llm_director: bool = False,
+    theme: str = "light",
 ) -> dict[str, Any]:
     total_frames = max(1, round(total_ms / 1000 * FPS))
     dsl = generate_scene_dsl(text)
     graph = apply_graph_layout(dsl, width=width, height=height)
+    graph["theme"] = theme
 
     timeline = []
     raw_timeline = graph.get("timeline") or []
@@ -1432,6 +1434,107 @@ def render_graph_video(
     if result.returncode != 0:
         raise RuntimeError("Remotion graph render failed")
     return layout_out, video_out
+
+
+def render_scene_ir(scene_ir: dict, scene_id: str, output_dir: str = "") -> str:
+    """Render a single scene IR to mp4 via Remotion.
+
+    Constructs a single-scene layout JSON from the scene IR and invokes
+    the same Remotion renderer used for full videos. The scene is rendered
+    at start=0 with local coordinates.
+
+    Args:
+        scene_ir: Scene intermediate representation dict.
+        scene_id: The scene identifier.
+        output_dir: Directory for output files. Defaults to output/.render_cache/tmp/.
+
+    Returns:
+        Path to the rendered mp4 file.
+    """
+    import tempfile
+    from pathlib import Path
+
+    if not output_dir:
+        output_dir = str(Path("output") / ".render_cache" / "tmp")
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    width = scene_ir.get("width", 1080)
+    height = scene_ir.get("height", 1920)
+    fps = scene_ir.get("fps", 30)
+    theme = scene_ir.get("theme", "light")
+    scene_type = scene_ir.get("scene_type", "graph")
+    duration = scene_ir.get("duration_in_frames", 100)
+
+    # Transition padding
+    transition = scene_ir.get("_transition", {})
+    pad_in = transition.get("render_pad_in", 0)
+    pad_out = transition.get("render_pad_out", 0)
+    total_duration = duration + pad_in + pad_out
+
+    # Build single-scene layout
+    scene_dict = {
+        "id": scene_id,
+        "type": scene_type,
+        "start": 0,
+        "duration": duration,
+    }
+
+    # Add type-specific fields
+    if scene_type == "hook":
+        scene_dict["text"] = scene_ir.get("text", "")
+    elif scene_type == "graph":
+        graph_data = scene_ir.get("graph", {})
+        scene_dict["graph"] = graph_data
+    elif scene_type == "cards":
+        scene_dict["title"] = scene_ir.get("title", "")
+        scene_dict["items"] = scene_ir.get("items", [])
+
+    layout = {
+        "width": width,
+        "height": height,
+        "fps": fps,
+        "durationInFrames": total_duration,
+        "background": "#070b10",
+        "scene_type": "graph",
+        "scenes": [scene_dict],
+        "elements": scene_ir.get("elements", []),
+        "audioTracks": scene_ir.get("audio_tracks", []),
+        "shots": [],
+        "theme": theme,
+    }
+
+    # For graph scenes, include graph data at top level
+    if scene_type == "graph":
+        graph_data = scene_ir.get("graph", {})
+        layout["graph"] = graph_data
+        layout["nodes"] = graph_data.get("nodes", [])
+        layout["edges"] = graph_data.get("edges", [])
+
+    # Write layout JSON to temp file
+    layout_path = Path(output_dir) / f"{scene_id}_layout.json"
+    with open(layout_path, "w", encoding="utf-8") as f:
+        json.dump(layout, f, ensure_ascii=False, indent=2)
+
+    # Output path
+    video_path = Path(output_dir) / f"{scene_id}.mp4"
+
+    # Invoke Remotion renderer
+    result = subprocess.run(
+        [
+            "node",
+            "render-agent-semantic.mjs",
+            f"..\\{layout_path}",
+            f"..\\{video_path}",
+            f"--scene-id={scene_id}",
+        ],
+        cwd="remotion-renderer",
+        check=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Remotion scene render failed for {scene_id}")
+
+    return str(video_path)
 
 
 def main() -> None:

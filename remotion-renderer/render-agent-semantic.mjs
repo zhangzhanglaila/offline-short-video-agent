@@ -12,6 +12,7 @@ const outputPath = process.argv[3]
 	? path.resolve(process.argv[3])
 	: path.join(rootDir, "output", "agent_what_is_semantic.mp4");
 const serveUrl = path.join(__dirname, "build");
+const sceneId = process.argv.find(a => a.startsWith("--scene-id="))?.split("=")[1];
 
 const layout = JSON.parse(fs.readFileSync(layoutPath, "utf8"));
 const getLayoutDurationInFrames = (videoLayout) => {
@@ -27,6 +28,7 @@ const getLayoutDurationInFrames = (videoLayout) => {
 console.log(`[render-agent] serveUrl=${serveUrl}`);
 console.log(`[render-agent] layout=${layoutPath}`);
 console.log(`[render-agent] output=${outputPath}`);
+if (sceneId) console.log(`[render-agent] scene mode: ${sceneId}`);
 
 const composition = await selectComposition({
 	serveUrl,

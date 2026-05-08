@@ -536,6 +536,87 @@ class ThinkingAgent:
 
         yield self._event("error", "无法重新生成句子（LLM 不可用）")
 
+    # ── Failure Analysis & Optimization ──
+
+    def analyze_failure(self, node_id: str, error: str) -> list[dict]:
+        """Use LLM to analyze a node failure and suggest recovery actions.
+
+        Returns a list of suggested actions (dicts with 'action' and 'detail').
+        """
+        if not self.llm:
+            return [{"action": "retry", "detail": "LLM not available for analysis"}]
+
+        prompt = f"""视频生成流水线中节点 "{node_id}" 执行失败。
+
+错误信息:
+{error}
+
+请分析失败原因并给出恢复建议。输出JSON数组，每个元素格式:
+{{"action": "retry|skip|fallback|manual", "detail": "具体建议"}}
+
+只输出JSON，不要其他文字。"""
+
+        try:
+            response = self.llm.generate(prompt).strip()
+            # Try to parse JSON from response
+            import json
+            # Find JSON array in response
+            start = response.find("[")
+            end = response.rfind("]") + 1
+            if start >= 0 and end > start:
+                return json.loads(response[start:end])
+        except Exception:
+            pass
+
+        return [{"action": "retry", "detail": f"自动重试节点 {node_id}"}]
+
+    def optimize_schedule(self, scheduler) -> list[str]:
+        """Suggest optimal execution order based on historical timing data.
+
+        Analyzes node duration metadata to suggest reordering that
+        minimizes total pipeline time (longest path first).
+        """
+        nodes = scheduler.graph.nodes
+        if not nodes:
+            return []
+
+        # Collect timing data
+        timings = {}
+        for node_id, node in nodes.items():
+            if node.duration > 0:
+                timings[node_id] = node.duration
+
+        if not timings:
+            return list(nodes.keys())
+
+        # Topological sort weighted by duration (critical path first)
+        from collections import defaultdict, deque
+        in_degree = defaultdict(int)
+        adj = defaultdict(list)
+        for node_id, node in nodes.items():
+            for dep_id in scheduler.graph._reverse_adj.get(node_id, []):
+                adj[dep_id].append(node_id)
+                in_degree[node_id] += 1
+
+        # Kahn's with priority (longest duration first)
+        queue = []
+        for nid in nodes:
+            if in_degree[nid] == 0:
+                queue.append((-(timings.get(nid, 0)), nid))
+        import heapq
+        heapq.heapify(queue)
+
+        order = []
+        while queue:
+            _, nid = heapq.heappop(queue)
+            order.append(nid)
+            for child in adj[nid]:
+                in_degree[child] -= 1
+                if in_degree[child] == 0:
+                    heapq.heappush(queue, (-(timings.get(child, 0)), child))
+
+        return order
+
     # ── Helpers ──
 
     def _emit_thinking_line(self, line: str) -> dict:

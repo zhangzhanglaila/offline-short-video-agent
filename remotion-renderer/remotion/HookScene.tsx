@@ -1,13 +1,15 @@
 import React from "react";
 import {AbsoluteFill, Easing, interpolate, useCurrentFrame} from "remotion";
 import {FONT_FAMILY} from "./constants";
+import type {VideoTheme} from "./theme";
 
 interface HookSceneProps {
 	text: string;
 	durationInFrames: number;
+	theme: VideoTheme;
 }
 
-export const HookScene: React.FC<HookSceneProps> = ({text, durationInFrames}) => {
+export const HookScene: React.FC<HookSceneProps> = ({text, durationInFrames, theme}) => {
 	const frame = useCurrentFrame();
 
 	const fadeIn = interpolate(frame, [0, 15], [0, 1], {
@@ -28,8 +30,7 @@ export const HookScene: React.FC<HookSceneProps> = ({text, durationInFrames}) =>
 	return (
 		<AbsoluteFill
 			style={{
-				background:
-					"radial-gradient(circle at 50% 50%, rgba(98,217,255,0.18), transparent 50%), linear-gradient(180deg, #071018 0%, #070b10 100%)",
+				background: theme.bgGradient,
 				fontFamily: FONT_FAMILY,
 			}}
 		>
@@ -38,7 +39,7 @@ export const HookScene: React.FC<HookSceneProps> = ({text, durationInFrames}) =>
 				style={{
 					position: "absolute",
 					inset: 0,
-					background: `radial-gradient(ellipse 60% 30% at 50% 45%, rgba(98,217,255,${0.12 * bgPulse}), transparent 70%)`,
+					background: `radial-gradient(ellipse 60% 30% at 50% 45%, ${theme.accentFill.replace("0.16", (0.12 * bgPulse).toFixed(2))}, transparent 70%)`,
 				}}
 			/>
 			<div
@@ -55,11 +56,11 @@ export const HookScene: React.FC<HookSceneProps> = ({text, durationInFrames}) =>
 			>
 				<div
 					style={{
-						color: "#f8fbff",
+						color: theme.textPrimary,
 						fontSize: 68,
 						fontWeight: 860,
 						textAlign: "center",
-						textShadow: "0 0 48px rgba(98,217,255,0.4), 0 4px 24px rgba(0,0,0,0.5)",
+						textShadow: `0 0 48px ${theme.accentGlow}, 0 4px 24px ${theme.edgeLabelStroke}80`,
 						maxWidth: 800,
 						lineHeight: 1.2,
 						padding: "0 40px",
@@ -72,7 +73,7 @@ export const HookScene: React.FC<HookSceneProps> = ({text, durationInFrames}) =>
 						marginTop: 32,
 						width: 120,
 						height: 3,
-						background: "linear-gradient(90deg, transparent, rgba(98,217,255,0.7), transparent)",
+						background: theme.hookAccentLine,
 						borderRadius: 2,
 					}}
 				/>

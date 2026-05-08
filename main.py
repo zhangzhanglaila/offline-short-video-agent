@@ -646,7 +646,9 @@ def run_graph_pipeline_cli() -> None:
     parser.add_argument("--voice", default="zh-CN-XiaoxiaoNeural", help="TTS voice")
     parser.add_argument("--rate", type=int, default=0, help="TTS speed (-10 to +10)")
     parser.add_argument("--llm-director", action="store_true", help="Use LLM for director intent")
+    parser.add_argument("--theme", choices=["light", "dark"], default="light", help="Color theme (default: light)")
     parser.add_argument("--out-dir", default=None, help="Output directory (default: output/<topic-slug>/)")
+    parser.add_argument("--inspect", action="store_true", help="Print runtime inspection after build")
     args = parser.parse_args()
 
     # Slugify topic for directory name
@@ -679,12 +681,27 @@ def run_graph_pipeline_cli() -> None:
         voice=args.voice,
         rate=args.rate,
         use_llm_director=args.llm_director,
+        theme=args.theme,
     )
 
     # Save layout
     with open(layout_path, "w", encoding="utf-8") as f:
         json.dump(layout, f, ensure_ascii=False, indent=2)
     print(f"  -> layout.json ({len(json.dumps(layout, ensure_ascii=False))} bytes)")
+
+    # Runtime Inspector
+    if args.inspect:
+        from thinking.video_runtime_adapter import VideoRuntimeAdapter
+        from thinking.inspector import inspect_all
+
+        adapter = VideoRuntimeAdapter()
+        adapter._decompose_layout_into_artifacts(layout, args.topic)
+        adapter._last_layout = layout
+
+        inspect_all(
+            artifact_graph=adapter.artifact_graph,
+            title=f"Inspector: {args.topic}",
+        )
 
     # Save script
     script_path = out_dir / "script.txt"

@@ -215,6 +215,8 @@ const graphSceneSchema = z.object({
 	steps: z.array(graphStepSchema).min(1),
 	timeline: z.array(graphTimelineEventSchema).optional(),
 	animation_plan: animationPlanSchema.optional(),
+	theme: z.enum(["light", "dark"]).optional(),
+	layoutMode: z.enum(["full", "split"]).optional(),
 });
 
 const shotSchema = z.object({

@@ -46,6 +46,15 @@ from thinking.ir_layers import (
     IRTransformer, DeterminismConfig, DeterminismChecker,
 )
 
+from thinking.artifacts import (
+    ArtifactType, ArtifactStatus,
+    VideoArtifact, ArtifactRef, ArtifactGraph,
+    UpdateArtifactPatch, ARTifact_DEPENDENCIES,
+)
+
+from thinking.video_runtime_adapter import VideoRuntimeAdapter, PipelineNode
+from thinking.inspector import inspect_all, print_dag_tree, print_artifact_table, print_invalidation_trace
+
 __all__ = [
     "VideoProjectState",
     "ModuleState",
@@ -92,4 +101,16 @@ __all__ = [
     "IRTransformer",
     "DeterminismConfig",
     "DeterminismChecker",
+    # Artifact Graph
+    "ArtifactType",
+    "ArtifactStatus",
+    "VideoArtifact",
+    "ArtifactRef",
+    "ArtifactGraph",
+    "UpdateArtifactPatch",
+    # Video Runtime Adapter
+    "VideoRuntimeAdapter",
+    "PipelineNode",
+    # Inspector
+    "inspect_all",
 ]

@@ -109,6 +109,10 @@ class EventBus:
 
         Thread-safe. Subscribers are called synchronously in publish thread.
         If you need async, wrap your subscriber accordingly.
+
+        Supports wildcard patterns:
+          - "*" matches all events
+          - "artifact:*" matches "artifact:created", "artifact:stale", etc.
         """
         # Log the event
         with self._lock:
@@ -116,9 +120,14 @@ class EventBus:
             if len(self._event_log) > self._max_log_size:
                 self._event_log = self._event_log[-self._max_log_size:]
 
-            # Collect matching subscribers
+            # Collect matching subscribers (exact + wildcard)
             targets = list(self._subscribers.get(event.type, []))
             targets += list(self._subscribers.get("*", []))
+            for pattern, subs in self._subscribers.items():
+                if pattern != "*" and pattern.endswith(":*"):
+                    prefix = pattern[:-1]  # "artifact:"
+                    if event.type.startswith(prefix):
+                        targets.extend(subs)
 
         # Call outside lock to avoid deadlocks
         for callback in targets:
