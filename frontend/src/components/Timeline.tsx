@@ -8,7 +8,7 @@ import { Inspector } from './Inspector';
 export const Timeline: React.FC = () => {
   const {
     tracks, fps, framePerPixel, currentFrame, autoScroll,
-    scenes, setZoom, setCurrentFrame,
+    scenes, setZoom, setCurrentFrame, undo, redo, undoStack, redoStack,
   } = useTimelineStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -71,6 +71,27 @@ export const Timeline: React.FC = () => {
           <span>{tracks.length} tracks</span>
           <span>{fps}fps</span>
         </div>
+        {/* Undo / Redo */}
+        <div className="undo-redo-controls">
+          <button
+            className="playback-btn"
+            onClick={undo}
+            disabled={undoStack.length === 0}
+            title="Undo (Ctrl+Z)"
+          >
+            ↩
+          </button>
+          <button
+            className="playback-btn"
+            onClick={redo}
+            disabled={redoStack.length === 0}
+            title="Redo (Ctrl+Y)"
+          >
+            ↪
+          </button>
+          <span className="undo-count">{undoStack.length > 0 ? `${undoStack.length}` : ''}</span>
+        </div>
+
         <div className="zoom-controls">
           <button onClick={() => setZoom(framePerPixel * 1.5)} title="Zoom out (X)">−</button>
           <span className="zoom-label">{framePerPixel.toFixed(1)} f/px</span>

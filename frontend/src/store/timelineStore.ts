@@ -90,6 +90,10 @@ interface TimelineState {
   undo: () => void;
   redo: () => void;
 
+  // Persistence
+  restoreSession: (tracks: TrackData[], undoStack: UndoSnapshot[], redoStack: UndoSnapshot[], durationFrames?: number) => void;
+  getSnapshot: () => { tracks: TrackData[]; undoStack: UndoSnapshot[]; redoStack: UndoSnapshot[] };
+
   // Derived
   scenes: () => SceneClipData[];
   subtitleTracks: () => TrackData[];
@@ -232,6 +236,29 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       redoStack: s.redoStack.slice(0, -1),
       undoStack: [...s.undoStack, { tracks: _snapshot(tracks), description: 'redo' }],
     }));
+  },
+
+  // Persistence
+  restoreSession: (tracks, undoStack, redoStack, durationFrames) => {
+    const maxEnd = tracks.length > 0 ? Math.max(...tracks.map((t) => t.end_frame)) : 900;
+    set({
+      tracks,
+      undoStack,
+      redoStack,
+      durationFrames: durationFrames ?? maxEnd,
+      currentFrame: 0,
+      isPlaying: false,
+      selectedSceneId: null,
+    });
+  },
+
+  getSnapshot: () => {
+    const { tracks, undoStack, redoStack } = get();
+    return {
+      tracks: _snapshot(tracks),
+      undoStack,
+      redoStack,
+    };
   },
 
   // Derived
