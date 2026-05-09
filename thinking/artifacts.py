@@ -39,6 +39,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
 
+from thinking.canonicalize import canonicalize, content_hash as _content_hash
+
 
 # ============================================================
 # Artifact Types — pipeline stage identifiers
@@ -89,17 +91,6 @@ class ArtifactStatus(str, Enum):
 # ============================================================
 # Core Data Structures
 # ============================================================
-
-def _content_hash(content: Any) -> str:
-    """Deterministic hash of arbitrary content for memoization."""
-    if content is None:
-        return "none"
-    try:
-        serialized = json.dumps(content, sort_keys=True, ensure_ascii=False, default=str)
-    except (TypeError, ValueError):
-        serialized = str(content)
-    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
-
 
 @dataclass
 class VideoArtifact:
@@ -279,6 +270,10 @@ class ArtifactGraph:
             for aid in self._by_type.get(artifact_type, [])
             if aid in self._artifacts
         ]
+
+    def all(self) -> list[VideoArtifact]:
+        """Get all artifacts in insertion order."""
+        return list(self._artifacts.values())
 
     # ── Invalidation ──
 

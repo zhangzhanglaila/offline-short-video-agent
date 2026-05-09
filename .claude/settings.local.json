@@ -263,7 +263,8 @@
       "Bash(where ffmpeg *)",
       "Bash(ffmpeg -y -i \"D:/Offline-ShortVideo-Agent/output/data-structures-10min/data_structures_full.mp4\" -vf \"subtitles='D\\\\:/Offline-ShortVideo-Agent/output/data-structures-10min/full_subtitles.srt':force_style='FontName=Microsoft YaHei,FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Shadow=1,MarginV=60'\" -c:v libx264 -preset medium -crf 23 -c:a copy \"D:/Offline-ShortVideo-Agent/output/data-structures-10min/data_structures_10min_final.mp4\")",
       "Read(//d/University/大学资料/认识实习/**)",
-      "Bash(mkdir -p \"D:/University/大学资料/认识实习/\")"
+      "Bash(mkdir -p \"D:/University/大学资料/认识实习/\")",
+      "Bash(npm create *)"
     ]
   }
 }
