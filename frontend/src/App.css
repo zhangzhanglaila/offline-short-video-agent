@@ -741,6 +741,10 @@ kbd {
   color: #f85149;
 }
 
+.save-status--conflict {
+  color: #d29922;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

@@ -72,6 +72,77 @@ def init_topics_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            category TEXT,
+            price REAL,
+            currency TEXT DEFAULT 'USD',
+            description TEXT,
+            selling_points TEXT,
+            images TEXT,
+            source_url TEXT,
+            platform TEXT,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS ecom_videos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER REFERENCES products(id),
+            session_id TEXT,
+            platform TEXT,
+            style TEXT,
+            script_content TEXT,
+            storyboard TEXT,
+            video_path TEXT,
+            thumbnail_path TEXT,
+            duration REAL,
+            status TEXT DEFAULT 'draft',
+            prompt_snapshot TEXT,
+            llm_model TEXT,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # 迁移：为已有数据库添加新列
+    for col, default in [
+        ("notes", "TEXT"),
+        ("pipeline_step", "TEXT DEFAULT 'init'"),
+        ("tts_audio_path", "TEXT"),
+        ("materials_json", "TEXT"),
+        ("animation_style", "TEXT DEFAULT 'contain'"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE ecom_videos ADD COLUMN {col} {default}")
+        except Exception:
+            pass  # 列已存在则忽略
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS ecom_analytics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            video_id INTEGER REFERENCES ecom_videos(id),
+            platform TEXT,
+            impressions INTEGER DEFAULT 0,
+            clicks INTEGER DEFAULT 0,
+            ctr REAL DEFAULT 0.0,
+            conversions INTEGER DEFAULT 0,
+            conversion_rate REAL DEFAULT 0.0,
+            revenue REAL DEFAULT 0.0,
+            avg_watch_time REAL DEFAULT 0.0,
+            completion_rate REAL DEFAULT 0.0,
+            engagement_rate REAL DEFAULT 0.0,
+            notes TEXT,
+            recorded_at DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     conn.commit()
     return conn
 

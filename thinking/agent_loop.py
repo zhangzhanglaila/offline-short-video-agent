@@ -55,6 +55,7 @@ class ThinkingAgent:
         self.session = session
         self.llm = llm_client
         self.tts = tts_module
+        self._llm_error: str | None = None
         self._try_load_llm()
 
     def _try_load_llm(self):
@@ -63,8 +64,9 @@ class ThinkingAgent:
             try:
                 from agent.llm.ollama_client import get_llm_client
                 self.llm = get_llm_client()
-            except Exception:
-                pass
+            except Exception as e:
+                self._llm_error = str(e)
+                self.llm = None
 
     # ── Main execution flow ──
 
@@ -80,6 +82,12 @@ class ThinkingAgent:
         phase = start_phase or state.phase
 
         yield self._event("start", f"开始分析: {state.topic}")
+
+        if self.llm is None:
+            err = self._llm_error or "未知错误"
+            yield self._event("warning", f"⚠️ LLM 不可用 ({err})，将使用规则引擎回退")
+        else:
+            yield self._event("status", "✅ LLM 已连接，开始 AI 分析")
 
         # ── Phase 1: Analyze topic ──
         if phase in (ThinkingPhase.IDLE, ThinkingPhase.ANALYZING):

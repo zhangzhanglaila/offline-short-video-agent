@@ -265,7 +265,11 @@
       "Read(//d/University/大学资料/认识实习/**)",
       "Bash(mkdir -p \"D:/University/大学资料/认识实习/\")",
       "Bash(npm create *)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(npx vite *)",
+      "Bash(tasklist /FI \"PID eq 37980\")",
+      "Bash(taskkill *)",
+      "Bash(taskkill //F //IM python.exe)"
     ]
   }
 }

@@ -146,7 +146,7 @@ class ScriptModule:
                 json={
                     'model': cfg["model"],
                     'messages': [{'role': 'user', 'content': prompt}],
-                    'max_tokens': 1024,
+                    'max_tokens': 2048,
                     'temperature': 0.8
                 },
                 timeout=60,

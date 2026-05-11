@@ -33,7 +33,7 @@ describe('fetchTimeline', () => {
     expect(result.tracks).toHaveLength(1);
     expect(result.fps).toBe(30);
     expect(result.topic).toBe('Redis');
-    expect(mockFetch).toHaveBeenCalledWith('http://localhost:8000/api/timeline/s1');
+    expect(mockFetch).toHaveBeenCalledWith('http://localhost:5001/api/timeline/s1');
   });
 
   it('throws on HTTP error', async () => {
@@ -60,7 +60,7 @@ describe('sendEdit', () => {
     expect(result.success).toBe(true);
     expect(result.recomputed_nodes).toContain('r1');
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://localhost:8000/api/timeline/s1/edit',
+      'http://localhost:5001/api/timeline/s1/edit',
       expect.objectContaining({ method: 'POST' }),
     );
   });
@@ -133,7 +133,7 @@ describe('fetchAssets', () => {
 
     await fetchAssets('s1', 'video');
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://localhost:8000/api/timeline/s1/assets?asset_type=video',
+      'http://localhost:5001/api/timeline/s1/assets?asset_type=video',
     );
   });
 });

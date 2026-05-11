@@ -92,9 +92,10 @@ def analyze_topic(state: VideoProjectState, llm_client=None) -> list[str]:
             if flow:
                 thinking.append(f"[reasoning] 教学流: {flow}")
 
-        except Exception:
+        except Exception as e:
             modules_data = _fallback_outline(topic)
-            thinking.append("[status] LLM 解析失败，使用规则引擎生成大纲")
+            thinking.append(f"[status] ❌ LLM 调用失败: {e}")
+            thinking.append("[status] 回退到规则引擎生成大纲")
             # Still produce reasoning for fallback
             thinking.append(f"[reasoning] 主题「{topic}」看起来是一个教学主题")
             thinking.append("[reasoning] 采用经典的「概念→原理→应用」三段式结构")
@@ -192,10 +193,11 @@ def generate_module_script(state: VideoProjectState, module_id: str,
                     thinking.append(f"[reasoning] 风险点: {reasoning['key_risk']}")
             else:
                 thinking.append(f"[reasoning] {reasoning}")
-        except Exception:
+        except Exception as e:
             sentences_data = [{"text": s, "purpose": "", "key_concept": ""}
                               for s in _fallback_script(title, sentence_count)]
-            thinking.append("[status] LLM 解析失败，使用规则引擎生成文案")
+            thinking.append(f"[status] ❌ LLM 调用失败: {e}")
+            thinking.append("[status] 回退到规则引擎生成文案")
             thinking.append(f"[reasoning] 模块「{title}」— 采用标准讲解模板")
             thinking.append("[reasoning] 结构: 概念引入 → 原理分析 → 对比说明 → 总结应用")
     else:
@@ -260,9 +262,9 @@ def generate_module_graphs(state: VideoProjectState, module_id: str,
             gb = data.get("graph_b", {})
             thinking.append(f"🧠 图谱A: {ga.get('reasoning', '')}")
             thinking.append(f"🧠 图谱B: {gb.get('reasoning', '')}")
-        except Exception:
+        except Exception as e:
             ga, gb = _fallback_graphs(title)
-            thinking.append("🧠 使用规则引擎生成图谱（LLM 不可用）")
+            thinking.append(f"🧠 ❌ LLM 调用失败: {e}，使用规则引擎生成图谱")
     else:
         ga, gb = _fallback_graphs(title)
         thinking.append("🧠 使用规则引擎生成图谱")
@@ -659,8 +661,8 @@ def analyze_semantic_anchors(state: VideoProjectState, module_id: str,
                         )
                         thinking.append(f"[decision] 锚点「{a.get('type')}」在第{idx+1}句: {a.get('reason', '')}")
 
-        except Exception:
-            thinking.append("[status] LLM 分析失败，使用规则引擎")
+        except Exception as e:
+            thinking.append(f"[status] ❌ LLM 分析失败: {e}，使用规则引擎")
             _fallback_semantic_anchors(module, sentences, thinking)
     else:
         _fallback_semantic_anchors(module, sentences, thinking)

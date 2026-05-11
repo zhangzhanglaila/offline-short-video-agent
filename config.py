@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# 加载.env文件
-load_dotenv()
+# 加载.env文件（override=True 确保 .env 值始终覆盖系统环境变量）
+load_dotenv(override=True)
 
 PROJECT_ROOT = Path(__file__).parent.absolute()
 
@@ -123,6 +123,13 @@ TRENDING_TAGS = [
     "#揭秘", "#干货", "#好物推荐", "#宝藏", "#治愈",
     "#人间真实", "#破防了", "#绝绝子", "#神仙打架", "#YYDS",
 ]
+
+ECOM_CONFIG = {
+    "default_style": "soft_sell",
+    "default_platform": "TikTok",
+    "default_duration": 30,
+    "max_products_per_page": 50,
+}
 
 BGM_VOLUME = 0.3
 BG_MUTE_DURATION = 2

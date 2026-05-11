@@ -29,11 +29,23 @@ def _get_project_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+class SaveConflictError(Exception):
+    """Raised when a save conflicts with a newer version."""
+    def __init__(self, expected_version: int, actual_version: int):
+        self.expected_version = expected_version
+        self.actual_version = actual_version
+        super().__init__(
+            f"Conflict: expected version {expected_version}, "
+            f"but current version is {actual_version}"
+        )
+
+
 class SessionStore:
     """Thread-safe persistence for timeline editing sessions.
 
     Each save is atomic (write to temp, then rename).
-    Conflict resolution: last-write-wins based on file mtime.
+    Conflict resolution: optimistic locking with version numbers.
+    Use save() for last-write-wins, save_versioned() for conflict detection.
     """
 
     def __init__(self, sessions_dir: Path | str | None = None):
@@ -52,13 +64,17 @@ class SessionStore:
         redo_stack: list[dict] | None = None,
         meta: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Save session state to disk (atomic writes).
+        """Save session state to disk (atomic writes, last-write-wins).
 
         Returns metadata dict with save timestamp.
         """
         session_dir = self._session_dir(session_id)
         with self._lock:
             session_dir.mkdir(parents=True, exist_ok=True)
+
+            # Load existing meta to preserve version
+            existing_meta = self._read_json(session_dir / "meta.json", {})
+            version = existing_meta.get("version", 0) + 1
 
             # Save tracks
             self._atomic_write(session_dir / "timeline.json", tracks)
@@ -77,6 +93,54 @@ class SessionStore:
                 "tracks_count": len(tracks),
                 "undo_depth": len(undo_stack or []),
                 "redo_depth": len(redo_stack or []),
+                "version": version,
+            }
+            if meta:
+                meta_data.update({k: v for k, v in meta.items() if k not in meta_data})
+            self._atomic_write(session_dir / "meta.json", meta_data)
+
+            return meta_data
+
+    def save_versioned(
+        self,
+        session_id: str,
+        expected_version: int,
+        tracks: list[dict],
+        undo_stack: list[dict] | None = None,
+        redo_stack: list[dict] | None = None,
+        meta: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Save with optimistic locking.
+
+        Raises SaveConflictError if expected_version doesn't match current version.
+        This prevents stale writes from overwriting newer data.
+        """
+        session_dir = self._session_dir(session_id)
+        with self._lock:
+            session_dir.mkdir(parents=True, exist_ok=True)
+
+            existing_meta = self._read_json(session_dir / "meta.json", {})
+            current_version = existing_meta.get("version", 0)
+
+            if expected_version != current_version:
+                raise SaveConflictError(expected_version, current_version)
+
+            # Proceed with save
+            self._atomic_write(session_dir / "timeline.json", tracks)
+            self._atomic_write(session_dir / "undo_stack.json", undo_stack or [])
+            self._atomic_write(session_dir / "redo_stack.json", redo_stack or [])
+
+            now = time.time()
+            new_version = current_version + 1
+            meta_data = {
+                "session_id": session_id,
+                "last_saved": now,
+                "created_at": (meta or {}).get("created_at", now),
+                "topic": (meta or {}).get("topic", ""),
+                "tracks_count": len(tracks),
+                "undo_depth": len(undo_stack or []),
+                "redo_depth": len(redo_stack or []),
+                "version": new_version,
             }
             if meta:
                 meta_data.update({k: v for k, v in meta.items() if k not in meta_data})

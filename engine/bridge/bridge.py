@@ -455,20 +455,12 @@ def _build_shot_objects(
     glow_enabled = bool(meta.get('glow', False))
     shake_enabled = bool(meta.get('shake', False))
 
-    subject_path_map = {
-        'approach': ((90, 420), 250),
-        'reveal': ((220, 360), 220),
-        'impact': ((70, 470), 245),
-        'release': ((430, 140), 290),
-        'linger': ((280, 320), 300),
-        'steady': ((150, 340), 275),
-    }
-    (subject_from_x, subject_to_x), subject_y = subject_path_map.get(
-        intent,
-        subject_path_map['steady'],
-    )
-    subject_width = 760 if zoom >= 1.2 else 700
-    subject_height = 1240 if zoom >= 1.2 else 1160
+    # 固定参数：图片216×768，右侧居中放置，禁止修改
+    subject_width = 216
+    subject_height = 768
+    subject_from_x = 864   # 1080 - 216 = 864，紧贴右侧
+    subject_to_x = 864
+    subject_y = 576        # (1920 - 768) / 2 = 576，垂直居中
     fg_from_x, fg_to_x = {
         'approach': (790, 610),
         'reveal': (700, 940),
@@ -504,21 +496,6 @@ def _build_shot_objects(
 
     objects = [
         {
-            'id': 'bg',
-            'type': 'image',
-            'src': image_src,
-            'z': 0,
-            'width': width,
-            'height': height,
-            'opacity': 0.96,
-            'blur': 6,
-            'animation': {
-                'type': 'zoom',
-                'fromScale': 1.02,
-                'toScale': bg_to_scale + (0.01 if glow_enabled else 0.0),
-            },
-        },
-        {
             'id': 'subject',
             'type': 'image',
             'src': image_src,
@@ -528,7 +505,7 @@ def _build_shot_objects(
             'width': subject_width,
             'height': subject_height,
             'opacity': 0.98,
-            'borderRadius': 28,
+            'borderRadius': 0,
             'objectFit': 'cover',
             'animation': {
                 'type': 'move',
@@ -785,14 +762,14 @@ def segment_to_element(seg: dict[str, Any], idx: int, total_frames: int) -> dict
         'id': f'cap_{idx}',
         'type': 'text',
         'text': caption,
-        'x': 540,
-        'y': 1460,
-        'fontSize': 40,
-        'color': style.get('text', '#c8dcff'),
-        'fontWeight': 600,
-        'textAlign': 'center',
-        'lineHeight': 1.35,
-        'maxWidth': 860,
+        'x': 80,
+        'y': 680,
+        'fontSize': 52,
+        'color': style.get('text', '#1a1a2e'),
+        'fontWeight': 700,
+        'textAlign': 'left',
+        'lineHeight': 1.5,
+        'maxWidth': 760,
         'start': start_f,
         'duration': duration_f,
         'zIndex': 10,
@@ -831,7 +808,7 @@ def build_video_layout(
             'height': height,
             'fps': FPS,
             'durationInFrames': total_frames,
-            'background': '#0a0a0f',
+            'background': '#ffffff',
             'elements': [],
             'shots': [],
             'audioTracks': [],
@@ -862,8 +839,57 @@ def build_video_layout(
 
         element['start'] = shot['start']
         element['duration'] = shot['duration']
+        element['x'] = 80
+        element['y'] = 780
+        element['fontSize'] = 42
+        element['color'] = '#333344'
+        element['fontWeight'] = 500
+        element['textAlign'] = 'left'
+        element['lineHeight'] = 1.6
+        element['maxWidth'] = 720
+
+        # 标题元素（取正文前半句作为标题）
+        body_text = element.get('text', '')
+        title_text = body_text.split('。')[0].split('，')[0].split('！')[0][:30] if body_text else ''
+        title_element = {
+            'id': f'title_{len(shots)}',
+            'type': 'text',
+            'text': title_text,
+            'x': 80,
+            'y': 580,
+            'fontSize': 60,
+            'color': '#1a1a2e',
+            'fontWeight': 800,
+            'textAlign': 'left',
+            'lineHeight': 1.3,
+            'maxWidth': 720,
+            'start': shot['start'],
+            'duration': shot['duration'],
+            'zIndex': 11,
+            'animation': {'enter': 'blur-in', 'exit': 'fade', 'duration': 15},
+        }
+
+        # 装饰分割线
+        divider_element = {
+            'id': f'divider_{len(shots)}',
+            'type': 'text',
+            'text': '————————————',
+            'x': 80,
+            'y': 720,
+            'fontSize': 28,
+            'color': '#c0c0d0',
+            'fontWeight': 300,
+            'textAlign': 'left',
+            'maxWidth': 400,
+            'start': shot['start'],
+            'duration': shot['duration'],
+            'zIndex': 10,
+            'animation': {'enter': 'fade', 'exit': 'fade', 'duration': 10},
+        }
 
         shots.append(shot)
+        elements.append(title_element)
+        elements.append(divider_element)
         elements.append(element)
         emotional_curve.append(director_state['emotionValue'])
         pacing_curve.append(director_state['pacingValue'])
@@ -895,7 +921,7 @@ def build_video_layout(
         'height': height,
         'fps': FPS,
         'durationInFrames': total_frames,
-        'background': '#0a0a0f',
+        'background': '#ffffff',
         'elements': elements,
         'shots': shots,
         'audioTracks': audio_tracks,

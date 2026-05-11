@@ -367,17 +367,12 @@ export const ShotDensityStack: React.FC<ShotDensityStackProps> = ({
 		>
 			<AbsoluteFill
 				style={{
-					background: `linear-gradient(${125 + (bgHue % 20)}deg, rgba(5,12,24,0.94), hsla(${bgHue}, 70%, 55%, 0.18), rgba(0,0,0,0.72))`,
+					background: "#ffffff",
 				}}
 			/>
 			<AbsoluteFill
 				style={{
-					backgroundImage: [
-						`radial-gradient(circle at ${22 + (seed % 46)}% ${18 + (seed % 38)}%, rgba(255,255,255,0.12), transparent 20%)`,
-						`radial-gradient(circle at ${68 - (seed % 18)}% ${74 - (seed % 24)}%, rgba(255,180,120,0.10), transparent 24%)`,
-					].join(","),
-					filter: "blur(18px)",
-					opacity: hasObjects ? 0.48 : 0.8,
+					background: "#ffffff",
 				}}
 			/>
 
@@ -417,52 +412,31 @@ export const ShotDensityStack: React.FC<ShotDensityStackProps> = ({
 						filter: `brightness(${brightness}) contrast(${contrast}) saturate(${saturate})`,
 					}}
 				>
-					<Img
-						src={shot.src}
+					<div
 						style={{
-							width: "100%",
-							height: "100%",
-							objectFit: "cover",
+							position: "absolute",
+							right: 0,
+							top: "50%",
+							transform: "translateY(-50%)",
+							width: 216,
+							height: 768,
+							overflow: "hidden",
+							borderRadius: 0,
 						}}
-					/>
+					>
+						<Img
+							src={shot.src}
+							style={{
+								width: "100%",
+								height: "100%",
+								objectFit: "cover",
+							}}
+						/>
+					</div>
 				</AbsoluteFill>
 			) : null}
 
-			<AbsoluteFill
-				style={{
-					pointerEvents: "none",
-					mixBlendMode: "overlay",
-					opacity: overlayOpacity,
-					backgroundImage: [
-						`radial-gradient(circle at ${18 + (seed % 60)}% ${22 + (seed % 40)}%, rgba(255,255,255,0.16), transparent 18%)`,
-						`radial-gradient(circle at ${72 - (seed % 20)}% ${70 - (seed % 35)}%, rgba(255,210,120,0.14), transparent 24%)`,
-						`linear-gradient(${100 + sweepAngle}deg, transparent 34%, rgba(255,255,255,0.20) 50%, transparent 66%)`,
-					].join(","),
-					backgroundSize: `100% 100%, 100% 100%, ${Math.max(width * 0.34, 420)}px 100%`,
-					backgroundRepeat: "no-repeat",
-					backgroundPosition: `0 0, 0 0, ${sweepTravel - width}px 0`,
-				}}
-			/>
-			<AbsoluteFill
-				style={{
-					pointerEvents: "none",
-					opacity: grainOpacity,
-					mixBlendMode: "soft-light",
-					backgroundImage: [
-						"repeating-linear-gradient(0deg, rgba(255,255,255,0.16) 0 1px, transparent 1px 3px)",
-						"repeating-linear-gradient(90deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 4px)",
-						"repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0 2px, transparent 2px 6px)",
-					].join(","),
-					backgroundSize: "64px 64px, 96px 96px, 128px 128px",
-					backgroundPosition: `${noiseShiftX}px ${noiseShiftY}px, ${-noiseShiftY}px ${noiseShiftX}px, ${noiseShiftY}px ${-noiseShiftX}px`,
-				}}
-			/>
-			<AbsoluteFill
-				style={{
-					pointerEvents: "none",
-					boxShadow: "inset 0 0 180px rgba(0,0,0,0.28)",
-				}}
-			/>
+			{/* 纯白背景，不添加任何深色覆盖层 */}
 		</div>
 	);
 };

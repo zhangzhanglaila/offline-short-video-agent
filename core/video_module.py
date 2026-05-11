@@ -36,6 +36,10 @@ def _log(msg: str, level: str = 'info'):
 class VideoModule:
     """FFmpeg视频剪辑模块"""
 
+    # 固定侧边图片尺寸（硬编码，不允许修改）
+    STRIP_WIDTH = 216
+    STRIP_HEIGHT = 768
+
     def __init__(self):
         """初始化视频剪辑模块"""
         self.output_width = OUTPUT_WIDTH
@@ -47,7 +51,8 @@ class VideoModule:
                                   duration_per_image: int = 3,
                                   transition: str = "fade",
                                   bgm_path: Optional[str] = None,
-                                  subtitle_path: Optional[str] = None) -> bool:
+                                  subtitle_path: Optional[str] = None,
+                                  placement: str = "right") -> bool:
         """
         将多张图片合成视频
 
@@ -77,7 +82,7 @@ class VideoModule:
         for i, img in enumerate(images):
             _log(f"正在处理第 {i+1}/{len(images)} 张图片: {Path(img).name}", 'info')
             clip_path = Path(output_path).parent / f"temp_clip_{i}.mp4"
-            if not self._image_to_clip(img, str(clip_path), duration_per_image, transition if i > 0 else "none"):
+            if not self._image_to_clip(img, str(clip_path), duration_per_image, transition if i > 0 else "none", placement=placement):
                 _log(f"图片 {i+1} 转视频片段失败", 'error')
                 return False
             video_clips.append(str(clip_path))
@@ -107,18 +112,29 @@ class VideoModule:
         return True
 
     def _image_to_clip(self, image_path: str, output_path: str,
-                       duration: int, transition: str = "none") -> bool:
-        """将单张图片转为短视频片段"""
-        filter_str = ""
+                       duration: int, transition: str = "none",
+                       placement: str = "right") -> bool:
+        """将单张图片转为短视频片段：固定216×768右侧居中，白色留白"""
+        # 固定参数，禁止修改
+        W, H = 1080, 1920
+        SW, SH = 216, 768
+        pad_x = 0 if placement == "left" else W - SW  # 864
+        pad_y = (H - SH) // 2  # 576
+
+        scale_crop_pad = (
+            f"scale={W}:{H}:force_original_aspect_ratio=increase,"
+            f"crop={SW}:{SH},"
+            f"pad={W}:{H}:{pad_x}:{pad_y}:color=white"
+        )
 
         if transition == "fade":
-            filter_str = f"fade=t=out:st={duration-1}:d=1,fade=t=in:st=0:d=0.5"
+            scale_crop_pad += f",fade=t=out:st={duration-1}:d=1,fade=t=in:st=0:d=0.5"
 
         cmd = [
             "ffmpeg", "-y", "-loop", "1",
             "-i", image_path,
             "-t", str(duration),
-            "-vf", f"scale={self.output_width}:{self.output_height}:force_original_aspect_ratio=increase,crop={self.output_width}:{self.output_height},{filter_str}" if filter_str else f"scale={self.output_width}:{self.output_height}:force_original_aspect_ratio=increase,crop={self.output_width}:{self.output_height}",
+            "-vf", scale_crop_pad,
             "-pix_fmt", "yuv420p",
             "-r", str(self.output_fps),
             "-c:v", "libx264",
@@ -179,9 +195,46 @@ class VideoModule:
         # 构建filter_complex
         filter_parts = []
 
-        # 视频处理 - 字幕烧录
+        # 视频处理 - 字幕烧录（使用 drawtext 滤镜，PPT 风格卡片式文字）
         if subtitle_path and os.path.exists(subtitle_path):
-            filter_parts.append(f"subtitles={subtitle_path}")
+            segments = self._parse_srt_for_drawtext(subtitle_path)
+            if segments:
+                total = len(segments)
+                for i, (start, end, text) in enumerate(segments):
+                    escaped = text.replace("'", "\\'").replace(":", "\\:").replace("\\", "\\\\")
+                    is_title = (i == 0 and len(text) < 30) or (i == 0 and total > 2)
+                    if is_title:
+                        dt = (
+                            f"drawtext=text='{escaped}'"
+                            f":fontfile=C\\\\:/Windows/Fonts/msyh.ttc"
+                            f":fontsize=56"
+                            f":fontcolor=#1a1a2e"
+                            f":borderw=3"
+                            f":bordercolor=#1a1a2e"
+                            f":box=1"
+                            f":boxcolor=white@0.92"
+                            f":boxborderw=20"
+                            f":x=80"
+                            f":y=280"
+                            f":enable='between(t,{start:.3f},{end:.3f})'"
+                        )
+                    else:
+                        dt = (
+                            f"drawtext=text='{escaped}'"
+                            f":fontfile=C\\\\:/Windows/Fonts/msyh.ttc"
+                            f":fontsize=40"
+                            f":fontcolor=#232529"
+                            f":borderw=1"
+                            f":bordercolor=#232529"
+                            f":box=1"
+                            f":boxcolor=white@0.85"
+                            f":boxborderw=16"
+                            f":line_spacing=12"
+                            f":x=80"
+                            f":y=400"
+                            f":enable='between(t,{start:.3f},{end:.3f})'"
+                        )
+                    filter_parts.append(dt)
 
         video_filter = ",".join(filter_parts) if filter_parts else "null"
 
@@ -264,7 +317,8 @@ class VideoModule:
         return self._run_ffmpeg(cmd)
 
     def create_video_with_narration(self, images: List[str], audio_path: str,
-                                     output_path: str, subtitle_path: Optional[str] = None) -> bool:
+                                     output_path: str, subtitle_path: Optional[str] = None,
+                                     placement: str = "right") -> bool:
         """根据配音自动同步图片生成视频"""
         # 获取音频时长
         audio_duration = self._get_media_duration(audio_path)
@@ -283,12 +337,21 @@ class VideoModule:
             start_time = i * duration_per_image
             clip_path = Path(output_path).parent / f"temp_sync_{i}.mp4"
 
-            # 创建图片片段
+            # 创建图片片段 - 固定216×768右侧居中，白色留白
+            W, H = 1080, 1920
+            SW, SH = 216, 768
+            pad_x = 0 if placement == "left" else W - SW
+            pad_y = (H - SH) // 2
+            vf = (
+                f"scale={W}:{H}:force_original_aspect_ratio=increase,"
+                f"crop={SW}:{SH},"
+                f"pad={W}:{H}:{pad_x}:{pad_y}:color=white"
+            )
             cmd = [
                 "ffmpeg", "-y", "-loop", "1",
                 "-i", img,
                 "-t", str(duration_per_image),
-                "-vf", f"scale={self.output_width}:{self.output_height}:force_original_aspect_ratio=increase,crop={self.output_width}:{self.output_height}",
+                "-vf", vf,
                 "-pix_fmt", "yuv420p",
                 "-r", str(self.output_fps),
                 "-c:v", "libx264",
@@ -352,6 +415,28 @@ class VideoModule:
             return float(result.stdout.strip())
         except Exception:
             return 0
+
+    def _parse_srt_for_drawtext(self, srt_path: str) -> list:
+        """解析SRT字幕文件，返回 [(start_sec, end_sec, text), ...]"""
+        import re
+        segments = []
+        try:
+            with open(srt_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            pattern = r'(\d+)\s*\n(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})\s*\n(.*?)(?=\n\n|\n\d+\s*\n|\Z)'
+            for m in re.finditer(pattern, content, re.DOTALL):
+                h, m_s, rest = m.group(2).split(':')
+                s, ms = rest.split(',')
+                start = int(h) * 3600 + int(m_s) * 60 + int(s) + int(ms) / 1000
+                h, m_s, rest = m.group(3).split(':')
+                s, ms = rest.split(',')
+                end = int(h) * 3600 + int(m_s) * 60 + int(s) + int(ms) / 1000
+                text = m.group(4).strip().replace('\n', ' ')
+                if text:
+                    segments.append((start, end, text))
+        except Exception as e:
+            print(f"SRT解析失败: {e}")
+        return segments
 
     def _run_ffmpeg(self, cmd: List[str]) -> bool:
         cmd_str = ' '.join(cmd)

@@ -250,7 +250,7 @@ class SubtitleModule:
     def burn_subtitles(self, video_path: str, srt_path: str,
                        output_path: str, style: str = "white_black_edge") -> bool:
         """
-        烧录硬字幕到视频
+        烧录硬字幕到视频（使用 drawtext 滤镜，不依赖 libass）
 
         参数:
             video_path: 输入视频路径
@@ -263,39 +263,60 @@ class SubtitleModule:
         """
         import subprocess
 
-        # 字幕样式配置
-        style_configs = {
-            "white_black_edge": {
-                "fontfile": "C:/Windows/Fonts/msyh.ttc",  # 微软雅黑
-                "font_size": "56",
-                "font_color": "white",
-                "border_w": "3",
-                "border_color": "black",
-            },
-            "white": {
-                "fontfile": "C:/Windows/Fonts/msyh.ttc",
-                "font_size": "56",
-                "font_color": "white",
-                "border_w": "2",
-                "border_color": "white",
-            },
-            "yellow": {
-                "fontfile": "C:/Windows/Fonts/msyh.ttc",
-                "font_size": "56",
-                "font_color": "yellow",
-                "border_w": "3",
-                "border_color": "black",
-            },
-        }
+        # 解析SRT文件
+        segments = self._parse_srt_segments(srt_path)
+        if not segments:
+            _log("SRT文件为空或解析失败，跳过字幕烧录", 'warn')
+            return False
 
+        # 样式配置
+        style_configs = {
+            "white_black_edge": {"font_color": "#1a1a2e", "border_w": "2", "border_color": "white", "font_size": "42"},
+            "white": {"font_color": "#1a1a2e", "border_w": "1", "border_color": "white", "font_size": "42"},
+            "yellow": {"font_color": "#FFBF00", "border_w": "2", "border_color": "black", "font_size": "42"},
+        }
         style_cfg = style_configs.get(style, style_configs["white_black_edge"])
 
-        # 字幕位置: 底部居中
-        margin_bottom = 60
+        # 生成 drawtext 滤镜链（PPT 风格卡片式文字）
+        drawtext_filters = []
+        total = len(segments)
+        for i, (start, end, text) in enumerate(segments):
+            escaped = text.replace("'", "\\'").replace(":", "\\:").replace("\\", "\\\\")
+            is_title = (i == 0 and len(text) < 30) or (i == 0 and total > 2)
+            if is_title:
+                dt = (
+                    f"drawtext=text='{escaped}'"
+                    f":fontfile=C\\\\:/Windows/Fonts/msyh.ttc"
+                    f":fontsize=56"
+                    f":fontcolor=#1a1a2e"
+                    f":borderw=3"
+                    f":bordercolor=#1a1a2e"
+                    f":box=1"
+                    f":boxcolor=white@0.92"
+                    f":boxborderw=20"
+                    f":x=80"
+                    f":y=280"
+                    f":enable='between(t,{start:.3f},{end:.3f})'"
+                )
+            else:
+                dt = (
+                    f"drawtext=text='{escaped}'"
+                    f":fontfile=C\\\\:/Windows/Fonts/msyh.ttc"
+                    f":fontsize=40"
+                    f":fontcolor=#232529"
+                    f":borderw=1"
+                    f":bordercolor=#232529"
+                    f":box=1"
+                    f":boxcolor=white@0.85"
+                    f":boxborderw=16"
+                    f":line_spacing=12"
+                    f":x=80"
+                    f":y=400"
+                    f":enable='between(t,{start:.3f},{end:.3f})'"
+                )
+            drawtext_filters.append(dt)
 
-        filter_str = (
-            f"subtitles='{srt_path}'"
-        )
+        filter_str = ",".join(drawtext_filters)
 
         cmd = [
             "ffmpeg", "-y",
@@ -331,6 +352,27 @@ class SubtitleModule:
             print(f"字幕烧录异常: {str(e)}")
             _log(f"字幕烧录异常: {str(e)}", 'error')
             return False
+
+    def _parse_srt_segments(self, srt_path: str) -> list:
+        """解析SRT字幕文件，返回 [(start_sec, end_sec, text), ...]"""
+        segments = []
+        try:
+            with open(srt_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            pattern = r'(\d+)\s*\n(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})\s*\n(.*?)(?=\n\n|\n\d+\s*\n|\Z)'
+            for m in re.finditer(pattern, content, re.DOTALL):
+                h, m_s, rest = m.group(2).split(':')
+                s, ms = rest.split(',')
+                start = int(h) * 3600 + int(m_s) * 60 + int(s) + int(ms) / 1000
+                h, m_s, rest = m.group(3).split(':')
+                s, ms = rest.split(',')
+                end = int(h) * 3600 + int(m_s) * 60 + int(s) + int(ms) / 1000
+                text = m.group(4).strip().replace('\n', ' ')
+                if text:
+                    segments.append((start, end, text))
+        except Exception as e:
+            print(f"SRT解析失败: {e}")
+        return segments
 
     def generate_subtitle_video(self, video_path: str, script: str,
                                  output_path: str, duration: float = None,

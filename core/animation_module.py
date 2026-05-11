@@ -18,6 +18,9 @@ class AnimationModule:
 
     # 转场效果列表
     TRANSITIONS = ["fade", "dissolve", "wipe", "blur", "none"]
+    # 固定侧边图片尺寸（硬编码，不允许修改）
+    STRIP_WIDTH = 216
+    STRIP_HEIGHT = 768
 
     def __init__(self):
         """初始化动画模块"""
@@ -55,15 +58,20 @@ class AnimationModule:
         if not zoom_in:
             zoom_start, zoom_end = zoom_end, zoom_start
 
-        # 构建zoompan滤镜
+        # 构建zoompan滤镜 - 固定输出216x768，pad到1080x1920右侧居中
         # zoom变量从1.0开始，min(zoom+增量, 最大值) 实现平滑放大
         total_frames = int(duration * OUTPUT_FPS)
         zoom_delta = (zoom_end - zoom_start) / total_frames
+        SW, SH = 216, 768
+        W, H = 1080, 1920
+        pad_x = W - SW  # 864
+        pad_y = (H - SH) // 2  # 576
         filter_str = (
             f"zoompan=z='min(zoom+{zoom_delta:.6f},{zoom_end})':"
             f"x=iw/2-(iw/zoom/2)+{int(pan_x * 100)}':"
             f"y=ih/2-(ih/zoom/2)+{int(pan_y * 100)}':"
-            f"d={total_frames}:s={self.output_width}x{self.output_height}:fps={self.output_fps}"
+            f"d={total_frames}:s={SW}x{SH}:fps={self.output_fps},"
+            f"pad={W}:{H}:{pad_x}:{pad_y}:color=white"
         )
 
         cmd = [
@@ -84,7 +92,8 @@ class AnimationModule:
 
     def create_pan_zoom_clip(self, image_path: str, output_path: str,
                               duration: float = 3.0,
-                              effect: str = "zoom_in") -> bool:
+                              effect: str = "zoom_in",
+                              placement: str = "right") -> bool:
         """
         创建简化的推拉缩放效果
 
@@ -117,19 +126,29 @@ class AnimationModule:
         if effect.startswith("pan"):
             direction = effect.split("_")[1]
             pan_filter = self._get_pan_filter(direction, duration)
+            W, H = 1080, 1920
+            SW, SH = 216, 768
+            pad_x = 0 if placement == "left" else W - SW
+            pad_y = (H - SH) // 2
             filter_str = (
-                f"scale={self.output_width}:{self.output_height}:"
+                f"scale={W}:{H}:"
                 f"force_original_aspect_ratio=increase,"
-                f"crop={self.output_width}:{self.output_height},"
+                f"crop={SW}:{SH},"
+                f"pad={W}:{H}:{pad_x}:{pad_y}:color=white,"
                 f"{pan_filter}"
             )
         else:
             total_frames = int(duration * self.output_fps)
             zoom_delta = (float(zoom_end) - float(zoom_start)) / total_frames
+            SW, SH = 216, 768
+            W, H = 1080, 1920
+            pad_x = W - SW
+            pad_y = (H - SH) // 2
             filter_str = (
                 f"zoompan=z='min(zoom+{zoom_delta:.6f},{zoom_end})':"
                 f"x=iw/2-(iw/zoom/2):y=ih/2-(ih/zoom/2):"
-                f"d={total_frames}:s={self.output_width}x{self.output_height}:fps={self.output_fps}"
+                f"d={total_frames}:s={SW}x{SH}:fps={self.output_fps},"
+                f"pad={W}:{H}:{pad_x}:{pad_y}:color=white"
             )
 
         cmd = [
@@ -148,6 +167,32 @@ class AnimationModule:
 
         return self._run_ffmpeg(cmd)
 
+    def _create_contain_clip(self, image_path: str, output_path: str, duration: float) -> bool:
+        """完整显示素材 + 模糊背景补全（稳定版）。"""
+        if not Path(image_path).exists():
+            return False
+        filter_complex = (
+            f"[0:v]split=2[fgsrc][bgsrc];"
+            f"[bgsrc]scale={self.output_width}:{self.output_height}:force_original_aspect_ratio=increase,"
+            f"crop={self.output_width}:{self.output_height},boxblur=20:10[bg];"
+            f"[fgsrc]scale={self.output_width}:{self.output_height}:force_original_aspect_ratio=decrease[fg];"
+            f"[bg][fg]overlay=(W-w)/2:(H-h)/2"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-loop", "1",
+            "-framerate", str(self.output_fps),
+            "-i", image_path,
+            "-t", str(duration),
+            "-filter_complex", filter_complex,
+            "-pix_fmt", "yuv420p",
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", str(self.output_crf),
+            output_path,
+        ]
+        return self._run_ffmpeg(cmd)
+
     def _get_pan_filter(self, direction: str, duration: float) -> str:
         """获取平移滤镜"""
         # 计算移动距离（约10%的画面宽度/高度）
@@ -164,7 +209,7 @@ class AnimationModule:
 
     def create_text_animation(self, video_path: str, output_path: str,
                               text: str,
-                              font_color: str = "white",
+                              font_color: str = "#1a1a2e",
                               font_size: int = 56,
                               position: str = "bottom",
                               animation: str = "fade_in",
@@ -326,7 +371,9 @@ class AnimationModule:
             clip_path = str(temp_dir / f"clip_{i:03d}.mp4")
 
             # 选择动画效果
-            if animation_style == "ken_burns":
+            if animation_style == "contain":
+                self._create_contain_clip(image_path, clip_path, duration=duration)
+            elif animation_style == "ken_burns":
                 zoom_in = random.choice([True, False])
                 self.create_ken_burns_clip(
                     image_path, clip_path,
@@ -391,17 +438,23 @@ class AnimationModule:
 
         return success
 
-    def _create_simple_clip(self, image_path: str, output_path: str, duration: float) -> bool:
-        """创建简单缩放片段"""
+    def _create_simple_clip(self, image_path: str, output_path: str, duration: float,
+                            placement: str = "right") -> bool:
+        """创建简单缩放片段 - 固定216×768右侧居中，白色留白"""
+        W, H = 1080, 1920
+        SW, SH = 216, 768
+        pad_x = 0 if placement == "left" else W - SW
+        pad_y = (H - SH) // 2
         cmd = [
             "ffmpeg", "-y",
             "-loop", "1",
             "-i", image_path,
             "-t", str(duration),
             "-vf", (
-                f"scale={self.output_width}:{self.output_height}:"
+                f"scale={W}:{H}:"
                 f"force_original_aspect_ratio=increase,"
-                f"crop={self.output_width}:{self.output_height}"
+                f"crop={SW}:{SH},"
+                f"pad={W}:{H}:{pad_x}:{pad_y}:color=white"
             ),
             "-pix_fmt", "yuv420p",
             "-r", str(self.output_fps),

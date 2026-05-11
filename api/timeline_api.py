@@ -205,12 +205,16 @@ class SaveRequest(BaseModel):
     undo_stack: list[dict] = Field(default_factory=list)
     redo_stack: list[dict] = Field(default_factory=list)
     meta: Optional[dict] = None
+    expected_version: Optional[int] = Field(None, description="For optimistic locking. Set to current version to detect conflicts.")
 
 
 class SaveResponse(BaseModel):
     success: bool
     session_id: str
     last_saved: float = 0.0
+    version: int = 0
+    conflict: bool = False
+    current_version: Optional[int] = None
     error: Optional[str] = None
 
 
@@ -221,6 +225,7 @@ class LoadResponse(BaseModel):
     undo_stack: list[dict] = []
     redo_stack: list[dict] = []
     meta: dict = {}
+    version: int = 0
     error: Optional[str] = None
 
 
@@ -228,20 +233,51 @@ class LoadResponse(BaseModel):
 async def save_session(session_id: str, req: SaveRequest) -> SaveResponse:
     """Save session state (timeline + undo/redo) to disk."""
     try:
-        from backend.session_store import SessionStore
+        from backend.session_store import SessionStore, SaveConflictError
         store = SessionStore()
-        result = store.save(
-            session_id=session_id,
-            tracks=req.tracks,
-            undo_stack=req.undo_stack,
-            redo_stack=req.redo_stack,
-            meta=req.meta,
-        )
-        return SaveResponse(
-            success=True,
-            session_id=session_id,
-            last_saved=result.get("last_saved", 0),
-        )
+
+        if req.expected_version is not None:
+            # Versioned save (optimistic locking)
+            try:
+                result = store.save_versioned(
+                    session_id=session_id,
+                    expected_version=req.expected_version,
+                    tracks=req.tracks,
+                    undo_stack=req.undo_stack,
+                    redo_stack=req.redo_stack,
+                    meta=req.meta,
+                )
+                return SaveResponse(
+                    success=True,
+                    session_id=session_id,
+                    last_saved=result.get("last_saved", 0),
+                    version=result.get("version", 0),
+                )
+            except SaveConflictError as e:
+                current = store.load(session_id)
+                return SaveResponse(
+                    success=False,
+                    session_id=session_id,
+                    conflict=True,
+                    error=str(e),
+                    version=req.expected_version,
+                    current_version=current.get("meta", {}).get("version", 0) if current else 0,
+                )
+        else:
+            # Last-write-wins save
+            result = store.save(
+                session_id=session_id,
+                tracks=req.tracks,
+                undo_stack=req.undo_stack,
+                redo_stack=req.redo_stack,
+                meta=req.meta,
+            )
+            return SaveResponse(
+                success=True,
+                session_id=session_id,
+                last_saved=result.get("last_saved", 0),
+                version=result.get("version", 0),
+            )
     except Exception as e:
         return SaveResponse(success=False, session_id=session_id, error=str(e))
 
@@ -266,6 +302,7 @@ async def load_session(session_id: str) -> LoadResponse:
             undo_stack=state.get("undo_stack", []),
             redo_stack=state.get("redo_stack", []),
             meta=state.get("meta", {}),
+            version=state.get("meta", {}).get("version", 0),
         )
     except Exception as e:
         return LoadResponse(success=False, session_id=session_id, error=str(e))
@@ -430,3 +467,118 @@ async def get_dag(session_id: str):
             "edges": [],
             "stats": {},
         }
+
+
+class DAGUpdateRequest(BaseModel):
+    """Update a DAG node's status."""
+    node_id: str
+    status: str  # pending | running | done | error | skipped
+    cache_hit: bool = False
+    error: Optional[str] = None
+    outputs: Optional[dict] = None
+
+
+@router.post("/{session_id}/dag/update")
+async def update_dag_node(session_id: str, req: DAGUpdateRequest):
+    """Update a DAG node's status (for real-time pipeline tracking)."""
+    if session_id not in _dag_cache:
+        return {"success": False, "error": "No DAG found for session"}
+
+    dag_data = _dag_cache[session_id]
+    nodes = dag_data.get("nodes", {})
+
+    if req.node_id not in nodes:
+        return {"success": False, "error": f"Node {req.node_id} not found"}
+
+    node = nodes[req.node_id]
+    node["status"] = req.status
+    node["cache_hit"] = req.cache_hit
+    if req.error:
+        node["error"] = req.error
+    if req.outputs:
+        node["outputs"].update(req.outputs)
+
+    # Recalculate stats
+    stats: dict[str, int] = {}
+    for n in nodes.values():
+        s = n.get("status", "pending")
+        stats[s] = stats.get(s, 0) + 1
+    stats["cache_hits"] = sum(1 for n in nodes.values() if n.get("cache_hit"))
+    dag_data["stats"] = stats
+    dag_data["is_complete"] = all(
+        n.get("status") in ("done", "error", "skipped") for n in nodes.values()
+    )
+
+    return {"success": True, "node": req.node_id, "status": req.status}
+
+
+# ── WebSocket for real-time DAG updates ──
+
+# Active WebSocket connections per session
+_ws_connections: dict[str, list[Any]] = {}
+
+
+@router.websocket("/{session_id}/dag/ws")
+async def dag_websocket(websocket: Any, session_id: str):
+    """WebSocket endpoint for real-time DAG status updates.
+
+    Clients connect to receive live node status changes.
+    Send JSON messages: {"type": "subscribe"} to start receiving updates.
+    Server pushes: {"type": "node_update", "node_id": "...", "status": "..."}
+    """
+    from fastapi import WebSocket
+    await websocket.accept()
+    _ws_connections.setdefault(session_id, []).append(websocket)
+
+    try:
+        # Send current DAG state
+        if session_id in _dag_cache:
+            await websocket.send_json({
+                "type": "dag_snapshot",
+                "data": _dag_cache[session_id],
+            })
+
+        # Keep connection alive and handle messages
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type", "")
+
+            if msg_type == "ping":
+                await websocket.send_json({"type": "pong"})
+            elif msg_type == "get_dag":
+                if session_id in _dag_cache:
+                    await websocket.send_json({
+                        "type": "dag_snapshot",
+                        "data": _dag_cache[session_id],
+                    })
+
+    except Exception:
+        pass
+    finally:
+        if session_id in _ws_connections:
+            _ws_connections[session_id] = [
+                ws for ws in _ws_connections[session_id] if ws != websocket
+            ]
+
+
+async def broadcast_dag_update(session_id: str, node_id: str, status: str, **kwargs):
+    """Broadcast a DAG node update to all connected WebSocket clients."""
+    if session_id not in _ws_connections:
+        return
+
+    message = {
+        "type": "node_update",
+        "node_id": node_id,
+        "status": status,
+        **kwargs,
+    }
+
+    dead = []
+    for ws in _ws_connections[session_id]:
+        try:
+            await ws.send_json(message)
+        except Exception:
+            dead.append(ws)
+
+    for ws in dead:
+        _ws_connections[session_id].remove(ws)

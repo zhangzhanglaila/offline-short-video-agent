@@ -797,6 +797,8 @@
             justify-content: center;
             color: white;
             font-size: 32px;
+            overflow: hidden;
+            border-radius: 8px 8px 0 0;
         }
         .video-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .video-info { padding: 12px; }
@@ -3096,11 +3098,8 @@
                 return;
             }
             if (selectedMode === 'mode_a') {
-                // 直接开始Mode A生成
-                showPage('generating');
-                var log = document.getElementById('log-box');
-                if (log) log.innerHTML = '';
-                callModeAApi();
+                // 弹出 API 配置确认框，用户确认后才开始生成
+                showApiConfigModal();
             } else {
                 // Mode B: 确认已选赛道
                 if (!homeSelectedCat) {
@@ -3153,6 +3152,11 @@
                 return;
             }
 
+            // Always show API config modal — pre-fill if available, let user confirm
+            showApiConfigModal();
+        }
+
+        function _doGenerate() {
             showPage('generating');
 
             var log = document.getElementById('log-box');
@@ -3391,18 +3395,28 @@
             for (var j = 0; j < filtered.length; j++) {
                 var w = filtered[j];
                 var icon = w.platform === '抖音' ? '🎵' : (w.platform === '小红书' ? '📕' : '📺');
-                html += '<div class="video-item" onclick="previewWork(\'' + w.path.replace(/\\/g, '\\\\') + '\')">' +
-                    '<div class="video-thumb">' + icon + '</div>' +
+                var thumb = w.thumb_url
+                    ? '<img src="' + w.thumb_url + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentElement.innerHTML=\'' + icon + '\'">'
+                    : icon;
+                var videoUrl = w.video_url || '';
+                html += '<div class="video-item" onclick="previewWork(\'' + videoUrl + '\',\'' + (w.title || '').replace(/'/g, "\\'") + '\')">' +
+                    '<div class="video-thumb">' + thumb + '</div>' +
                     '<div class="video-info"><div class="video-title">' + (w.title || '未命名') + '</div>' +
                     '<div class="video-meta">' + w.platform + ' · ' + w.date + '</div></div></div>';
             }
             grid.innerHTML = html;
         }
 
-        function previewWork(path) {
-            if (/\.(mp4|avi|mov)$/i.test(path)) {
-                var pv = document.getElementById('preview-video');
-                if (pv) { pv.src = 'file:///' + path; document.getElementById('video-modal').classList.add('show'); }
+        function previewWork(videoUrl, title) {
+            if (!videoUrl) return;
+            var pv = document.getElementById('preview-video');
+            if (pv) {
+                pv.src = videoUrl;
+                document.getElementById('video-modal').classList.add('show');
+                if (title) {
+                    var titleEl = document.querySelector('#video-modal .modal-title');
+                    if (titleEl) titleEl.textContent = title;
+                }
             }
         }
 
@@ -3440,13 +3454,13 @@
                     void box.offsetWidth;
                     box.classList.add('shake');
                 }
-                // 获取当前配置并填充表单
+                // 获取当前配置并填充表单（无论是否有值都填充）
                 fetch(API + '/config')
                     .then(function(res) { return res.json(); })
                     .then(function(data) {
-                        if (data.api_key) document.getElementById('api-key-input').value = data.api_key;
-                        if (data.api_base) document.getElementById('api-base-input').value = data.api_base;
-                        if (data.api_model) document.getElementById('api-model-input').value = data.api_model;
+                        document.getElementById('api-key-input').value = data.api_key || '';
+                        document.getElementById('api-base-input').value = data.api_base || '';
+                        document.getElementById('api-model-input').value = data.api_model || '';
                     })
                     .catch(function() {});
             }
@@ -3498,10 +3512,8 @@
                         appendAgentMessage('user', msg);
                         sendAgentRequest(msg);
                     }
-                    // 清空输入框
-                    document.getElementById('api-key-input').value = '';
-                    document.getElementById('api-base-input').value = '';
-                    document.getElementById('api-model-input').value = '';
+                    // 自动开始生成视频
+                    _doGenerate();
                 } else {
                     showToast('保存失败: ' + data.error, 'error');
                     // 抖动提示
@@ -3693,7 +3705,9 @@
                     document.getElementById('thinking-run-btn').disabled = false;
                     thinkingAddLog('event', '🎬 Session 已创建: ' + data.session_id);
                     thinkingAddLog('thinking', '主题: ' + topic);
-                    showToast('创建成功', 'Thinking Session 已就绪', 'success');
+                    showToast('创建成功', '正在自动执行...', 'success');
+                    // Auto-trigger execution after session creation
+                    setTimeout(function() { thinkingRun(); }, 500);
                 }
             })
             .catch(function(err) {
@@ -3772,6 +3786,9 @@
                     break;
                 case 'status':
                     thinkingAddLog('status', '▸ ' + (typeof data === 'string' ? data : JSON.stringify(data)));
+                    break;
+                case 'warning':
+                    thinkingAddLog('error', typeof data === 'string' ? data : JSON.stringify(data));
                     break;
                 case 'outline':
                     thinkingAddLog('event', '📋 大纲生成完成');
@@ -4237,17 +4254,17 @@
     <!-- API配置弹窗 -->
     <div id="api-config-modal" class="api-config-modal">
         <div class="api-config-box">
-            <h3>配置云端API</h3>
-            <p class="sub-title">本地模型未启动，请填写云端API信息继续使用</p>
-            <label>API密钥</label>
-            <input type="text" id="api-key-input" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off">
+            <h3>API 配置</h3>
+            <p class="sub-title">请确认或填写 LLM API 信息，保存后将自动开始生成</p>
             <label>接口地址</label>
-            <input type="text" id="api-base-input" placeholder="https://api.openai.com/v1">
+            <input type="text" id="api-base-input" placeholder="https://token-plan-cn.xiaomimimo.com/v1">
+            <label>API密钥</label>
+            <input type="password" id="api-key-input" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off">
             <label>模型名称</label>
-            <input type="text" id="api-model-input" placeholder="gpt-4o">
+            <input type="text" id="api-model-input" placeholder="minimax-m2.7-latest">
             <div class="btn-row">
                 <button class="btn btn-cancel" onclick="closeApiConfigModal()">取消</button>
-                <button class="btn btn-save" onclick="saveApiConfig()">保存并重试</button>
+                <button class="btn btn-save" onclick="saveApiConfig()">保存并生成</button>
             </div>
         </div>
     </div>

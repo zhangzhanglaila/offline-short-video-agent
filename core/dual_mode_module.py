@@ -40,6 +40,157 @@ def _log(msg: str, level: str = 'info'):
             pass
 
 
+def _parse_srt(srt_path: str) -> list:
+    """解析SRT字幕文件，返回 [(start_sec, end_sec, text), ...]"""
+    import re
+    segments = []
+    try:
+        with open(srt_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        # 匹配 SRT 格式: 序号 + 时间码 + 文本
+        pattern = r'(\d+)\s*\n(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})\s*\n(.*?)(?=\n\n|\n\d+\s*\n|\Z)'
+        for m in re.finditer(pattern, content, re.DOTALL):
+            start = _srt_time_to_sec(m.group(2))
+            end = _srt_time_to_sec(m.group(3))
+            text = m.group(4).strip().replace('\n', ' ')
+            if text:
+                segments.append((start, end, text))
+    except Exception as e:
+        _log(f"SRT解析失败: {e}", 'warn')
+    return segments
+
+
+def _srt_time_to_sec(t: str) -> float:
+    """SRT时间码转秒数: HH:MM:SS,mmm -> float"""
+    h, m, rest = t.split(':')
+    s, ms = rest.split(',')
+    return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
+
+
+def multitrack_composite(
+    video_path: str,
+    audio_path: str,
+    subtitle_path: str,
+    bgm_path: str,
+    output_path: str
+) -> bool:
+    """多轨道合成（模块级函数，供 ecom 管线等外部调用）"""
+    subtitled_video = Path(output_path).parent / "video_with_subs.mp4"
+
+    if subtitle_path and Path(subtitle_path).exists():
+        # 使用 drawtext 滤镜烧录字幕（比 subtitles 滤镜更可靠，不依赖 libass）
+        segments = _parse_srt(subtitle_path)
+        if segments:
+            drawtext_filters = []
+            total = len(segments)
+            for i, (start, end, text) in enumerate(segments):
+                # 转义 FFmpeg drawtext 特殊字符
+                escaped = text.replace("'", "\\'").replace(":", "\\:").replace("\\", "\\\\")
+                is_title = (i == 0 and len(text) < 30) or (i == 0 and total > 2)
+                if is_title:
+                    # 标题样式：大字、加粗感、带背景卡片
+                    dt = (
+                        f"drawtext=text='{escaped}'"
+                        f":fontfile=C\\\\:/Windows/Fonts/msyh.ttc"
+                        f":fontsize=56"
+                        f":fontcolor=#1a1a2e"
+                        f":borderw=3"
+                        f":bordercolor=#1a1a2e"
+                        f":box=1"
+                        f":boxcolor=white@0.92"
+                        f":boxborderw=20"
+                        f":x=80"
+                        f":y=280"
+                        f":enable='between(t,{start:.3f},{end:.3f})'"
+                    )
+                else:
+                    # 正文样式：中等字号、带半透明背景卡片
+                    dt = (
+                        f"drawtext=text='{escaped}'"
+                        f":fontfile=C\\\\:/Windows/Fonts/msyh.ttc"
+                        f":fontsize=40"
+                        f":fontcolor=#232529"
+                        f":borderw=1"
+                        f":bordercolor=#232529"
+                        f":box=1"
+                        f":boxcolor=white@0.85"
+                        f":boxborderw=16"
+                        f":line_spacing=12"
+                        f":x=80"
+                        f":y=400"
+                        f":enable='between(t,{start:.3f},{end:.3f})'"
+                    )
+                drawtext_filters.append(dt)
+
+            vf = ",".join(drawtext_filters)
+            cmd_sub = [
+                "ffmpeg", "-y",
+                "-i", video_path,
+                "-vf", vf,
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", str(config.OUTPUT_CRF),
+                "-an",
+                str(subtitled_video)
+            ]
+
+            try:
+                result = subprocess.run(cmd_sub, capture_output=True, text=True, timeout=600)
+                if result.returncode != 0 or not subtitled_video.exists():
+                    _log(f"字幕烧录失败，跳过字幕继续合成: {result.stderr[:300]}", 'warn')
+                    subtitled_video = Path(video_path)
+                else:
+                    _log("字幕烧录完成（drawtext）", 'info')
+            except Exception as e:
+                _log(f"字幕烧录异常，跳过字幕继续合成: {e}", 'warn')
+                subtitled_video = Path(video_path)
+        else:
+            _log("SRT文件为空或解析失败，跳过字幕", 'warn')
+            subtitled_video = Path(video_path)
+    else:
+        subtitled_video = Path(video_path)
+
+    input_video = str(subtitled_video)
+    cmd_audio = ["ffmpeg", "-y", "-i", input_video, "-i", audio_path]
+
+    input_idx = 2
+    if bgm_path and Path(bgm_path).exists():
+        cmd_audio.append("-i")
+        cmd_audio.append(bgm_path)
+        bgm_idx = input_idx
+        input_idx += 1
+    else:
+        bgm_idx = None
+
+    if bgm_idx:
+        audio_filter = (
+            f"[1:a]volume=1.0[narration];"
+            f"[{bgm_idx}:a]volume={config.BGM_VOLUME}[bgmtrack];"
+            f"[narration][bgmtrack]amix=inputs=2:duration=first[aout]"
+        )
+    else:
+        audio_filter = "[1:a]volume=1.0[aout]"
+
+    cmd_audio.extend([
+        "-filter_complex", audio_filter,
+        "-map", "0:v",
+        "-map", "[aout]",
+        "-c:v", "copy" if input_video == str(subtitled_video) else "libx264",
+        "-preset", "fast",
+        "-crf", str(config.OUTPUT_CRF),
+        "-c:a", "aac",
+        "-b:a", config.OUTPUT_AUDIO_BITRATE,
+        "-shortest",
+        output_path
+    ])
+
+    try:
+        result = subprocess.run(cmd_audio, capture_output=True, text=True, timeout=600)
+        return result.returncode == 0 and Path(output_path).exists()
+    except Exception:
+        return False
+
+
 class DualModeVideoGenerator:
     """双模式视频生成器"""
 
@@ -642,10 +793,17 @@ class DualModeVideoGenerator:
         import requests
         import os
         try:
+            # Reload config to pick up any .env changes
+            import importlib
+            import config as _cfg
+            importlib.reload(_cfg)
             from config import get_cloud_llm_config
             cfg = get_cloud_llm_config()
             if not cfg["api_key"]:
+                _log("❌ API Key 未配置，请先在 API 配置中填写密钥", 'error')
                 return None
+
+            _log(f"📡 LLM 配置: {cfg['api_base']} | 模型: {cfg['model']}", 'info')
 
             cat_hint = f"赛道：{category}，" if category else ""
 
@@ -669,14 +827,24 @@ class DualModeVideoGenerator:
                 json={
                     'model': cfg["model"],
                     'messages': [{'role': 'user', 'content': prompt}],
-                    'max_tokens': 256,
+                    'max_tokens': 2048,
                     'temperature': 0.8
                 },
                 timeout=30,
                 proxies={'http': None, 'https': None}
             )
+
+            if response.status_code != 200:
+                _log(f"❌ LLM API 返回错误: HTTP {response.status_code} — {response.text[:200]}", 'error')
+                return None
+
             result = response.json()
+            if 'choices' not in result or not result['choices']:
+                _log(f"❌ LLM API 返回异常: {str(result)[:200]}", 'error')
+                return None
+
             content = result['choices'][0]['message']['content']
+            _log(f"✅ LLM 返回: {content[:100]}...", 'info')
 
             # 解析JSON
             import re
@@ -685,8 +853,14 @@ class DualModeVideoGenerator:
                 topic = json.loads(json_match.group())
                 topic['id'] = 0  # 标记为LLM生成
                 return topic
+            else:
+                _log(f"⚠️ LLM 返回内容无法解析为JSON: {content[:100]}", 'warn')
+        except requests.exceptions.ConnectionError as e:
+            _log(f"❌ LLM 连接失败: {e}。请检查接口地址是否正确", 'error')
+        except requests.exceptions.Timeout:
+            _log("❌ LLM 请求超时 (30s)，请检查网络或换一个接口", 'error')
         except Exception as e:
-            print(f"LLM生成选题失败: {e}")
+            _log(f"❌ LLM 调用异常: {type(e).__name__}: {e}", 'error')
         return None
 
     def _split_sentences(self, text: str) -> List[str]:
@@ -788,83 +962,8 @@ class DualModeVideoGenerator:
         bgm_path: str,
         output_path: str
     ) -> bool:
-        """多轨道合成 - 使用两-pass方法避免filter_complex中subtitles的pad绑定问题"""
-        import subprocess
-        from pathlib import Path
-
-        # 第一步：烧录字幕到视频（单独使用 -vf subtitles=）
-        subtitled_video = Path(output_path).parent / "video_with_subs.mp4"
-
-        if subtitle_path and Path(subtitle_path).exists():
-            # 使用相对路径避免FFmpeg将绝对路径中的冒号解析为选项分隔符
-            try:
-                rel_sub_path = Path(subtitle_path).relative_to(Path.cwd()).as_posix()
-            except ValueError:
-                rel_sub_path = Path(subtitle_path).as_posix()
-
-            cmd_sub = [
-                "ffmpeg", "-y",
-                "-i", video_path,
-                "-vf", f"subtitles={rel_sub_path}",
-                "-c:v", "libx264",
-                "-preset", "fast",
-                "-crf", str(config.OUTPUT_CRF),
-                "-c:a", "copy",
-                str(subtitled_video)
-            ]
-
-            try:
-                result = subprocess.run(cmd_sub, capture_output=True, text=True, timeout=600)
-                if result.returncode != 0 or not subtitled_video.exists():
-                    _log(f"字幕烧录失败: {result.stderr[:300]}", 'error')
-                    return False
-            except Exception:
-                return False
-        else:
-            # 无字幕则跳过第一步
-            subtitled_video = Path(video_path)
-
-        # 第二步：混合音频
-        input_video = str(subtitled_video)
-        cmd_audio = ["ffmpeg", "-y", "-i", input_video, "-i", audio_path]
-
-        input_idx = 2
-        if bgm_path and Path(bgm_path).exists():
-            cmd_audio.append("-i")
-            cmd_audio.append(bgm_path)
-            bgm_idx = input_idx
-            input_idx += 1
-        else:
-            bgm_idx = None
-
-        # 音频混合
-        if bgm_idx:
-            audio_filter = (
-                f"[1:a]volume=1.0[narration];"
-                f"[{bgm_idx}:a]volume={config.BGM_VOLUME}[bgmtrack];"
-                f"[narration][bgmtrack]amix=inputs=2:duration=first[aout]"
-            )
-        else:
-            audio_filter = "[1:a]volume=1.0[aout]"
-
-        cmd_audio.extend([
-            "-filter_complex", audio_filter,
-            "-map", "0:v",
-            "-map", "[aout]",
-            "-c:v", "copy" if input_video == str(subtitled_video) else "libx264",
-            "-preset", "fast",
-            "-crf", str(config.OUTPUT_CRF),
-            "-c:a", "aac",
-            "-b:a", config.OUTPUT_AUDIO_BITRATE,
-            "-shortest",
-            output_path
-        ])
-
-        try:
-            result = subprocess.run(cmd_audio, capture_output=True, text=True, timeout=600)
-            return result.returncode == 0 and Path(output_path).exists()
-        except Exception:
-            return False
+        """多轨道合成 - 委托给模块级函数"""
+        return multitrack_composite(video_path, audio_path, subtitle_path, bgm_path, output_path)
 
     def _concat_videos(self, video_paths: List[str], output_path: str) -> bool:
         """拼接视频"""

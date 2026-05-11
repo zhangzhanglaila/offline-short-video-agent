@@ -11,6 +11,8 @@ from . import work_api
 from . import tts_api
 from . import dual_mode_api
 from . import thinking_api
+from . import timeline_api
+from . import ecom_api
 
 __all__ = [
     'agent_api',
@@ -22,4 +24,6 @@ __all__ = [
     'tts_api',
     'dual_mode_api',
     'thinking_api',
+    'timeline_api',
+    'ecom_api',
 ]

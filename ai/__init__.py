@@ -5,12 +5,15 @@ Replaces deterministic templates with real AI-generated content.
     IntentIR(topic="Redis为什么快？")
     ↓ ai/narrative_planner.py (LLM)
     NarrativeIR(beats=[...])
-    ↓ ai/visual_planner.py
-    VisualPlan(scenes=[...])
+    ↓ compiler/pass_narrative_to_scene.py
+    [SceneIR, ...]
+    ↓ ai/tts_service.py
+    audio + word-level timestamps
 
 Components:
   - NarrativePlanner: topic → NarrativeIR (LLM-powered)
-  - VisualPlanner: NarrativeIR → visual scene plans
+  - TTSService: text → audio + word-level timestamps (edge-tts)
+  - AssetRetriever: search → media assets (Pexels, local)
   - LLMBackend: pluggable LLM interface (OpenAI, Qwen, local, etc.)
 """
 
