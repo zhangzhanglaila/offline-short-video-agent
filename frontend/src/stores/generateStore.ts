@@ -57,6 +57,7 @@ interface GenerateState {
   storyboard: StoryboardItem[]
   animationStyle: 'contain' | 'side'
   orientation: 'portrait' | 'landscape'
+  visualStyle: string
 
   // TTS
   ttsAudioUrl: string
@@ -73,6 +74,7 @@ interface GenerateState {
   generate: (data: { product_id: number; style: string; platform: string; duration: number; animation_style?: 'contain' | 'side'; orientation?: 'portrait' | 'landscape' }) => Promise<void>
   setAnimationStyle: (value: 'contain' | 'side') => void
   setOrientation: (value: 'portrait' | 'landscape') => void
+  setVisualStyle: (value: string) => void
   setField: (field: string, value: string) => void
   setStoryboardItem: (index: number, item: Partial<StoryboardItem>) => void
   saveScript: () => Promise<void>
@@ -103,6 +105,7 @@ export const useGenerateStore = create<GenerateState>((set, get) => ({
   _pollTimer: null,
   animationStyle: 'contain',
   orientation: 'portrait',
+  visualStyle: 'manga',
 
   generate: async (data) => {
     set({ generating: true, error: '', videoId: null, pipelineStep: 'init', videoUrl: '', ttsAudioUrl: '' })
@@ -139,10 +142,11 @@ export const useGenerateStore = create<GenerateState>((set, get) => ({
   },
 
   setField: (field, value) => {
-    set({ [field]: value } as never)
+    set({ [field]: value } as Partial<GenerateState>)
   },
   setAnimationStyle: (value) => set({ animationStyle: value }),
   setOrientation: (value) => set({ orientation: value }),
+  setVisualStyle: (value) => set({ visualStyle: value }),
 
   setStoryboardItem: (index, item) => {
     const sb = [...get().storyboard]
@@ -213,11 +217,11 @@ export const useGenerateStore = create<GenerateState>((set, get) => ({
   },
 
   startRender: async (voice) => {
-    const { videoId, animationStyle, orientation } = get()
+    const { videoId, animationStyle, orientation, visualStyle } = get()
     if (!videoId) return
     set({ error: '' })
     try {
-      const res = await renderVideo(videoId, { voice, animation_style: animationStyle, orientation })
+      const res = await renderVideo(videoId, { voice, animation_style: animationStyle, orientation, visual_style: visualStyle })
       if (res.success) {
         set({ pipelineStep: 'rendering' })
         get().startPolling()
@@ -269,7 +273,7 @@ export const useGenerateStore = create<GenerateState>((set, get) => ({
     set({
       generating: false, error: '', videoId: null, pipelineStep: 'init',
       editedHook: '', editedBody: '', editedCta: '', editedFullScript: '',
-      storyboard: [], animationStyle: 'contain', ttsAudioUrl: '', ttsDuration: 0, ttsGenerating: false,
+      storyboard: [], animationStyle: 'contain', visualStyle: 'manga', ttsAudioUrl: '', ttsDuration: 0, ttsGenerating: false,
       videoUrl: '', polling: false, successMsg: '', _pollTimer: null,
     })
   },

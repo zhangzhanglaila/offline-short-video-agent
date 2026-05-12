@@ -190,6 +190,142 @@ class AnimationModule:
             output_path
         ]
         return self._run_ffmpeg(cmd)
+    def create_animated_video_from_segments(self, images: List[str],
+                                            segments: List[Dict],
+                                            output_path: str,
+                                            animation_style: str = "ken_burns",
+                                            transition: str = "fade") -> bool:
+        """
+        根据时间轴创建动画视频（核心功能）
+
+        参数:
+            images: 图片路径列表
+            segments: 时间轴列表，每项包含 start, end, text, image_index
+            output_path: 输出视频路径
+            animation_style: 动画风格 (ken_burns/pan_zoom/static)
+            transition: 转场效果
+
+        返回:
+            是否成功
+        """
+        if not images or not segments:
+            return False
+
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+        # 生成各片段视频
+        video_clips = []
+        temp_dir = Path(output_path).parent / "temp_animation"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+        for i, seg in enumerate(segments):
+            image_idx = seg.get("image_index", i % len(images))
+            if image_idx >= len(images):
+                image_idx = i % len(images)
+
+            image_path = images[image_idx]
+            start = seg.get("start", 0)
+            end = seg.get("end", 3)
+            duration = end - start
+
+            clip_path = str(temp_dir / f"clip_{i:03d}.mp4")
+
+            # 选择动画效果
+            if animation_style == "manga_frame":
+                self.create_manga_frame_clip(image_path, clip_path, duration=duration)
+            elif animation_style == "contain":
+                self._create_contain_clip(image_path, clip_path, duration=duration)
+            elif animation_style == "ken_burns":
+                zoom_in = random.choice([True, False])
+                self.create_ken_burns_clip(
+                    image_path, clip_path,
+                    duration=duration,
+                    zoom_in=zoom_in,
+                    zoom_range=(1.0, random.uniform(1.2, 1.5))
+                )
+            elif animation_style == "pan_zoom":
+                effects = ["zoom_in", "zoom_out", "pan_left", "pan_right", "pan_up", "pan_down"]
+                effect = random.choice(effects)
+                self.create_pan_zoom_clip(image_path, clip_path, duration=duration, effect=effect)
+            else:
+                # static - 简单缩放
+                self._create_simple_clip(image_path, clip_path, duration)
+
+            if Path(clip_path).exists():
+                video_clips.append((clip_path, duration, start))
+
+        # 合并视频片段
+        if not video_clips:
+            return False
+
+        # 按时间排序
+        video_clips.sort(key=lambda x: x[2])
+
+        # 创建合并列表
+        concat_list = temp_dir / "concat_list.txt"
+        with open(concat_list, "w", encoding="utf-8") as f:
+            for clip_path, _, _ in video_clips:
+                abs_path = Path(clip_path).absolute()
+                f.write(f"file '{abs_path.as_posix()}'\n")
+
+        # 合并
+        cmd = [
+            "ffmpeg", "-y",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", str(concat_list),
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", str(self.output_crf),
+            "-pix_fmt", "yuv420p",
+            output_path
+        ]
+
+        success = self._run_ffmpeg(cmd)
+
+        # 清理临时文件
+        for clip in video_clips:
+            try:
+                Path(clip[0]).unlink()
+            except FileNotFoundError:
+                pass
+        try:
+            concat_list.unlink()
+        except FileNotFoundError:
+            pass
+        try:
+            temp_dir.rmdir()
+        except FileNotFoundError:
+            pass
+
+        return success
+
+    def _create_simple_clip(self, image_path: str, output_path: str, duration: float,
+                            placement: str = "right") -> bool:
+        """全帧contain模式 — 模糊背景补全，图片居中显示。"""
+        W, H = self.output_width, self.output_height
+        filter_complex = (
+            f"[0:v]split=2[fg][bg];"
+            f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,"
+            f"crop={W}:{H},boxblur=12:6[bgblur];"
+            f"[fg]scale={W}:{H}:force_original_aspect_ratio=decrease[fgscaled];"
+            f"[bgblur][fgscaled]overlay=(W-w)/2:(H-h)/2"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-loop", "1",
+            "-i", image_path,
+            "-t", str(duration),
+            "-filter_complex", filter_complex,
+            "-pix_fmt", "yuv420p",
+            "-r", str(self.output_fps),
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", str(self.output_crf),
+            output_path
+        ]
+        return self._run_ffmpeg(cmd)
+
     def _run_ffmpeg(self, cmd: List[str]) -> bool:
         return run_ffmpeg_safe(cmd)
 

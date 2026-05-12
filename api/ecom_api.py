@@ -294,6 +294,7 @@ async def api_ecom_generate(data: dict):
     platform = data.get('platform', 'TikTok')
     duration = data.get('duration', 30)
     orientation = data.get('orientation', 'portrait')
+    visual_style = data.get('visual_style', 'manga')
     video_width, video_height = config.get_output_dimensions(orientation)
 
     prompt = build_ecom_prompt(product, style, platform, duration)
@@ -319,8 +320,8 @@ async def api_ecom_generate(data: dict):
         cursor = conn.cursor()
         cursor.execute("BEGIN")
         cursor.execute("""
-            INSERT INTO ecom_videos (product_id, platform, style, script_content, storyboard, status, pipeline_step, prompt_snapshot, llm_model, duration, animation_style, orientation, video_width, video_height)
-            VALUES (?, ?, ?, ?, ?, 'script_ready', 'script_ready', ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO ecom_videos (product_id, platform, style, script_content, storyboard, status, pipeline_step, prompt_snapshot, llm_model, duration, animation_style, orientation, video_width, video_height, visual_style)
+            VALUES (?, ?, ?, ?, ?, 'script_ready', 'script_ready', ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             product_id, platform, style,
             script_result.get('full_script', ''),
@@ -332,6 +333,7 @@ async def api_ecom_generate(data: dict):
             orientation,
             video_width,
             video_height,
+            visual_style if visual_style in config.VISUAL_STYLES else 'manga',
         ))
         video_id = cursor.lastrowid
         normalized_storyboard = _ensure_storyboard_placeholders(video_id, normalized_storyboard, script_result.get('full_script', ''))
@@ -563,7 +565,8 @@ async def api_render_video(video_id: int, data: dict = None):
 
     animation_style = (data or {}).get("animation_style")
     orientation = (data or {}).get("orientation")
-    if animation_style in ("contain", "side") or orientation in ("portrait", "landscape"):
+    visual_style = (data or {}).get("visual_style")
+    if animation_style in ("contain", "side") or orientation in ("portrait", "landscape") or visual_style in config.VISUAL_STYLES:
         try:
             conn = sqlite3.connect(get_db_path())
             params = []
@@ -571,6 +574,9 @@ async def api_render_video(video_id: int, data: dict = None):
             if animation_style in ("contain", "side"):
                 sets.append("animation_style=?")
                 params.append(animation_style)
+            if visual_style in config.VISUAL_STYLES:
+                sets.append("visual_style=?")
+                params.append(visual_style)
             if orientation in ("portrait", "landscape"):
                 w, h = config.get_output_dimensions(orientation)
                 sets.append("orientation=?")
@@ -592,12 +598,12 @@ async def api_render_video(video_id: int, data: dict = None):
     return JSONResponse({'success': True, 'video_id': video_id})
 
 
-def _generate_manga_frames(storyboard, script_content, work_dir, materials=None, width=1080, height=1920):
-    """漫画风讲解帧 — 文字为主，网点纸+气泡框+速度线+分镜格。支持横竖屏。"""
+def _generate_manga_frames(storyboard, script_content, work_dir, materials=None, width=1080, height=1920, visual_style="manga"):
+    """漫画风讲解帧 — 文字为主，网点纸+气泡框+速度线+分镜格。支持横竖屏与多种视觉风格。"""
     from core.manga_frame_renderer import MangaFrameRenderer
 
     materials = materials or {}
-    renderer = MangaFrameRenderer(width=width, height=height)
+    renderer = MangaFrameRenderer(width=width, height=height, visual_style=visual_style)
     return renderer.render_storyboard(
         storyboard=storyboard,
         script_content=script_content,
@@ -650,6 +656,7 @@ def _run_render_pipeline(video_id: int):
         duration = row['duration'] or 30
         animation_style = row.get('animation_style') or 'contain'
         orientation = row.get('orientation') or 'portrait'
+        visual_style = row.get('visual_style') or 'manga'
         video_width = row.get('video_width') or 1080
         video_height = row.get('video_height') or 1920
 
@@ -660,7 +667,6 @@ def _run_render_pipeline(video_id: int):
         work_dir.mkdir(parents=True, exist_ok=True)
 
         # 准备素材: 优先用用户上传的，缺失的自动抓取
-        from core.dual_mode_module import DualModeVideoGenerator
         from core.image_fetch_module import get_image_fetch_module
         from core.tts_module import TTSModule
 
@@ -668,7 +674,7 @@ def _run_render_pipeline(video_id: int):
 
         # 漫画风讲解帧（文字主导，素材次要）
         images = _generate_manga_frames(storyboard, script_content, work_dir, materials=materials,
-                                        width=video_width, height=video_height)
+                                        width=video_width, height=video_height, visual_style=visual_style)
         if not images:
             _update(step='failed', status='failed', error_msg='漫画帧生成失败，请检查素材')
             return
@@ -1146,4 +1152,5 @@ async def api_ecom_meta():
     return JSONResponse({
         'styles': ECOM_STYLES,
         'platforms': list(PLATFORM_MAP.keys()),
+        'visual_styles': {k: {"name_cn": v["name_cn"], "paper_color": v["paper_color"], "accent_red": v["accent_red"], "text_c": v["text_c"]} for k, v in config.VISUAL_STYLES.items()},
     })

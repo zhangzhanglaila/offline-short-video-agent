@@ -22,25 +22,24 @@ try:
 except ImportError:
     HAS_PIL = False
 
-import config
+from config import get_visual_style_config, MANGA_STYLE_CONFIG
 
 
 # ── 漫画风格默认值 ──────────────────────────────────────────
-MANGA = getattr(config, "MANGA_STYLE_CONFIG", {
-    "paper_color": "#FFF8F0",
-    "panel_gap": 14,
-    "border_width": 5,
-    "halftone_dot_size": 3,
-    "halftone_spacing": 6,
-    "speedline_count": 28,
-    "text_color_primary": "#1A1A2E",
-    "accent_red": "#E04040",
-    "accent_blue": "#3060C0",
-})
+MANGA = MANGA_STYLE_CONFIG
+
+def _hex_to_rgba(hex_str: str, alpha: int = 255) -> tuple:
+    """Convert '#RRGGBB' or '#RRGGBBAA' hex string to (R, G, B, A) tuple."""
+    h = hex_str.lstrip('#')
+    if len(h) == 8:
+        return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), int(h[6:8], 16))
+    if len(h) == 6:
+        return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), alpha)
+    return (0, 0, 0, alpha)
 
 W = 1080   # 竖屏宽度
 H = 1920   # 竖屏高度
-PANEL_GAP = MANGA["panel_gap"]
+_PANEL_GAP = MANGA["panel_gap"]
 BORDER_W = MANGA["border_width"]
 PAPER = MANGA["paper_color"]
 TEXT_C = MANGA["text_color_primary"]
@@ -271,10 +270,19 @@ class MangaFrameRenderer:
     """漫画帧渲染器 — 生成真正的漫画风格讲解帧。"""
 
     def __init__(self, width: int = None, height: int = None,
-                 dark_mode: bool = False):
+                 dark_mode: bool = False, visual_style: str = "manga"):
         self.w = width or W
         self.h = height or H
         self.orientation = "landscape" if self.w > self.h else "portrait"
+        self.visual_style = visual_style
+        self.style = get_visual_style_config(visual_style)
+        self.panel_gap = self.style["panel_gap"]
+        self.border_rgba = _hex_to_rgba(self.style["border_color"])
+        self.panel_bg_rgba = _hex_to_rgba(self.style["panel_bg"])
+        self.text_secondary = self.style["text_secondary"]
+        self.text_muted = self.style["text_muted"]
+        self.progress_inactive = self.style["progress_inactive"]
+        self.media_panel_bg = self.style["media_panel_bg"]
         self.dark = dark_mode
         if dark_mode:
             self.paper = "#1E1E2E"
@@ -282,10 +290,10 @@ class MangaFrameRenderer:
             self.bubble_bg = "#323248"
             self.text_c = "#E8E8F0"
         else:
-            self.paper = PAPER
-            self.panel_bg = "#FFFBF5"
-            self.bubble_bg = "#FFFFFF"
-            self.text_c = TEXT_C
+            self.paper = self.style["paper_color"]
+            self.panel_bg = self.style["panel_bg"]
+            self.bubble_bg = self.style["bubble_bg"]
+            self.text_c = self.style["text_c"]
 
     # ── 单帧渲染 ──────────────────────────────────────────
 
@@ -316,7 +324,7 @@ class MangaFrameRenderer:
         │  速度线装饰           │
         └────────────────────────┘
         """
-        accent = accent_color or (RED if not self.dark else "#FF6B6B")
+        accent = accent_color or (self.style["accent_red"] if not self.dark else "#FF6B6B")
 
         if self.orientation == "landscape":
             return self._render_frame_landscape(title, bullets, output_path,
@@ -331,8 +339,11 @@ class MangaFrameRenderer:
         # ── 背景纹理（纸张纤维 + 网点纸）──
         self._draw_bg_texture(draw, img)
         # 全画布微妙网点纸叠加（漫画影印质感）
-        apply_halftone(img, (PANEL_GAP, PANEL_GAP, self.w - PANEL_GAP, self.h - PANEL_GAP),
-                      dot_size=2, spacing=8, angle=45, opacity=0.04)
+        if self.style.get("enable_halftone", True):
+            apply_halftone(img, (self.panel_gap, self.panel_gap, self.w - self.panel_gap, self.h - self.panel_gap),
+                          dot_size=self.style["halftone_dot_size"], spacing=self.style["halftone_spacing"], angle=self.style["halftone_angle"], opacity=self.style["halftone_opacity"])
+        # 霓虹网格
+        self._draw_grid_overlay(draw)
 
         # ── 1. 顶部标题区 ──
         title_y1 = self._draw_title_header(draw, title, sfx_text, subtitle, accent)
@@ -341,8 +352,8 @@ class MangaFrameRenderer:
         bottom_y0 = self._draw_bottom_bar(draw, subtitle, scene_index, total_scenes, accent)
 
         # ── 3. 中间主内容区 ──
-        main_y0 = title_y1 + PANEL_GAP
-        main_y1 = bottom_y0 - PANEL_GAP
+        main_y0 = title_y1 + self.panel_gap
+        main_y1 = bottom_y0 - self.panel_gap
 
         has_media = media_path and Path(media_path).exists()
         if has_media:
@@ -363,32 +374,48 @@ class MangaFrameRenderer:
         """全画布微妙纹理：漫画纸质感 + 随机淡色斑点 + 网点纸。"""
         # 纸张纤维纹理 — 随机微小淡灰斑点
         import random as _random
-        for _ in range(80):
+        for _ in range(self.style.get("speckle_count", 80)):
             x, y = _random.randint(0, self.w - 1), _random.randint(0, self.h - 1)
             s = _random.randint(1, 3)
             shade = _random.randint(0, 15)
             draw.ellipse([x, y, x + s, y + s], fill=(0, 0, 0, shade))
+
+    def _draw_grid_overlay(self, draw):
+        """霓虹风格网格背景覆盖层。"""
+        if not self.style.get("bg_grid", False):
+            return
+        color = self.style.get("bg_grid_color")
+        if not color:
+            return
+        spacing = self.style.get("bg_grid_spacing", 40)
+        r, g, b, a = color if isinstance(color, tuple) else (0, 255, 200, 12)
+        for x in range(0, self.w, spacing):
+            draw.line([(x, 0), (x, self.h)], fill=(r, g, b, a), width=1)
+        for y in range(0, self.h, spacing):
+            draw.line([(0, y), (self.w, y)], fill=(r, g, b, a), width=1)
 
     # ── 标题头 ──────────────────────────────────────────
 
     def _draw_title_header(self, draw, title: str, sfx: str, subtitle: str, accent: str) -> int:
         """顶部标题面板 — 网点背景+粗双线框+SFX+标题+副标题+装饰线。"""
         header_h = 220
-        y0, y1 = PANEL_GAP, PANEL_GAP + header_h
-        x0, x1 = PANEL_GAP, self.w - PANEL_GAP
+        y0, y1 = self.panel_gap, self.panel_gap + header_h
+        x0, x1 = self.panel_gap, self.w - self.panel_gap
 
         # 面板背景
         draw.rounded_rectangle([x0, y0, x1, y1], radius=18,
-                               fill=self.panel_bg, outline="#1A1A2E", width=BORDER_W)
+                               fill=self.panel_bg, outline=self.style['border_color'], width=self.style['border_width'])
 
         # 交叉排线纹理
-        draw_crosshatch(draw, x0 + 14, y0 + 14, x1 - 14, y0 + 180,
-                      spacing=22, opacity=7, angle=30)
+        if self.style.get("enable_crosshatch", True):
+            draw_crosshatch(draw, x0 + 14, y0 + 14, x1 - 14, y0 + 180,
+                          spacing=self.style["crosshatch_spacing"], opacity=self.style["crosshatch_opacity"], angle=self.style["crosshatch_angle"])
 
         # 内边框
-        draw.rounded_rectangle([x0 + BORDER_W + 3, y0 + BORDER_W + 3,
-                                x1 - BORDER_W - 3, y1 - BORDER_W - 3],
-                               radius=14, outline="#1A1A2E", width=2)
+        if self.style.get("enable_inner_border", True):
+            draw.rounded_rectangle([x0 + self.style['border_width'] + 3, y0 + self.style['border_width'] + 3,
+                                    x1 - self.style['border_width'] - 3, y1 - self.style['border_width'] - 3],
+                                   radius=14, outline=self.style['border_color'], width=2)
 
         # SFX 拟声词 — 右上角大字描边
         if sfx:
@@ -414,21 +441,24 @@ class MangaFrameRenderer:
         if subtitle:
             info_text = subtitle[:50]
         else:
-            info_text = "详细讲解 · 建议收藏反复观看"
+            info_text = self.style.get("default_subtitle", "详细讲解 · 建议收藏反复观看")
         iw = draw.textlength(info_text, font=info_font)
         ix = (self.w - int(iw)) // 2
-        draw.text((ix, ty + 90), info_text, fill=(80, 80, 90, 255), font=info_font)
+        draw.text((ix, ty + 90), info_text, fill=self.text_secondary, font=info_font)
 
         # 装饰线 — 标题下方
-        deco_y = ty + 130
-        draw.line([(tx, deco_y), (tx + 300, deco_y)], fill=(0, 0, 0, 255), width=3)
-        draw.line([(tx, deco_y + 8), (tx + 180, deco_y + 8)], fill=accent, width=2)
+        if self.style.get("enable_decorative_lines", True):
+            deco_y = ty + 130
+            draw.line([(tx, deco_y), (tx + 300, deco_y)], fill=(0, 0, 0, 255), width=3)
+            draw.line([(tx, deco_y + 8), (tx + 180, deco_y + 8)], fill=accent, width=2)
 
         # 右下角小标签
-        tag_font = _get_font(20, "body")
-        tag_text = "MANGA EXPLAIN"
-        tag_w = draw.textlength(tag_text, font=tag_font)
-        draw.text((x1 - int(tag_w) - 30, y1 - 40), tag_text, fill=(150, 150, 160, 255), font=tag_font)
+        if self.style.get("enable_bottom_tags", True):
+            tag_font = _get_font(20, "body")
+            tag_text = self.style.get("tag_text", "")
+            if tag_text:
+                tag_w = draw.textlength(tag_text, font=tag_font)
+                draw.text((x1 - int(tag_w) - 30, y1 - 40), tag_text, fill=self.text_muted, font=tag_font)
 
         return y1
 
@@ -437,32 +467,34 @@ class MangaFrameRenderer:
     def _draw_bottom_bar(self, draw, subtitle: str, idx: int, total: int, accent: str) -> int:
         """底部信息栏 — 速度线+页码+总结+装饰。"""
         bar_h = 140
-        y1 = self.h - PANEL_GAP
+        y1 = self.h - self.panel_gap
         y0 = y1 - bar_h
-        x0, x1 = PANEL_GAP, self.w - PANEL_GAP
+        x0, x1 = self.panel_gap, self.w - self.panel_gap
 
         draw.rounded_rectangle([x0, y0, x1, y1], radius=14,
-                               fill=self.panel_bg, outline="#1A1A2E", width=BORDER_W)
+                               fill=self.panel_bg, outline=self.style['border_color'], width=self.style['border_width'])
 
         # 速度线装饰（底部微妙的动感）
-        draw_parallel_speed_lines(draw, x0 + 30, y0 + 140, x1 - 30, y0 + 140, count=12, opacity=20)
+        if self.style.get("enable_speed_lines", True):
+            draw_parallel_speed_lines(draw, x0 + 30, y0 + 140, x1 - 30, y0 + 140, count=12, opacity=20)
 
         # 场景编号 + 进度条
         num_font = _get_font(22, "body")
         num_text = f"第{idx+1}/{total}话"
-        draw.text((x0 + 24, y0 + 14), num_text, fill=(120, 120, 140, 255), font=num_font)
+        draw.text((x0 + 24, y0 + 14), num_text, fill=self.text_secondary, font=num_font)
 
         # 进度点
-        dot_y = y0 + 20
-        bar_x0 = x0 + 140
-        bar_x1 = x1 - 140
-        bar_cx = (bar_x0 + bar_x1) // 2
-        seg_w = (bar_x1 - bar_x0) // max(total, 1)
-        for i in range(total):
-            sx = bar_x0 + i * seg_w + 2
-            ex = bar_x0 + (i + 1) * seg_w - 2
-            fill_c = accent if i <= idx else (200, 200, 210, 255)
-            draw.rounded_rectangle([sx, dot_y - 4, ex, dot_y + 4], radius=3, fill=fill_c)
+        if self.style.get("enable_progress_dots", True):
+            dot_y = y0 + 20
+            bar_x0 = x0 + 140
+            bar_x1 = x1 - 140
+            bar_cx = (bar_x0 + bar_x1) // 2
+            seg_w = (bar_x1 - bar_x0) // max(total, 1)
+            for i in range(total):
+                sx = bar_x0 + i * seg_w + 2
+                ex = bar_x0 + (i + 1) * seg_w - 2
+                fill_c = accent if i <= idx else self.progress_inactive
+                draw.rounded_rectangle([sx, dot_y - 4, ex, dot_y + 4], radius=3, fill=fill_c)
 
         # 中间总结文字
         if subtitle:
@@ -470,18 +502,19 @@ class MangaFrameRenderer:
             sub = subtitle[:48]
             sub_w = draw.textlength(sub, font=sub_font)
             sub_x = (self.w - int(sub_w)) // 2
-            draw.text((sub_x, y0 + 52), sub, fill=self.text_c, font=sub_font)
+            draw.text((sub_x, y0 + 52), sub, fill=self.style["text_c"], font=sub_font)
 
         # 底部标签行
-        tag_font = _get_font(22, "body")
-        tags = ["收藏", "点赞", "转发"]
-        tag_x = x0 + 24
-        for tag in tags:
-            tw = draw.textlength(tag, font=tag_font)
-            draw.rounded_rectangle([tag_x, y0 + 108, tag_x + int(tw) + 24, y0 + 138],
-                                   radius=8, fill=None, outline=(180, 180, 190, 255), width=1)
-            draw.text((tag_x + 12, y0 + 112), tag, fill=(130, 130, 150, 255), font=tag_font)
-            tag_x += int(tw) + 36
+        if self.style.get("enable_bottom_tags", True):
+            tag_font = _get_font(22, "body")
+            tags = self.style.get("tags_bottom", ["收藏", "点赞", "转发"])
+            tag_x = x0 + 24
+            for tag in tags:
+                tw = draw.textlength(tag, font=tag_font)
+                draw.rounded_rectangle([tag_x, y0 + 108, tag_x + int(tw) + 24, y0 + 138],
+                                       radius=8, fill=None, outline=(180, 180, 190, 255), width=1)
+                draw.text((tag_x + 12, y0 + 112), tag, fill=self.text_muted, font=tag_font)
+                tag_x += int(tw) + 36
 
         # 右侧"▶ NEXT"
         next_font = _get_font(20, "body")
@@ -497,14 +530,14 @@ class MangaFrameRenderer:
             return
 
         content_h = y1 - y0
-        margin = PANEL_GAP + 10
+        margin = self.panel_gap + 10
 
-        # 限制每帧最多4个要点，保证每个足够大
-        bullets = bullets[:4]
+        # 限制每帧最多6个要点
+        bullets = bullets[:6]
         n = len(bullets)
 
         # 每个要点获取均等高度
-        gap = 16
+        gap = 10
         card_h = (content_h - gap * (n - 1)) // n
 
         for i in range(n):
@@ -528,8 +561,8 @@ class MangaFrameRenderer:
             return
 
         # 极简边框
-        draw.rounded_rectangle([x0, y0, x1, y1], radius=10,
-                               fill=None, outline=(180, 180, 190, 100), width=1)
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=self.style["card_radius"],
+                               fill=None, outline=self.style["card_border_color"], width=self.style["card_border_width"])
 
         pad = 24
         text_w = panel_w - pad * 2
@@ -549,8 +582,8 @@ class MangaFrameRenderer:
             body = text
 
         # ── 找最大能放下的字号（含大行距）──
-        best_size = 20
-        for size in [56, 50, 44, 40, 36, 34, 32, 30, 28, 26, 24, 22, 20]:
+        best_size = 16
+        for size in [56, 50, 44, 40, 36, 34, 32, 30, 28, 26, 24, 22, 20, 18, 16]:
             body_f = _get_font(size, "body")
             lead_f = _get_font(size + 4, "title")
             line_spacing = max(8, size // 3)  # 大字多留行距
@@ -602,13 +635,14 @@ class MangaFrameRenderer:
                 text_y += slh
 
         # ── 序号圆圈（左上角）──
-        cr = 12
-        ccx, ccy = x0 + pad + cr, y0 + pad + cr
-        draw.ellipse([ccx - cr, ccy - cr, ccx + cr, ccy + cr], fill=accent)
-        nf = _get_font(13, "title")
-        ns = str(index + 1)
-        nw = draw.textlength(ns, font=nf)
-        draw.text((ccx - int(nw)//2, ccy - 8), ns, fill=(255,255,255,255), font=nf)
+        if self.style.get("enable_numbered_circles", True):
+            cr = 12
+            ccx, ccy = x0 + pad + cr, y0 + pad + cr
+            draw.ellipse([ccx - cr, ccy - cr, ccx + cr, ccy + cr], fill=accent)
+            nf = _get_font(13, "title")
+            ns = str(index + 1)
+            nw = draw.textlength(ns, font=nf)
+            draw.text((ccx - int(nw)//2, ccy - 8), ns, fill=(255,255,255,255), font=nf)
 
     # ── 带素材的内容区 ──────────────────────────────────
 
@@ -620,21 +654,21 @@ class MangaFrameRenderer:
         gap_w = 16
 
         # 素材图片区域（右侧）
-        mx0 = self.w - PANEL_GAP - media_w
-        mx1 = self.w - PANEL_GAP
+        mx0 = self.w - self.panel_gap - media_w
+        mx1 = self.w - self.panel_gap
         my0 = y0
         my1 = y1
 
         # 素材面板 — 双线漫画框
         draw.rounded_rectangle([mx0, my0, mx1, my1], radius=14,
-                               fill=(248, 246, 242, 255) if not self.dark else (40, 40, 55, 255),
-                               outline=(26, 26, 46, 255), width=BORDER_W)
+                               fill=self.media_panel_bg if not self.dark else (40, 40, 55, 255),
+                               outline=self.border_rgba, width=self.style['border_width'])
         # 内框
         draw.rounded_rectangle([mx0 + 6, my0 + 6, mx1 - 6, my1 - 6], radius=10,
-                               outline=(26, 26, 46, 255), width=2)
+                               outline=self.border_rgba, width=2)
         # 图标签
         img_label = _get_font(20, "title")
-        draw.text((mx0 + 16, my0 + 12), "素材参考", fill=accent, font=img_label)
+        draw.text((mx0 + 16, my0 + 12), self.style.get("placeholder_text", "素材参考"), fill=accent, font=img_label)
 
         try:
             media_img = Image.open(media_path).convert("RGBA")
@@ -645,16 +679,16 @@ class MangaFrameRenderer:
             py = my0 + 44
             img.paste(media_img, (px, py), media_img if media_img.mode == "RGBA" else None)
             draw.rounded_rectangle([px - 3, py - 3, px + media_img.width + 3, py + media_img.height + 3],
-                                   radius=6, outline=(26, 26, 46, 255), width=3)
+                                   radius=6, outline=self.border_rgba, width=3)
         except Exception:
             ph_font = _get_font(22, "body")
             no_img_text = "暂无素材"
             nw = draw.textlength(no_img_text, font=ph_font)
             draw.text((mx0 + (media_w - int(nw)) // 2, my0 + content_h // 2 - 14),
-                      no_img_text, fill=(150, 150, 165, 255), font=ph_font)
+                      no_img_text, fill=self.text_muted, font=ph_font)
 
         # 文字要点区（左侧）— 面板间速度线
-        lx0, lx1 = PANEL_GAP, mx0 - gap_w
+        lx0, lx1 = self.panel_gap, mx0 - gap_w
         n = len(bullets)
 
         if n == 1:
@@ -663,7 +697,7 @@ class MangaFrameRenderer:
             h0 = (content_h - gap_w) // 2
             self._draw_fullwidth_card(draw, bullets[0], lx0, y0, lx1, y0 + h0, accent, 0)
             m_y = y0 + h0 + gap_w // 2
-            draw_parallel_speed_lines(draw, lx0 + 40, m_y, lx1 - 40, m_y, count=8, opacity=20)
+            draw_parallel_speed_lines(draw, lx0 + 40, m_y, lx1 - 40, m_y, count=8 if self.style.get("enable_speed_lines") else 0, opacity=20)
             self._draw_fullwidth_card(draw, bullets[1], lx0, y0 + h0 + gap_w, lx1, y1, accent, 1)
         elif n >= 3:
             h_each = (content_h - gap_w * 2) // 3
@@ -673,7 +707,7 @@ class MangaFrameRenderer:
                 self._draw_fullwidth_card(draw, bullets[j], lx0, py0, lx1, min(py1, y1), accent, j)
                 if j < min(n, 3) - 1:
                     m_y = py1 + gap_w // 2
-                    draw_parallel_speed_lines(draw, lx0 + 40, m_y, lx1 - 40, m_y, count=6, opacity=20)
+                    draw_parallel_speed_lines(draw, lx0 + 40, m_y, lx1 - 40, m_y, count=6 if self.style.get("enable_speed_lines") else 0, opacity=20)
 
     # ── 横屏布局 (1920×1080) ─────────────────────────────
 
@@ -685,8 +719,10 @@ class MangaFrameRenderer:
         draw = ImageDraw.Draw(img, "RGBA")
 
         self._draw_bg_texture(draw, img)
-        apply_halftone(img, (PANEL_GAP, PANEL_GAP, self.w - PANEL_GAP, self.h - PANEL_GAP),
-                      dot_size=2, spacing=8, angle=45, opacity=0.04)
+        if self.style.get("enable_halftone", True):
+            apply_halftone(img, (self.panel_gap, self.panel_gap, self.w - self.panel_gap, self.h - self.panel_gap),
+                          dot_size=self.style["halftone_dot_size"], spacing=self.style["halftone_spacing"], angle=self.style["halftone_angle"], opacity=self.style["halftone_opacity"])
+        self._draw_grid_overlay(draw)
 
         # 左侧标题栏
         sidebar_w = 280
@@ -696,17 +732,17 @@ class MangaFrameRenderer:
         bottom_y0 = self._draw_bottom_bar_landscape(draw, subtitle, scene_index, total_scenes, accent)
 
         # 右侧主内容区
-        content_x0 = sidebar_w + PANEL_GAP * 2
-        content_y0 = PANEL_GAP
-        content_y1 = bottom_y0 - PANEL_GAP
+        content_x0 = sidebar_w + self.panel_gap * 2
+        content_y0 = self.panel_gap
+        content_y1 = bottom_y0 - self.panel_gap
 
         has_media = media_path and Path(media_path).exists()
         if has_media:
             self._draw_content_landscape(draw, img, bullets, content_x0, content_y0,
-                                        self.w - PANEL_GAP, content_y1, accent, media_path)
+                                        self.w - self.panel_gap, content_y1, accent, media_path)
         else:
             self._draw_content_landscape(draw, img, bullets, content_x0, content_y0,
-                                        self.w - PANEL_GAP, content_y1, accent)
+                                        self.w - self.panel_gap, content_y1, accent)
 
         rgb = Image.new("RGB", (self.w, self.h), self.paper)
         rgb.paste(img, (0, 0), img)
@@ -716,20 +752,22 @@ class MangaFrameRenderer:
 
     def _draw_title_sidebar(self, draw, title, sfx, subtitle, accent, sidebar_w):
         """横屏左侧标题栏 — 窄竖条，标题竖排/缩排。"""
-        x0, y0 = PANEL_GAP, PANEL_GAP
+        x0, y0 = self.panel_gap, self.panel_gap
         x1 = x0 + sidebar_w
-        y1 = self.h - PANEL_GAP
+        y1 = self.h - self.panel_gap
 
         # 面板背景
         draw.rounded_rectangle([x0, y0, x1, y1], radius=18,
-                               fill=self.panel_bg, outline="#1A1A2E", width=BORDER_W)
-        draw_crosshatch(draw, x0 + 14, y0 + 14, x1 - 14, y1 - 14,
-                      spacing=22, opacity=7, angle=30)
+                               fill=self.panel_bg, outline=self.style['border_color'], width=self.style['border_width'])
+        if self.style.get("enable_crosshatch", True):
+            draw_crosshatch(draw, x0 + 14, y0 + 14, x1 - 14, y1 - 14,
+                          spacing=self.style["crosshatch_spacing"], opacity=self.style["crosshatch_opacity"], angle=self.style["crosshatch_angle"])
 
         # 内边框
-        draw.rounded_rectangle([x0 + BORDER_W + 3, y0 + BORDER_W + 3,
-                                x1 - BORDER_W - 3, y1 - BORDER_W - 3],
-                               radius=14, outline="#1A1A2E", width=2)
+        if self.style.get("enable_inner_border", True):
+            draw.rounded_rectangle([x0 + self.style['border_width'] + 3, y0 + self.style['border_width'] + 3,
+                                    x1 - self.style['border_width'] - 3, y1 - self.style['border_width'] - 3],
+                                   radius=14, outline=self.style['border_color'], width=2)
 
         # SFX拟声词 — 顶部居中
         if sfx:
@@ -754,24 +792,26 @@ class MangaFrameRenderer:
             ty += 42
 
         # 装饰线
-        deco_y = ty + 16
-        draw.line([(inner_x0, deco_y), (inner_x0 + 160, deco_y)], fill=(0, 0, 0, 255), width=3)
-        draw.line([(inner_x0, deco_y + 6), (inner_x0 + 90, deco_y + 6)], fill=accent, width=2)
+        if self.style.get("enable_decorative_lines", True):
+            deco_y = ty + 16
+            draw.line([(inner_x0, deco_y), (inner_x0 + 160, deco_y)], fill=(0, 0, 0, 255), width=3)
+            draw.line([(inner_x0, deco_y + 6), (inner_x0 + 90, deco_y + 6)], fill=accent, width=2)
 
         # 副标题
         info_font = _get_font(22, "body")
         info_lines = self._wrap_text(subtitle[:40] or "详细讲解", info_font, inner_w)
         iy = deco_y + 30
         for ln in info_lines[:3]:
-            draw.text((inner_x0, iy), ln, fill=(80, 80, 90, 255), font=info_font)
+            draw.text((inner_x0, iy), ln, fill=self.text_secondary, font=info_font)
             iy += 30
 
         # 底部标签
         tag_font = _get_font(18, "body")
-        tag_text = "MANGA"
-        tw = draw.textlength(tag_text, font=tag_font)
-        draw.text(((x0 + x1 - int(tw)) // 2, y1 - 40), tag_text,
-                 fill=(150, 150, 160, 255), font=tag_font)
+        tag_text = self.style.get("tag_secondary", "")
+        if tag_text:
+            tw = draw.textlength(tag_text, font=tag_font)
+            draw.text(((x0 + x1 - int(tw)) // 2, y1 - 40), tag_text,
+                     fill=self.text_muted, font=tag_font)
 
         return x1
 
@@ -784,7 +824,7 @@ class MangaFrameRenderer:
 
         content_w = x1 - x0
         content_h = y1 - y0
-        gap = PANEL_GAP
+        gap = self.panel_gap
 
         # 有图片时：左侧3列文字 + 右侧图片
         has_media = media_path and Path(media_path).exists()
@@ -817,7 +857,7 @@ class MangaFrameRenderer:
         n = len(bullets)
         if n == 0:
             return
-        gap = PANEL_GAP
+        gap = self.panel_gap
         content_w = x1 - x0
         content_h = y1 - y0
 
@@ -857,40 +897,41 @@ class MangaFrameRenderer:
     def _draw_bottom_bar_landscape(self, draw, subtitle, idx, total, accent):
         """横屏底部紧凑信息栏。"""
         bar_h = 100
-        y1 = self.h - PANEL_GAP
+        y1 = self.h - self.panel_gap
         y0 = y1 - bar_h
-        x0, x1 = PANEL_GAP, self.w - PANEL_GAP
+        x0, x1 = self.panel_gap, self.w - self.panel_gap
 
         # 速度线背景
         draw_parallel_speed_lines(draw, x0, y0 + bar_h // 2, x1, y0 + bar_h // 2,
-                                count=12, opacity=12)
+                                count=12 if self.style.get("enable_speed_lines") else 0, opacity=12)
 
         # 半透明底条
-        draw.rectangle([x0, y0, x1, y1], fill=(255, 252, 246, 220))
+        draw.rectangle([x0, y0, x1, y1], fill=(*self.panel_bg_rgba[:3], 220))
 
         # 分隔线
-        draw.line([(x0, y0), (x1, y0)], fill="#1A1A2E", width=2)
+        draw.line([(x0, y0), (x1, y0)], fill=self.style['border_color'], width=2)
 
         # 页码 + 总结
         page_font = _get_font(24, "body")
         page_text = f"{idx+1}/{total}"
         draw.text((x0 + 20, y0 + 16), page_text, fill=accent, font=page_font)
 
-        summary = subtitle[:50] if subtitle else "详细讲解 · 建议收藏"
+        summary = subtitle[:50] if subtitle else self.style.get("default_subtitle", "详细讲解")[:20]
         sum_font = _get_font(22, "body")
         sw = draw.textlength(summary, font=sum_font)
         draw.text(((self.w - int(sw)) // 2, y0 + 18), summary,
-                 fill=(80, 80, 90, 255), font=sum_font)
+                 fill=self.text_secondary, font=sum_font)
 
         # 右侧进度点
-        dot_r = 6
-        total_dots = min(total, 10)
-        start_dx = x1 - 30 - total_dots * 20
-        for d in range(total_dots):
-            dx = start_dx + d * 20
-            fill_c = accent if d == idx else (200, 200, 205, 255)
-            draw.ellipse([dx, y0 + bar_h // 2 - dot_r, dx + dot_r * 2, y0 + bar_h // 2 + dot_r],
-                        fill=fill_c)
+        if self.style.get("enable_progress_dots", True):
+            dot_r = 6
+            total_dots = min(total, 10)
+            start_dx = x1 - 30 - total_dots * 20
+            for d in range(total_dots):
+                dx = start_dx + d * 20
+                fill_c = accent if d == idx else self.progress_inactive
+                draw.ellipse([dx, y0 + bar_h // 2 - dot_r, dx + dot_r * 2, y0 + bar_h // 2 + dot_r],
+                            fill=fill_c)
 
         return y0
 
@@ -947,11 +988,8 @@ class MangaFrameRenderer:
             subtitle = str(scene.get("subtitle") or "")
             bullets = scene.get("bullets") if isinstance(scene.get("bullets"), list) else self._extract_bullets(subtitle or script_content)
             bullets = [str(x).strip() for x in bullets if str(x).strip()] or ["要点讲解"]
-            # 每帧最多4个要点，保证每个足够大；短要点合并加长
-            bullets = bullets[:4]
-            if len(bullets) > 1 and all(len(b) < 20 for b in bullets):
-                # 短要点合并为更大的文本块
-                bullets = ["，".join(bullets[:2]), "，".join(bullets[2:])] if len(bullets) >= 4 else ["，".join(bullets)]
+            # 每帧最多6个要点
+            bullets = bullets[:6]
             sfx = str(scene.get("sfx") or "")
             mp = materials.get(str(i)) or scene.get("material_url")
 

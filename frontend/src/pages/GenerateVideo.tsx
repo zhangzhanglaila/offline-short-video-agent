@@ -79,7 +79,9 @@ export default function GenerateVideo() {
   const [platform, setPlatform] = useState('TikTok')
   const [duration, setDuration] = useState(30)
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait')
+  const [visualStyle, setVisualStyleLocal] = useState('manga')
   const [styles, setStyles] = useState<Record<string, string>>({})
+  const [visualStyles, setVisualStyles] = useState<Record<string, { name_cn: string; paper_color: string; accent_red: string; text_c: string }>>({})
   const [platforms, setPlatforms] = useState<string[]>([])
   const [showApiConfig, setShowApiConfig] = useState(false)
   const [apiConfig, setApiConfig] = useState<ApiConfig>({ api_key: '', api_base: '', api_model: '' })
@@ -112,12 +114,12 @@ export default function GenerateVideo() {
     animationStyle,
     ttsAudioUrl, ttsDuration, ttsGenerating,
     videoUrl, successMsg,
-    generate, setField, setStoryboardItem, setAnimationStyle, setOrientation: setStoreOrientation, saveScript, generateTts, uploadMaterial, startRender, reset, stopPolling,
+    generate, setField, setStoryboardItem, setAnimationStyle, setOrientation: setStoreOrientation, setVisualStyle: setStoreVisualStyle, saveScript, generateTts, uploadMaterial, startRender, reset, stopPolling,
   } = useGenerateStore()
 
   useEffect(() => {
     fetchProducts({ page_size: 100 }).then(res => setProducts(res.items))
-    fetchEcomMeta().then(meta => { setStyles(meta.styles); setPlatforms(meta.platforms) })
+    fetchEcomMeta().then(meta => { setStyles(meta.styles); setPlatforms(meta.platforms); if (meta.visual_styles) setVisualStyles(meta.visual_styles) })
     fetchConfig().then(setApiConfig).catch(() => {})
   }, [])
 
@@ -153,7 +155,8 @@ export default function GenerateVideo() {
       return
     }
     setStoreOrientation(orientation)
-    generate({ product_id: Number(productId), style, platform, duration, animation_style: animationStyle, orientation })
+    setStoreVisualStyle(visualStyle)
+    generate({ product_id: Number(productId), style, platform, duration, animation_style: animationStyle, orientation, visual_style: visualStyle })
   }
 
   const handleSaveApiConfig = async () => {
@@ -164,7 +167,8 @@ export default function GenerateVideo() {
       if (res.success) {
         setShowApiConfig(false)
         setStoreOrientation(orientation)
-        generate({ product_id: Number(productId), style, platform, duration, animation_style: animationStyle, orientation })
+        setStoreVisualStyle(visualStyle)
+        generate({ product_id: Number(productId), style, platform, duration, animation_style: animationStyle, orientation, visual_style: visualStyle })
       }
     } catch (e) {
       alert('保存配置失败: ' + String(e))
@@ -345,9 +349,59 @@ export default function GenerateVideo() {
               </div>
             </div>
             <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>渲染风格</label>
+              <label style={labelStyle}>视频视觉风格</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8 }}>
+                {Object.entries(visualStyles).length > 0 ? Object.entries(visualStyles).map(([key, cfg]) => {
+                  const isActive = visualStyle === key
+                  return (
+                    <div key={key}
+                      role="button" tabIndex={0}
+                      onClick={() => { setVisualStyleLocal(key); setStoreVisualStyle(key) }}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setVisualStyleLocal(key); setStoreVisualStyle(key) } }}
+                      style={{
+                        padding: 10, border: `2px solid ${isActive ? pink : '#E3E5E7'}`, borderRadius: 8,
+                        cursor: 'pointer', background: isActive ? 'rgba(251,114,153,0.04)' : '#fff',
+                        transition: 'all 0.2s', textAlign: 'center', outline: 'none',
+                      }}>
+                      <div style={{
+                        height: 32, borderRadius: 4, marginBottom: 6,
+                        background: cfg.paper_color,
+                        border: `2px solid ${cfg.accent_red}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <span style={{ fontSize: 11, color: cfg.text_c, fontWeight: 600 }}>Aa</span>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? pink : '#1F2328' }}>{cfg.name_cn}</div>
+                      <div style={{ fontSize: 11, color: '#8A8F99', marginTop: 1 }}>{key}</div>
+                    </div>
+                  )
+                }) : (
+                  Object.entries({ manga: { name_cn: '日式漫画', paper_color: '#FFF8F0', accent_red: '#E04040', text_c: '#1A1A2E' } }).map(([key, cfg]) => {
+                    const isActive = visualStyle === key
+                    return (
+                      <div key={key}
+                        role="button" tabIndex={0}
+                        onClick={() => { setVisualStyleLocal(key); setStoreVisualStyle(key) }}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setVisualStyleLocal(key); setStoreVisualStyle(key) } }}
+                        style={{
+                          padding: 10, border: `2px solid ${isActive ? pink : '#E3E5E7'}`, borderRadius: 8,
+                          cursor: 'pointer', background: isActive ? 'rgba(251,114,153,0.04)' : '#fff',
+                          transition: 'all 0.2s', textAlign: 'center', outline: 'none',
+                        }}>
+                        <div style={{ height: 32, borderRadius: 4, marginBottom: 6, background: cfg.paper_color, border: `2px solid ${cfg.accent_red}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: 11, color: cfg.text_c, fontWeight: 600 }}>Aa</span>
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? pink : '#1F2328' }}>{cfg.name_cn}</div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>动画模式</label>
               <select value={animationStyle} onChange={e => setAnimationStyle(e.target.value as 'contain' | 'side')} style={inputStyle}>
-                <option value="contain">漫画风完整显示（默认）</option>
+                <option value="contain">完整显示（默认）</option>
                 <option value="side">侧栏裁切</option>
               </select>
             </div>
@@ -401,6 +455,7 @@ export default function GenerateVideo() {
           )}
           <div style={{ display: 'flex', gap: 16 }}>
             <span style={{ fontSize: 13, color: '#606773' }}>风格: <b>{styleLabel(style)}</b></span>
+            <span style={{ fontSize: 13, color: '#606773' }}>视觉: <b>{visualStyles[visualStyle]?.name_cn || visualStyle}</b></span>
             <span style={{ fontSize: 13, color: '#606773' }}>平台: <b>{platform}</b></span>
             <span style={{ fontSize: 13, color: '#606773' }}>时长: <b>{duration}s</b></span>
           </div>
@@ -479,6 +534,8 @@ export default function GenerateVideo() {
                 ttsAudioUrl={ttsAudioUrl || undefined}
                 ttsDuration={ttsDuration || undefined}
                 renderMode={animationStyle}
+                visualStyle={visualStyle}
+                visualStyles={visualStyles}
                 onUploadMaterial={(idx, file) => uploadMaterial(idx, file)}
                 onEditScene={(idx, field, value) => setStoryboardItem(idx, { [field]: value })}
                 editable

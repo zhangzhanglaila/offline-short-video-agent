@@ -21,6 +21,8 @@ interface Props {
   onEditScene?: (index: number, field: string, value: string | string[]) => void
   editable?: boolean
   renderMode?: 'contain' | 'side'
+  visualStyle?: string
+  visualStyles?: Record<string, { name_cn: string }>
 }
 
 function buildFallback(script: string): StoryboardScene[] {
@@ -40,7 +42,7 @@ function buildFallback(script: string): StoryboardScene[] {
   })
 }
 
-export default function StoryboardPreview({ storyboard, fullScript, ttsAudioUrl, onUploadMaterial, onEditScene, editable = false, renderMode = 'contain' }: Props) {
+export default function StoryboardPreview({ storyboard, fullScript, ttsAudioUrl, onUploadMaterial, onEditScene, editable = false, renderMode = 'contain', visualStyle, visualStyles }: Props) {
   const scenes = useMemo(() => (storyboard.length ? storyboard : buildFallback(fullScript)), [storyboard, fullScript])
   const [current, setCurrent] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -211,7 +213,7 @@ export default function StoryboardPreview({ storyboard, fullScript, ttsAudioUrl,
                   style={{ height: 340, borderRadius: 10, border: '2px dashed #D8DCE2', display: 'grid', placeItems: 'center', background: '#fff', color: '#7A8494' }}
                 >
                   <div style={{ textAlign: 'center' }}>
-                    <div>默认漫画风占位图</div>
+                    <div>{visualStyles?.[visualStyle ?? '']?.name_cn ?? visualStyle ?? '素材'}占位图</div>
                     {editable && onUploadMaterial && <label style={{ color: pink, cursor: 'pointer', marginTop: 8, display: 'inline-block' }}>替换素材<input type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onUploadMaterial(current, f) }} /></label>}
                   </div>
                 </div>

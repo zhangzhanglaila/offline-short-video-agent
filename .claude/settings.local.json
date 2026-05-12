@@ -269,7 +269,9 @@
       "Bash(npx vite *)",
       "Bash(tasklist /FI \"PID eq 37980\")",
       "Bash(taskkill *)",
-      "Bash(taskkill //F //IM python.exe)"
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(git show *)",
+      "Read(//tmp/**)"
     ]
   }
 }

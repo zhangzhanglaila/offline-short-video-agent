@@ -120,6 +120,7 @@ def init_topics_db():
         ("video_width", "INTEGER DEFAULT 1080"),
         ("video_height", "INTEGER DEFAULT 1920"),
         ("orientation", "TEXT DEFAULT 'portrait'"),
+        ("visual_style", "TEXT DEFAULT 'manga'"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE ecom_videos ADD COLUMN {col} {default}")

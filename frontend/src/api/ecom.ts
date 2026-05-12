@@ -37,6 +37,7 @@ export interface EcomVideo {
   session_id: string
   platform: string
   style: string
+  visual_style?: string
   script_content: string
   storyboard: Array<{ time: string; scene?: string; title?: string; bullets?: string[]; subtitle: string; duration: number; material_url?: string; style?: 'comic' | 'realistic' }>
   video_path: string
@@ -121,7 +122,7 @@ export async function fetchProductStats(): Promise<{ total: number; active: numb
 // ==================== Generate ====================
 
 export async function generateEcomVideo(data: {
-  product_id: number; style: string; platform: string; duration: number; animation_style?: 'contain' | 'side'; orientation?: 'portrait' | 'landscape'
+  product_id: number; style: string; platform: string; duration: number; animation_style?: 'contain' | 'side'; orientation?: 'portrait' | 'landscape'; visual_style?: string
 }): Promise<{ success: boolean; video_id: number; script: Record<string, unknown> }> {
   const res = await fetch(`${BASE}/api/ecom/generate`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
@@ -206,7 +207,7 @@ export async function uploadVideoMaterial(
 
 export async function renderVideo(
   videoId: number,
-  data?: { voice?: string; add_bgm?: boolean; animation_style?: 'contain' | 'side'; orientation?: 'portrait' | 'landscape' }
+  data?: { voice?: string; add_bgm?: boolean; animation_style?: 'contain' | 'side'; orientation?: 'portrait' | 'landscape'; visual_style?: string }
 ): Promise<{ success: boolean; video_id: number }> {
   const res = await fetch(`${BASE}/api/ecom/videos/${videoId}/render`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data || {}),
@@ -240,7 +241,7 @@ export async function fetchInsights(product_id?: number): Promise<{ insights: st
 
 // ==================== Meta ====================
 
-export async function fetchEcomMeta(): Promise<{ styles: Record<string, string>; platforms: string[] }> {
+export async function fetchEcomMeta(): Promise<{ styles: Record<string, string>; platforms: string[]; visual_styles: Record<string, { name_cn: string; paper_color: string; accent_red: string; text_c: string }> }> {
   const res = await fetch(`${BASE}/api/ecom/meta`)
   return safeJson(res) as never
 }
