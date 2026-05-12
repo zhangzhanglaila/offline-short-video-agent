@@ -79,6 +79,19 @@ OUTPUT_AUDIO_BITRATE = "192k"
 OUTPUT_VIDEO_BITRATE = "2M"
 DEFAULT_VIDEO_DURATION = 30
 
+# 漫画风格配置（竖屏讲解视频）
+MANGA_STYLE_CONFIG = {
+    "paper_color": "#FFF8F0",       # 漫画纸底色（米黄）
+    "panel_gap": 14,                # 分镜格间距
+    "border_width": 5,              # 格边框宽度
+    "halftone_dot_size": 3,         # 网点大小
+    "halftone_spacing": 6,          # 网点间距
+    "speedline_count": 28,          # 速度线默认数量
+    "text_color_primary": "#1A1A2E",
+    "accent_red": "#E04040",
+    "accent_blue": "#3060C0",
+}
+
 PLATFORM_CONFIGS = {
     "抖音": {
         "max_duration": 60,
@@ -101,7 +114,7 @@ PLATFORM_CONFIGS = {
     "B站": {
         "max_duration": 600,
         "min_duration": 30,
-        "aspect_ratio": "9:16",
+        "aspect_ratio": "16:9",
         "output_dir": OUTPUT_BILIBILI,
         "title_max_len": 60,
         "desc_max_len": 500,

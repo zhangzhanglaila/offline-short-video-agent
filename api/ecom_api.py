@@ -149,10 +149,10 @@ def _normalize_storyboard(script_result: dict, duration: int) -> list[dict]:
 
 
 def _ensure_storyboard_placeholders(video_id: int, storyboard: list[dict], script_content: str) -> list[dict]:
-    """Generate comic-style placeholders for scenes without material_url."""
+    """Generate manga-style placeholders for scenes without material_url."""
     scene_dir = config.OUTPUT_DIR / "storyboard" / f"video_{video_id}"
     scene_dir.mkdir(parents=True, exist_ok=True)
-    generated = _generate_comic_placeholders(storyboard or [], script_content, scene_dir)
+    generated = _generate_manga_frames(storyboard or [], script_content, scene_dir)
     idx = 0
     for i, scene in enumerate(storyboard):
         if scene.get("material_url"):
@@ -566,267 +566,18 @@ async def api_render_video(video_id: int, data: dict = None):
     return JSONResponse({'success': True, 'video_id': video_id})
 
 
-def _generate_text_placeholders(storyboard, script_content, work_dir):
-    """无素材时，为每个分镜生成纯色背景+文字的占位图。"""
-    try:
-        from PIL import Image, ImageDraw, ImageFont
-    except ImportError:
-        return []
-
-    # 配色方案
-    palettes = [
-        ((251, 114, 153), (255, 255, 255)),  # 粉底白字
-        ((35, 37, 41), (255, 255, 255)),      # 深底白字
-        ((82, 196, 26), (255, 255, 255)),     # 绿底白字
-        ((24, 144, 255), (255, 255, 255)),    # 蓝底白字
-        ((250, 173, 20), (35, 37, 41)),       # 黄底深字
-        ((114, 46, 209), (255, 255, 255)),    # 紫底白字
-    ]
-
-    # 加载字体
-    font = None
-    font_paths = [
-        "C:/Windows/Fonts/msyh.ttc",
-        "C:/Windows/Fonts/simhei.ttf",
-        "C:/Windows/Fonts/simsun.ttc",
-    ]
-    for fp in font_paths:
-        try:
-            font = ImageFont.truetype(fp, 36)
-            break
-        except Exception:
-            continue
-    if font is None:
-        try:
-            font = ImageFont.load_default()
-        except Exception:
-            return []
-
-    w, h = 1280, 720
-    images = []
-    scenes = storyboard if storyboard else [{'subtitle': s} for s in script_content.split('。') if s.strip()]
-
-    for i, sb in enumerate(scenes):
-        bg_color, text_color = palettes[i % len(palettes)]
-        img = Image.new('RGB', (w, h), bg_color)
-        draw = ImageDraw.Draw(img)
-
-        # 文字内容
-        text = sb.get('subtitle', '') or sb.get('text', '') or sb.get('scene', '') or script_content[:60]
-
-        # 自动换行
-        lines = []
-        line = ''
-        for ch in text:
-            line += ch
-            bbox = draw.textbbox((0, 0), line, font=font)
-            if bbox[2] > w - 120:
-                lines.append(line[:-1])
-                line = ch
-        if line:
-            lines.append(line)
-
-        # 居中绘制
-        line_h = 50
-        total_h = len(lines) * line_h
-        y = (h - total_h) // 2
-        for ln in lines[:6]:
-            bbox = draw.textbbox((0, 0), ln, font=font)
-            tw = bbox[2] - bbox[0]
-            x = (w - tw) // 2
-            draw.text((x, y), ln, fill=text_color, font=font)
-            y += line_h
-
-        # 场景编号
-        num_text = f"{i + 1}/{len(scenes)}"
-        draw.text((w - 100, 30), num_text, fill=(*text_color[:3], 150), font=font)
-
-        out_path = str(work_dir / f"placeholder_{i}.png")
-        img.save(out_path)
-        images.append(out_path)
-
-    return images
-
-
-def _generate_comic_placeholders(storyboard, script_content, work_dir):
-    """Render comic-style placeholder frames with title, bullets and subtitle."""
-    try:
-        from PIL import Image, ImageDraw, ImageFont
-    except ImportError:
-        return _generate_text_placeholders(storyboard, script_content, work_dir)
-
-    work_dir = Path(work_dir)
-    work_dir.mkdir(parents=True, exist_ok=True)
-    font_title = None
-    font_body = None
-    for fp in ("C:/Windows/Fonts/msyhbd.ttc", "C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/simhei.ttf"):
-        try:
-            font_title = ImageFont.truetype(fp, 48)
-            font_body = ImageFont.truetype(fp, 34)
-            break
-        except Exception:
-            continue
-    if font_title is None or font_body is None:
-        try:
-            font_title = ImageFont.load_default()
-            font_body = ImageFont.load_default()
-        except Exception:
-            return _generate_text_placeholders(storyboard, script_content, work_dir)
-
-    scenes = storyboard if storyboard else [{"title": f"场景 {i+1}", "subtitle": s, "bullets": _extract_bullets(s)} for i, s in enumerate(_split_sentences(script_content))]
-    if not scenes:
-        scenes = [{"title": "场景 1", "subtitle": "内容介绍", "bullets": ["内容介绍"]}]
-
-    w, h = 1280, 720
-    palettes = [
-        ((250, 251, 252), (247, 227, 236), (251, 114, 153)),
-        ((245, 246, 247), (233, 245, 236), (82, 196, 26)),
-        ((250, 251, 252), (232, 242, 252), (24, 144, 255)),
-    ]
-    out = []
-    for i, sb in enumerate(scenes):
-        bg, panel, accent = palettes[i % len(palettes)]
-        img = Image.new("RGB", (w, h), bg)
-        draw = ImageDraw.Draw(img)
-        title = str((sb.get("title") or f"场景 {i+1}")).strip()[:30]
-        subtitle = str((sb.get("subtitle") or "")).strip()
-        bullets = sb.get("bullets") if isinstance(sb.get("bullets"), list) else _extract_bullets(subtitle)
-        bullets = [str(x).strip() for x in bullets if str(x).strip()][:4] or ["要点说明"]
-
-        draw.rounded_rectangle([36, 30, w - 36, h - 30], radius=24, outline=accent, width=6, fill=bg)
-        draw.rounded_rectangle([70, 64, w - 70, 184], radius=18, outline=accent, width=4, fill=(255, 255, 255))
-        draw.text((96, 96), title, fill=(32, 35, 42), font=font_title)
-
-        y = 220
-        for b in bullets:
-            draw.rounded_rectangle([86, y, w - 86, y + 96], radius=14, outline=(219, 225, 232), width=2, fill=panel)
-            draw.text((112, y + 28), f"• {b[:34]}", fill=(43, 47, 55), font=font_body)
-            y += 110
-
-        if subtitle:
-            draw.rounded_rectangle([86, h - 120, w - 86, h - 56], radius=12, outline=(219, 225, 232), width=2, fill=(255, 255, 255))
-            draw.text((110, h - 102), subtitle[:46], fill=(95, 102, 112), font=font_body)
-
-        draw.text((w - 180, 36), f"{i+1}/{len(scenes)}", fill=accent, font=font_body)
-        p = work_dir / f"comic_scene_{i}.png"
-        img.save(p)
-        out.append(str(p))
-    return out
-
-
-def _generate_comic_explain_frames(storyboard, script_content, work_dir, materials=None):
-    """Generate horizontal comic-explain frames (text first, media secondary)."""
-    try:
-        from PIL import Image, ImageDraw, ImageFont
-    except ImportError:
-        return _generate_comic_placeholders(storyboard, script_content, work_dir)
+def _generate_manga_frames(storyboard, script_content, work_dir, materials=None):
+    """漫画风竖屏讲解帧 — 文字为主，网点纸+气泡框+速度线+分镜格。"""
+    from core.manga_frame_renderer import MangaFrameRenderer
 
     materials = materials or {}
-    work_dir = Path(work_dir)
-    work_dir.mkdir(parents=True, exist_ok=True)
-
-    title_font = None
-    body_font = None
-    for fp in ("C:/Windows/Fonts/msyhbd.ttc", "C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/simhei.ttf"):
-        try:
-            title_font = ImageFont.truetype(fp, 48)
-            body_font = ImageFont.truetype(fp, 32)
-            break
-        except Exception:
-            continue
-    if title_font is None or body_font is None:
-        title_font = ImageFont.load_default()
-        body_font = ImageFont.load_default()
-
-    scenes = storyboard if storyboard else [{"title": "讲解", "subtitle": script_content[:80], "bullets": _extract_bullets(script_content)}]
-    w, h = 1280, 720
-    outputs = []
-    for i, scene in enumerate(scenes):
-        bg = Image.new("RGB", (w, h), (248, 250, 252))
-        draw = ImageDraw.Draw(bg)
-
-        def _fit_text(text: str, font, max_width: int, prefix: str = "") -> str:
-            """Trim text by rendered width so long copy stays inside comic panels."""
-            text = str(text or "").replace("\n", " ").strip()
-            suffix = "..."
-            if draw.textlength(prefix + text, font=font) <= max_width:
-                return prefix + text
-            available = max_width - draw.textlength(prefix + suffix, font=font)
-            if available <= 0:
-                return prefix + suffix
-            lo, hi = 0, len(text)
-            while lo < hi:
-                mid = (lo + hi + 1) // 2
-                if draw.textlength(text[:mid], font=font) <= available:
-                    lo = mid
-                else:
-                    hi = mid - 1
-            return prefix + text[:lo].rstrip() + suffix
-
-        # comic background accents
-        draw.rectangle([0, 0, w, 110], fill=(242, 245, 249))
-        draw.rectangle([0, h - 70, w, h], fill=(245, 247, 250))
-        draw.rounded_rectangle([24, 24, w - 24, h - 24], radius=20, outline=(251, 114, 153), width=4, fill=(250, 251, 252))
-
-        # left explain panel
-        lx0, ly0, lx1, ly1 = 46, 46, 860, 674
-        draw.rounded_rectangle([lx0, ly0, lx1, ly1], radius=18, fill=(255, 255, 255), outline=(236, 220, 228), width=3)
-
-        title = str(scene.get("title") or f"场景 {i+1}")[:28]
-        subtitle = _fit_text(str(scene.get("subtitle") or "summary"), body_font, 700)
-        bullets = scene.get("bullets") if isinstance(scene.get("bullets"), list) else _extract_bullets(subtitle)
-        bullets = [_fit_text(x, body_font, 690).strip() for x in bullets]
-        bullets = [str(x).strip() for x in bullets if str(x).strip()][:4] or ["要点讲解"]
-
-        draw.rounded_rectangle([70, 72, 836, 154], radius=12, fill=(255, 244, 248), outline=(251, 114, 153), width=2)
-        draw.text((92, 92), _fit_text(title, title_font, 720), fill=(34, 36, 42), font=title_font)
-
-        y = 186
-        for b in bullets:
-            draw.rounded_rectangle([78, y, 832, y + 96], radius=12, fill=(247, 250, 253), outline=(220, 226, 233), width=2)
-            draw.text((104, y + 28), f"• {b[:34]}", fill=(44, 48, 56), font=body_font)
-            y += 108
-
-        draw.rounded_rectangle([78, 620, 832, 664], radius=10, fill=(252, 252, 252), outline=(222, 226, 232), width=2)
-        draw.text((98, 632), subtitle[:44] if subtitle else "辅助讲解", fill=(92, 99, 109), font=body_font)
-
-        # right media panel (secondary)
-        rx0, ry0, rx1, ry1 = 886, 96, 1238, 620
-        draw.rounded_rectangle([rx0, ry0, rx1, ry1], radius=16, fill=(255, 255, 255), outline=(220, 226, 233), width=3)
-        draw.text((922, 58), "素材辅助", fill=(117, 124, 136), font=body_font)
-
-        media_img = None
-        mp = materials.get(str(i))
-        if mp and Path(mp).exists():
-            try:
-                media_img = Image.open(mp).convert("RGB")
-            except Exception:
-                media_img = None
-        if media_img is None and scene.get("material_url"):
-            p = str(scene.get("material_url"))
-            if p.startswith("/static/output/"):
-                local = config.OUTPUT_DIR / p.replace("/static/output/", "")
-                if local.exists():
-                    try:
-                        media_img = Image.open(local).convert("RGB")
-                    except Exception:
-                        media_img = None
-        if media_img is not None:
-            media_img.thumbnail((rx1 - rx0 - 26, ry1 - ry0 - 26))
-            px = rx0 + ((rx1 - rx0) - media_img.width) // 2
-            py = ry0 + ((ry1 - ry0) - media_img.height) // 2
-            bg.paste(media_img, (px, py))
-            draw.rounded_rectangle([px - 4, py - 4, px + media_img.width + 4, py + media_img.height + 4], radius=8, outline=(251, 114, 153), width=2)
-        else:
-            draw.rounded_rectangle([rx0 + 24, ry0 + 24, rx1 - 24, ry1 - 24], radius=12, fill=(246, 248, 250), outline=(210, 218, 228), width=2)
-            draw.text((rx0 + 72, (ry0 + ry1) // 2 - 16), "无素材", fill=(137, 146, 160), font=body_font)
-
-        draw.text((w - 148, 28), f"{i+1}/{len(scenes)}", fill=(251, 114, 153), font=body_font)
-        out = work_dir / f"explain_scene_{i}.png"
-        bg.save(out)
-        outputs.append(str(out))
-
-    return outputs
+    renderer = MangaFrameRenderer()
+    return renderer.render_storyboard(
+        storyboard=storyboard,
+        script_content=script_content,
+        work_dir=str(work_dir),
+        materials=materials,
+    )
 
 
 def _run_render_pipeline(video_id: int):
@@ -886,14 +637,11 @@ def _run_render_pipeline(video_id: int):
 
         image_fetch = get_image_fetch_module()
 
-        # 讲解风：优先生成漫画讲解帧（文字主导，素材次要）
-        images = _generate_comic_explain_frames(storyboard, script_content, work_dir, materials=materials)
+        # 漫画风竖屏讲解帧（文字主导，素材次要）
+        images = _generate_manga_frames(storyboard, script_content, work_dir, materials=materials)
         if not images:
-            # fallback
-            images = _generate_comic_placeholders(storyboard, script_content, work_dir)
-            if not images:
-                _update(step='failed', status='failed', error_msg='无可用素材，请上传分镜素材')
-                return
+            _update(step='failed', status='failed', error_msg='漫画帧生成失败，请检查素材')
+            return
 
         # 生成 timeline segments
         segments = []
@@ -917,20 +665,19 @@ def _run_render_pipeline(video_id: int):
                     'image_index': i,
                 })
 
-        # Step: 动画视频
+        # Step: 动画视频（使用 config 默认竖屏尺寸）
         _update(step='rendering')
         from core.animation_module import get_animation_module
         animation = get_animation_module()
-        # 强制横屏生成
-        animation.output_width = 1280
-        animation.output_height = 720
+        animation.output_width = config.OUTPUT_WIDTH
+        animation.output_height = config.OUTPUT_HEIGHT
 
         raw_video_path = str(work_dir / "raw_video.mp4")
         anim_ok = animation.create_animated_video_from_segments(
             images=images,
             segments=segments,
             output_path=raw_video_path,
-            animation_style="ken_burns" if animation_style == "side" else "static",
+            animation_style="manga_frame",
             transition="fade",
         )
         if not anim_ok:

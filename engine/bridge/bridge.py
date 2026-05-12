@@ -455,12 +455,12 @@ def _build_shot_objects(
     glow_enabled = bool(meta.get('glow', False))
     shake_enabled = bool(meta.get('shake', False))
 
-    # 固定参数：图片216×768，右侧居中放置，禁止修改
-    subject_width = 216
-    subject_height = 768
-    subject_from_x = 864   # 1080 - 216 = 864，紧贴右侧
-    subject_to_x = 864
-    subject_y = 576        # (1920 - 768) / 2 = 576，垂直居中
+    # 全帧contain布局参数
+    subject_width = 540
+    subject_height = 720
+    subject_from_x = 270   # (1080 - 540) / 2 = 270，水平居中
+    subject_to_x = 270
+    subject_y = 600        # (1920 - 720) / 2 = 600，垂直居中
     fg_from_x, fg_to_x = {
         'approach': (790, 610),
         'reveal': (700, 940),

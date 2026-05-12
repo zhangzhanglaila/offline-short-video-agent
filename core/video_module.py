@@ -36,10 +36,6 @@ def _log(msg: str, level: str = 'info'):
 class VideoModule:
     """FFmpeg视频剪辑模块"""
 
-    # 固定侧边图片尺寸（硬编码，不允许修改）
-    STRIP_WIDTH = 216
-    STRIP_HEIGHT = 768
-
     def __init__(self):
         """初始化视频剪辑模块"""
         self.output_width = OUTPUT_WIDTH
@@ -114,27 +110,24 @@ class VideoModule:
     def _image_to_clip(self, image_path: str, output_path: str,
                        duration: int, transition: str = "none",
                        placement: str = "right") -> bool:
-        """将单张图片转为短视频片段：固定216×768右侧居中，白色留白"""
-        # 固定参数，禁止修改
-        W, H = 1080, 1920
-        SW, SH = 216, 768
-        pad_x = 0 if placement == "left" else W - SW  # 864
-        pad_y = (H - SH) // 2  # 576
-
-        scale_crop_pad = (
-            f"scale={W}:{H}:force_original_aspect_ratio=increase,"
-            f"crop={SW}:{SH},"
-            f"pad={W}:{H}:{pad_x}:{pad_y}:color=white"
+        """全帧contain模式 — 模糊背景补全，图片居中显示。"""
+        W, H = self.output_width, self.output_height
+        filter_complex = (
+            f"[0:v]split=2[fg][bg];"
+            f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,"
+            f"crop={W}:{H},boxblur=12:6[bgblur];"
+            f"[fg]scale={W}:{H}:force_original_aspect_ratio=decrease[fgscaled];"
+            f"[bgblur][fgscaled]overlay=(W-w)/2:(H-h)/2"
         )
 
         if transition == "fade":
-            scale_crop_pad += f",fade=t=out:st={duration-1}:d=1,fade=t=in:st=0:d=0.5"
+            filter_complex += ",fade=t=out:st={:.1f}:d=1,fade=t=in:st=0:d=0.5".format(duration - 1)
 
         cmd = [
             "ffmpeg", "-y", "-loop", "1",
             "-i", image_path,
             "-t", str(duration),
-            "-vf", scale_crop_pad,
+            "-filter_complex", filter_complex,
             "-pix_fmt", "yuv420p",
             "-r", str(self.output_fps),
             "-c:v", "libx264",
@@ -337,21 +330,20 @@ class VideoModule:
             start_time = i * duration_per_image
             clip_path = Path(output_path).parent / f"temp_sync_{i}.mp4"
 
-            # 创建图片片段 - 固定216×768右侧居中，白色留白
-            W, H = 1080, 1920
-            SW, SH = 216, 768
-            pad_x = 0 if placement == "left" else W - SW
-            pad_y = (H - SH) // 2
+            # 全帧contain模式 — 模糊背景补全，图片居中
+            W, H = self.output_width, self.output_height
             vf = (
-                f"scale={W}:{H}:force_original_aspect_ratio=increase,"
-                f"crop={SW}:{SH},"
-                f"pad={W}:{H}:{pad_x}:{pad_y}:color=white"
+                f"[0:v]split=2[fg][bg];"
+                f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,"
+                f"crop={W}:{H},boxblur=12:6[bgblur];"
+                f"[fg]scale={W}:{H}:force_original_aspect_ratio=decrease[fgscaled];"
+                f"[bgblur][fgscaled]overlay=(W-w)/2:(H-h)/2"
             )
             cmd = [
                 "ffmpeg", "-y", "-loop", "1",
                 "-i", img,
                 "-t", str(duration_per_image),
-                "-vf", vf,
+                "-filter_complex", vf,
                 "-pix_fmt", "yuv420p",
                 "-r", str(self.output_fps),
                 "-c:v", "libx264",
