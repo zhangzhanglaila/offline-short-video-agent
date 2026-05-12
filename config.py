@@ -73,6 +73,13 @@ WHISPER_LANGUAGE = "zh"
 
 OUTPUT_WIDTH = 1080
 OUTPUT_HEIGHT = 1920
+DEFAULT_ORIENTATION = "portrait"
+
+def get_output_dimensions(orientation: str = "portrait") -> tuple:
+    """返回 (width, height) 基于方向。portrait=1080×1920, landscape=1920×1080。"""
+    if orientation == "landscape":
+        return 1920, 1080
+    return 1080, 1920
 OUTPUT_FPS = 30
 OUTPUT_CRF = 23
 OUTPUT_AUDIO_BITRATE = "192k"

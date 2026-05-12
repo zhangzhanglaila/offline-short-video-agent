@@ -66,9 +66,15 @@ def _normalize_script_result(script_result: dict) -> dict:
     return normalized
 
 
-def _extract_bullets(text: str, max_items: int = 4) -> list[str]:
-    candidates = [s.strip("，。；;、 ") for s in re.split(r"[，。；;、\n]", text or "") if s.strip("，。；;、 ")]
-    return candidates[:max_items] if candidates else [text.strip()[:24]] if text.strip() else []
+def _extract_bullets(text: str, max_items: int = 6) -> list[str]:
+    # 仅在句子边界拆分（句号/问号/感叹号），不在逗号顿号处拆分，保持每段信息量充足
+    parts = re.split(r'(?<=[。！？!?])\s*|\n+', text or "")
+    candidates = [s.strip() for s in parts if s.strip()]
+    if candidates:
+        return candidates[:max_items]
+    if text and text.strip():
+        return [text.strip()]
+    return []
 
 
 def _normalize_storyboard(script_result: dict, duration: int) -> list[dict]:
@@ -287,6 +293,8 @@ async def api_ecom_generate(data: dict):
     animation_style = data.get('animation_style', 'comic_explain')
     platform = data.get('platform', 'TikTok')
     duration = data.get('duration', 30)
+    orientation = data.get('orientation', 'portrait')
+    video_width, video_height = config.get_output_dimensions(orientation)
 
     prompt = build_ecom_prompt(product, style, platform, duration)
     topic = product_to_topic(product, style)
@@ -311,8 +319,8 @@ async def api_ecom_generate(data: dict):
         cursor = conn.cursor()
         cursor.execute("BEGIN")
         cursor.execute("""
-            INSERT INTO ecom_videos (product_id, platform, style, script_content, storyboard, status, pipeline_step, prompt_snapshot, llm_model, duration, animation_style)
-            VALUES (?, ?, ?, ?, ?, 'script_ready', 'script_ready', ?, ?, ?, ?)
+            INSERT INTO ecom_videos (product_id, platform, style, script_content, storyboard, status, pipeline_step, prompt_snapshot, llm_model, duration, animation_style, orientation, video_width, video_height)
+            VALUES (?, ?, ?, ?, ?, 'script_ready', 'script_ready', ?, ?, ?, ?, ?, ?, ?)
         """, (
             product_id, platform, style,
             script_result.get('full_script', ''),
@@ -321,6 +329,9 @@ async def api_ecom_generate(data: dict):
             config.OPENAI_MODEL,
             duration,
             animation_style if animation_style in ('contain', 'side', 'comic_explain') else 'comic_explain',
+            orientation,
+            video_width,
+            video_height,
         ))
         video_id = cursor.lastrowid
         normalized_storyboard = _ensure_storyboard_placeholders(video_id, normalized_storyboard, script_result.get('full_script', ''))
@@ -551,10 +562,25 @@ async def api_render_video(video_id: int, data: dict = None):
         conn.close()
 
     animation_style = (data or {}).get("animation_style")
-    if animation_style in ("contain", "side"):
+    orientation = (data or {}).get("orientation")
+    if animation_style in ("contain", "side") or orientation in ("portrait", "landscape"):
         try:
             conn = sqlite3.connect(get_db_path())
-            conn.execute("UPDATE ecom_videos SET animation_style=? WHERE id=?", (animation_style, video_id))
+            params = []
+            sets = []
+            if animation_style in ("contain", "side"):
+                sets.append("animation_style=?")
+                params.append(animation_style)
+            if orientation in ("portrait", "landscape"):
+                w, h = config.get_output_dimensions(orientation)
+                sets.append("orientation=?")
+                params.append(orientation)
+                sets.append("video_width=?")
+                params.append(w)
+                sets.append("video_height=?")
+                params.append(h)
+            params.append(video_id)
+            conn.execute(f"UPDATE ecom_videos SET {', '.join(sets)} WHERE id=?", params)
             conn.commit()
             conn.close()
         except Exception:
@@ -566,12 +592,12 @@ async def api_render_video(video_id: int, data: dict = None):
     return JSONResponse({'success': True, 'video_id': video_id})
 
 
-def _generate_manga_frames(storyboard, script_content, work_dir, materials=None):
-    """漫画风竖屏讲解帧 — 文字为主，网点纸+气泡框+速度线+分镜格。"""
+def _generate_manga_frames(storyboard, script_content, work_dir, materials=None, width=1080, height=1920):
+    """漫画风讲解帧 — 文字为主，网点纸+气泡框+速度线+分镜格。支持横竖屏。"""
     from core.manga_frame_renderer import MangaFrameRenderer
 
     materials = materials or {}
-    renderer = MangaFrameRenderer()
+    renderer = MangaFrameRenderer(width=width, height=height)
     return renderer.render_storyboard(
         storyboard=storyboard,
         script_content=script_content,
@@ -623,6 +649,9 @@ def _run_render_pipeline(video_id: int):
         materials_str = row['materials_json'] or '{}'
         duration = row['duration'] or 30
         animation_style = row.get('animation_style') or 'contain'
+        orientation = row.get('orientation') or 'portrait'
+        video_width = row.get('video_width') or 1080
+        video_height = row.get('video_height') or 1920
 
         storyboard = json.loads(storyboard_str)
         materials = json.loads(materials_str)
@@ -635,10 +664,11 @@ def _run_render_pipeline(video_id: int):
         from core.image_fetch_module import get_image_fetch_module
         from core.tts_module import TTSModule
 
-        image_fetch = get_image_fetch_module()
+        image_fetch = get_image_fetch_module(orientation=orientation)
 
-        # 漫画风竖屏讲解帧（文字主导，素材次要）
-        images = _generate_manga_frames(storyboard, script_content, work_dir, materials=materials)
+        # 漫画风讲解帧（文字主导，素材次要）
+        images = _generate_manga_frames(storyboard, script_content, work_dir, materials=materials,
+                                        width=video_width, height=video_height)
         if not images:
             _update(step='failed', status='failed', error_msg='漫画帧生成失败，请检查素材')
             return
@@ -665,12 +695,12 @@ def _run_render_pipeline(video_id: int):
                     'image_index': i,
                 })
 
-        # Step: 动画视频（使用 config 默认竖屏尺寸）
+        # Step: 动画视频（横竖屏自适应）
         _update(step='rendering')
         from core.animation_module import get_animation_module
         animation = get_animation_module()
-        animation.output_width = config.OUTPUT_WIDTH
-        animation.output_height = config.OUTPUT_HEIGHT
+        animation.output_width = video_width
+        animation.output_height = video_height
 
         raw_video_path = str(work_dir / "raw_video.mp4")
         anim_ok = animation.create_animated_video_from_segments(

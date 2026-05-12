@@ -121,7 +121,7 @@ export async function fetchProductStats(): Promise<{ total: number; active: numb
 // ==================== Generate ====================
 
 export async function generateEcomVideo(data: {
-  product_id: number; style: string; platform: string; duration: number; animation_style?: 'contain' | 'side'
+  product_id: number; style: string; platform: string; duration: number; animation_style?: 'contain' | 'side'; orientation?: 'portrait' | 'landscape'
 }): Promise<{ success: boolean; video_id: number; script: Record<string, unknown> }> {
   const res = await fetch(`${BASE}/api/ecom/generate`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
@@ -206,7 +206,7 @@ export async function uploadVideoMaterial(
 
 export async function renderVideo(
   videoId: number,
-  data?: { voice?: string; add_bgm?: boolean; animation_style?: 'contain' | 'side' }
+  data?: { voice?: string; add_bgm?: boolean; animation_style?: 'contain' | 'side'; orientation?: 'portrait' | 'landscape' }
 ): Promise<{ success: boolean; video_id: number }> {
   const res = await fetch(`${BASE}/api/ecom/videos/${videoId}/render`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data || {}),

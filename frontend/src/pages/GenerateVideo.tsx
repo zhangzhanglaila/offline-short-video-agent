@@ -78,6 +78,7 @@ export default function GenerateVideo() {
   const [style, setStyle] = useState('soft_sell')
   const [platform, setPlatform] = useState('TikTok')
   const [duration, setDuration] = useState(30)
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait')
   const [styles, setStyles] = useState<Record<string, string>>({})
   const [platforms, setPlatforms] = useState<string[]>([])
   const [showApiConfig, setShowApiConfig] = useState(false)
@@ -111,7 +112,7 @@ export default function GenerateVideo() {
     animationStyle,
     ttsAudioUrl, ttsDuration, ttsGenerating,
     videoUrl, successMsg,
-    generate, setField, setStoryboardItem, setAnimationStyle, saveScript, generateTts, uploadMaterial, startRender, reset, stopPolling,
+    generate, setField, setStoryboardItem, setAnimationStyle, setOrientation: setStoreOrientation, saveScript, generateTts, uploadMaterial, startRender, reset, stopPolling,
   } = useGenerateStore()
 
   useEffect(() => {
@@ -151,7 +152,8 @@ export default function GenerateVideo() {
       setShowApiConfig(true)
       return
     }
-    generate({ product_id: Number(productId), style, platform, duration, animation_style: animationStyle })
+    setStoreOrientation(orientation)
+    generate({ product_id: Number(productId), style, platform, duration, animation_style: animationStyle, orientation })
   }
 
   const handleSaveApiConfig = async () => {
@@ -161,7 +163,8 @@ export default function GenerateVideo() {
       const res = await saveConfig(apiConfig)
       if (res.success) {
         setShowApiConfig(false)
-        generate({ product_id: Number(productId), style, platform, duration, animation_style: animationStyle })
+        setStoreOrientation(orientation)
+        generate({ product_id: Number(productId), style, platform, duration, animation_style: animationStyle, orientation })
       }
     } catch (e) {
       alert('保存配置失败: ' + String(e))
@@ -322,6 +325,23 @@ export default function GenerateVideo() {
               <div>
                 <label style={labelStyle}>视频时长（秒）</label>
                 <input type="number" min={10} max={120} value={duration} onChange={e => setDuration(Number(e.target.value))} style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>视频方向</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[
+                  { key: 'portrait', label: '竖屏 (9:16)', icon: '📱', desc: '抖音/小红书' },
+                  { key: 'landscape', label: '横屏 (16:9)', icon: '🖥', desc: 'B站/YouTube' },
+                ].map(opt => (
+                  <div key={opt.key}
+                    onClick={() => { setOrientation(opt.key as 'portrait' | 'landscape'); setStoreOrientation(opt.key as 'portrait' | 'landscape') }}
+                    style={{ padding: 12, border: `2px solid ${orientation === opt.key ? pink : '#E3E5E7'}`, borderRadius: 8, cursor: 'pointer', background: orientation === opt.key ? 'rgba(251,114,153,0.04)' : '#fff', textAlign: 'center', transition: 'all 0.2s' }}>
+                    <span style={{ fontSize: 20, display: 'block', marginBottom: 4 }}>{opt.icon}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: orientation === opt.key ? pink : '#232529' }}>{opt.label}</span>
+                    <span style={{ fontSize: 11, color: '#9499A0', display: 'block', marginTop: 2 }}>{opt.desc}</span>
+                  </div>
+                ))}
               </div>
             </div>
             <div style={{ marginBottom: 16 }}>

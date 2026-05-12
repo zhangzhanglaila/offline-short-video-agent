@@ -56,6 +56,7 @@ interface GenerateState {
   editedFullScript: string
   storyboard: StoryboardItem[]
   animationStyle: 'contain' | 'side'
+  orientation: 'portrait' | 'landscape'
 
   // TTS
   ttsAudioUrl: string
@@ -69,8 +70,9 @@ interface GenerateState {
   _pollTimer: ReturnType<typeof setInterval> | null
 
   // Actions
-  generate: (data: { product_id: number; style: string; platform: string; duration: number; animation_style?: 'contain' | 'side' }) => Promise<void>
+  generate: (data: { product_id: number; style: string; platform: string; duration: number; animation_style?: 'contain' | 'side'; orientation?: 'portrait' | 'landscape' }) => Promise<void>
   setAnimationStyle: (value: 'contain' | 'side') => void
+  setOrientation: (value: 'portrait' | 'landscape') => void
   setField: (field: string, value: string) => void
   setStoryboardItem: (index: number, item: Partial<StoryboardItem>) => void
   saveScript: () => Promise<void>
@@ -100,6 +102,7 @@ export const useGenerateStore = create<GenerateState>((set, get) => ({
   successMsg: '',
   _pollTimer: null,
   animationStyle: 'contain',
+  orientation: 'portrait',
 
   generate: async (data) => {
     set({ generating: true, error: '', videoId: null, pipelineStep: 'init', videoUrl: '', ttsAudioUrl: '' })
@@ -139,6 +142,7 @@ export const useGenerateStore = create<GenerateState>((set, get) => ({
     set({ [field]: value } as never)
   },
   setAnimationStyle: (value) => set({ animationStyle: value }),
+  setOrientation: (value) => set({ orientation: value }),
 
   setStoryboardItem: (index, item) => {
     const sb = [...get().storyboard]
@@ -209,11 +213,11 @@ export const useGenerateStore = create<GenerateState>((set, get) => ({
   },
 
   startRender: async (voice) => {
-    const { videoId, animationStyle } = get()
+    const { videoId, animationStyle, orientation } = get()
     if (!videoId) return
     set({ error: '' })
     try {
-      const res = await renderVideo(videoId, { voice, animation_style: animationStyle })
+      const res = await renderVideo(videoId, { voice, animation_style: animationStyle, orientation })
       if (res.success) {
         set({ pipelineStep: 'rendering' })
         get().startPolling()

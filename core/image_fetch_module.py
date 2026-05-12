@@ -49,7 +49,8 @@ class ImageFetchModule:
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
     }
 
-    def __init__(self):
+    def __init__(self, orientation: str = "portrait"):
+        self.orientation = orientation  # "portrait" or "landscape"
         self.output_dir = config.MATERIAL_DIR
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._session = requests.Session()
@@ -70,7 +71,7 @@ class ImageFetchModule:
             params = {
                 "query": keywords,
                 "per_page": per_page,
-                "orientation": "portrait",
+                "orientation": self.orientation,
                 "size": "large"
             }
 
@@ -107,7 +108,7 @@ class ImageFetchModule:
             params = {
                 "query": keywords,
                 "per_page": per_page,
-                "orientation": "portrait"
+                "orientation": self.orientation
             }
 
             response = self._session.get(
@@ -369,11 +370,11 @@ class ImageFetchModule:
 _module_instance = None
 
 
-def get_image_fetch_module() -> ImageFetchModule:
-    """获取图库抓取模块单例"""
+def get_image_fetch_module(orientation: str = "portrait") -> ImageFetchModule:
+    """获取图库抓取模块单例（orientation变化时重新创建）"""
     global _module_instance
-    if _module_instance is None:
-        _module_instance = ImageFetchModule()
+    if _module_instance is None or _module_instance.orientation != orientation:
+        _module_instance = ImageFetchModule(orientation=orientation)
     return _module_instance
 
 

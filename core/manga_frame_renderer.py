@@ -187,6 +187,42 @@ def draw_speed_lines(draw: ImageDraw.Draw,
         draw.line([(x1, y1), (x2, y2)], fill=(0, 0, 0, opacity), width=w)
 
 
+def draw_crosshatch(draw: ImageDraw.Draw, x0: int, y0: int, x1: int, y1: int,
+                    spacing: int = 10, opacity: int = 15, angle: float = 45):
+    """纯PIL交叉排线 — 漫画阴影纹理，不依赖numpy。"""
+    import math
+    color = (0, 0, 0, opacity)
+    rad = math.radians(angle)
+    cos_a, sin_a = math.cos(rad), math.sin(rad)
+
+    # 计算覆盖范围
+    cx = (x0 + x1) / 2
+    cy = (y0 + y1) / 2
+    half_diag = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2) / 2 + 20
+
+    # 画平行线
+    n_lines = int(half_diag * 2 / spacing)
+    for i in range(-n_lines, n_lines):
+        offset = i * spacing
+        # 线通过中心点，垂直于角度方向
+        sx = cx + offset * cos_a - half_diag * (-sin_a)
+        sy = cy + offset * sin_a - half_diag * cos_a
+        ex = cx + offset * cos_a + half_diag * (-sin_a)
+        ey = cy + offset * sin_a + half_diag * cos_a
+        draw.line([(int(sx), int(sy)), (int(ex), int(ey))], fill=color, width=1)
+
+    # 第二组交叉线（90度）
+    rad2 = rad + math.pi / 2
+    cos_a2, sin_a2 = math.cos(rad2), math.sin(rad2)
+    for i in range(-n_lines, n_lines):
+        offset = i * spacing
+        sx = cx + offset * cos_a2 - half_diag * (-sin_a2)
+        sy = cy + offset * sin_a2 - half_diag * cos_a2
+        ex = cx + offset * cos_a2 + half_diag * (-sin_a2)
+        ey = cy + offset * sin_a2 + half_diag * cos_a2
+        draw.line([(int(sx), int(sy)), (int(ex), int(ey))], fill=color, width=1)
+
+
 def draw_parallel_speed_lines(draw: ImageDraw.Draw,
                               x0: int, y0: int, x1: int, y1: int,
                               count: int = 16, opacity: int = 50):
@@ -225,118 +261,6 @@ def draw_parallel_speed_lines(draw: ImageDraw.Draw,
                 draw.line([segs[s], segs[s+1]], fill=(0, 0, 0, opacity), width=w)
 
 
-# ═══════════════════════════════════════════════════════════════
-# 对话框 / 气泡 (Speech Bubble)
-# ═══════════════════════════════════════════════════════════════
-
-def draw_speech_bubble(draw: ImageDraw.Draw,
-                       bounds: Tuple[int,int,int,int],
-                       tail_tip: Tuple[int,int],
-                       tail_base_width: int = 30,
-                       fill_color: str = "#FFFFFF",
-                       outline_color: str = "#1A1A2E",
-                       outline_width: int = 4):
-    """绘制椭圆对话框 + 三角尾巴。
-
-    bounds: (x0, y0, x1, y1) — 椭圆包围盒
-    tail_tip: (tx, ty) — 尾巴尖端点
-    """
-    x0, y0, x1, y1 = bounds
-    # 圆角矩形主体
-    r = 24
-    draw.rounded_rectangle([x0, y0, x1, y1], radius=r,
-                           fill=fill_color, outline=outline_color,
-                           width=outline_width)
-
-    # 三角尾巴 — 决定尾巴方向
-    tx, ty = tail_tip
-    cx = (x0 + x1) // 2
-    cy = (y0 + y1) // 2
-
-    # 找最近边的连接点
-    if tx < x0:  # 左侧
-        bx, by = x0 + 10, max(y0 + 40, min(y1 - 40, ty))
-    elif tx > x1:  # 右侧
-        bx, by = x1 - 10, max(y0 + 40, min(y1 - 40, ty))
-    elif ty < y0:  # 上方
-        bx, by = max(x0 + 40, min(x1 - 40, tx)), y0 + 10
-    else:  # 下方
-        bx, by = max(x0 + 40, min(x1 - 40, tx)), y1 - 10
-
-    # 尾巴三角形
-    hw = tail_base_width // 2
-    if abs(tx - bx) > abs(ty - by):
-        dy = hw
-        dx = abs(tx - bx) // 3
-        mid_x = (tx + bx) // 2
-        pts = [(tx, ty), (bx - dx, by - dy), (bx + dx, by + dy)]
-    else:
-        dx = hw
-        dy = abs(ty - by) // 3
-        mid_y = (ty + by) // 2
-        pts = [(tx, ty), (bx - dx, by - dy), (bx + dx, by + dy)]
-
-    # 先用填充色画三角形盖住边框线
-    draw.polygon(pts, fill=fill_color)
-    # 再画三角形轮廓
-    draw.line([pts[0], pts[1]], fill=outline_color, width=outline_width)
-    draw.line([pts[0], pts[2]], fill=outline_color, width=outline_width)
-    # 重画气泡主体边框（盖住连接处）
-    draw.rounded_rectangle([x0, y0, x1, y1], radius=r,
-                           fill=None, outline=outline_color, width=outline_width)
-
-
-def draw_thought_bubble(draw: ImageDraw.Draw,
-                        bounds: Tuple[int,int,int,int],
-                        tail_origin: Tuple[int,int],
-                        fill_color: str = "#FFFFFF",
-                        outline_color: str = "#A0A8B0"):
-    """绘制云朵状思考气泡（小圆点组成的尾巴）。"""
-    x0, y0, x1, y1 = bounds
-    # 主气泡：更圆润
-    draw.rounded_rectangle([x0, y0, x1, y1], radius=30,
-                           fill=fill_color, outline=outline_color, width=3)
-
-    # 云朵尾巴：一串递减的小圆
-    tx, ty = tail_origin
-    # 找气泡最近点
-    if tx < x0:
-        sx, sy = x0, max(y0 + 30, min(y1 - 30, ty))
-    elif tx > x1:
-        sx, sy = x1, max(y0 + 30, min(y1 - 30, ty))
-    elif ty < y0:
-        sx, sy = max(x0 + 30, min(x1 - 30, tx)), y0
-    else:
-        sx, sy = max(x0 + 30, min(x1 - 30, tx)), y1
-
-    sizes = [14, 10, 7, 5]
-    for i, r in enumerate(sizes):
-        frac = (i + 1) / len(sizes)
-        px = int(sx + (tx - sx) * frac)
-        py = int(sy + (ty - sy) * frac)
-        draw.ellipse([px - r, py - r, px + r, py + r],
-                     fill=fill_color, outline=outline_color, width=2)
-
-
-# ═══════════════════════════════════════════════════════════════
-# 分镜格面板 (Panel)
-# ═══════════════════════════════════════════════════════════════
-
-def draw_manga_panel(draw: ImageDraw.Draw,
-                     bounds: Tuple[int,int,int,int],
-                     border_color: str = "#1A1A2E",
-                     border_width: int = None,
-                     inner_highlight: bool = True):
-    """绘制漫画分镜格边框（外粗内细双线）。"""
-    bw = border_width if border_width is not None else BORDER_W
-    x0, y0, x1, y1 = bounds
-    # 外边框（粗）
-    draw.rectangle([x0, y0, x1, y1], outline=border_color, width=bw)
-    # 内边框（细，留间隙）
-    if inner_highlight and bw >= 4:
-        inset = bw + 2
-        draw.rectangle([x0 + inset, y0 + inset, x1 - inset, y1 - inset],
-                       outline=border_color, width=max(1, bw // 3))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -350,6 +274,7 @@ class MangaFrameRenderer:
                  dark_mode: bool = False):
         self.w = width or W
         self.h = height or H
+        self.orientation = "landscape" if self.w > self.h else "portrait"
         self.dark = dark_mode
         if dark_mode:
             self.paper = "#1E1E2E"
@@ -374,30 +299,43 @@ class MangaFrameRenderer:
                      total_scenes: int = 1,
                      sfx_text: str = "",
                      accent_color: str = None) -> str:
-        """渲染单帧漫画讲解图。
+        """渲染单帧漫画讲解图 — 网点纸+气泡框+速度线+分镜格全开。
 
         布局 (1080×1920)：
-        ┌──────────────────────────┐
-        │  标题面板 + 网点背景       │  240px
-        │  ▸ SFX 拟声词（可选）     │
-        ├──────────────┬───────────┤
-        │  要点气泡1    │           │
-        │  要点气泡2    │  素材图片  │  主内容区 ~1400px
-        │  要点气泡3    │  (可选)   │
-        │  要点气泡4    │           │
-        ├──────────────┴───────────┤
-        │  副标题/补充说明           │  200px
-        │  场景编号                 │
-        └──────────────────────────┘
+        ┌────────────────────────┐
+        │  标题面板 + 网点背景   │  ~260px
+        │  ▸ SFX + 副标题       │
+        ├────────────┬──────────┤
+        │  气泡框1   │          │
+        │  ────────  │  素材图  │  主内容区 ~1420px
+        │  气泡框2   │  (可选)  │
+        │  ────────  │          │
+        │  气泡框3   │          │
+        ├────────────┴──────────┤
+        │  要点总结 + 场景编号   │  ~180px
+        │  速度线装饰           │
+        └────────────────────────┘
         """
         accent = accent_color or (RED if not self.dark else "#FF6B6B")
 
-        # 创建画布
-        img = Image.new("RGB", (self.w, self.h), self.paper)
+        if self.orientation == "landscape":
+            return self._render_frame_landscape(title, bullets, output_path,
+                                                subtitle, media_path,
+                                                scene_index, total_scenes,
+                                                sfx_text, accent)
+
+        # RGBA画布 — 支持网点纸alpha合成 + 速度线透明度
+        img = Image.new("RGBA", (self.w, self.h), self.paper + "FF" if len(self.paper) == 7 else self.paper)
         draw = ImageDraw.Draw(img, "RGBA")
 
+        # ── 背景纹理（纸张纤维 + 网点纸）──
+        self._draw_bg_texture(draw, img)
+        # 全画布微妙网点纸叠加（漫画影印质感）
+        apply_halftone(img, (PANEL_GAP, PANEL_GAP, self.w - PANEL_GAP, self.h - PANEL_GAP),
+                      dot_size=2, spacing=8, angle=45, opacity=0.04)
+
         # ── 1. 顶部标题区 ──
-        title_y1 = self._draw_title_header(draw, title, sfx_text, accent)
+        title_y1 = self._draw_title_header(draw, title, sfx_text, subtitle, accent)
 
         # ── 2. 底部信息区 ──
         bottom_y0 = self._draw_bottom_bar(draw, subtitle, scene_index, total_scenes, accent)
@@ -414,95 +352,146 @@ class MangaFrameRenderer:
             self._draw_content_text_only(draw, img, bullets,
                                          main_y0, main_y1, accent)
 
+        # 转回RGB保存
+        rgb = Image.new("RGB", (self.w, self.h), self.paper)
+        rgb.paste(img, (0, 0), img)
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        img.save(output_path, quality=92)
+        rgb.save(output_path, quality=92)
         return output_path
+
+    def _draw_bg_texture(self, draw, img: Image.Image = None):
+        """全画布微妙纹理：漫画纸质感 + 随机淡色斑点 + 网点纸。"""
+        # 纸张纤维纹理 — 随机微小淡灰斑点
+        import random as _random
+        for _ in range(80):
+            x, y = _random.randint(0, self.w - 1), _random.randint(0, self.h - 1)
+            s = _random.randint(1, 3)
+            shade = _random.randint(0, 15)
+            draw.ellipse([x, y, x + s, y + s], fill=(0, 0, 0, shade))
 
     # ── 标题头 ──────────────────────────────────────────
 
-    def _draw_title_header(self, draw, title: str, sfx: str, accent: str) -> int:
-        """绘制顶部标题面板，返回标题区底部 y 坐标。"""
-        header_h = 260
+    def _draw_title_header(self, draw, title: str, sfx: str, subtitle: str, accent: str) -> int:
+        """顶部标题面板 — 网点背景+粗双线框+SFX+标题+副标题+装饰线。"""
+        header_h = 220
         y0, y1 = PANEL_GAP, PANEL_GAP + header_h
+        x0, x1 = PANEL_GAP, self.w - PANEL_GAP
 
-        # 标题面板背景
-        draw.rounded_rectangle([PANEL_GAP, y0, self.w - PANEL_GAP, y1],
-                               radius=16, fill=self.panel_bg,
-                               outline="#1A1A2E", width=BORDER_W)
+        # 面板背景
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=18,
+                               fill=self.panel_bg, outline="#1A1A2E", width=BORDER_W)
 
-        # 内边框装饰
-        draw.rounded_rectangle([PANEL_GAP + BORDER_W + 3, y0 + BORDER_W + 3,
-                                self.w - PANEL_GAP - BORDER_W - 3, y1 - BORDER_W - 3],
-                               radius=12, outline="#1A1A2E", width=2)
+        # 交叉排线纹理
+        draw_crosshatch(draw, x0 + 14, y0 + 14, x1 - 14, y0 + 180,
+                      spacing=22, opacity=7, angle=30)
 
-        # SFX 拟声词（大号字，描边）
-        sfx_font = _get_font(72, "sfx")
+        # 内边框
+        draw.rounded_rectangle([x0 + BORDER_W + 3, y0 + BORDER_W + 3,
+                                x1 - BORDER_W - 3, y1 - BORDER_W - 3],
+                               radius=14, outline="#1A1A2E", width=2)
+
+        # SFX 拟声词 — 右上角大字描边
         if sfx:
+            sfx_font = _get_font(68, "sfx")
             sfx_w = draw.textlength(sfx, font=sfx_font)
-            sfx_x = self.w - PANEL_GAP - 50 - int(sfx_w)
-            sfx_y = y0 + 20
-            for ox, oy in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
-                draw.text((sfx_x + ox, sfx_y + oy), sfx, fill="#1A1A2E", font=sfx_font)
+            sfx_x = x1 - 60 - int(sfx_w)
+            sfx_y = y0 + 24
+            for ox, oy in [(-3, 0), (3, 0), (0, -3), (0, 3), (-2, -2), (2, 2)]:
+                draw.text((sfx_x + ox, sfx_y + oy), sfx, fill=(0, 0, 0, 255), font=sfx_font)
             draw.text((sfx_x, sfx_y), sfx, fill=accent, font=sfx_font)
 
-        # 标题文字（描边）
-        title_font = _get_font(52, "title")
-        tx = PANEL_GAP + 30
-        ty = y0 + 50
-        for ox, oy in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
-            draw.text((tx + ox, ty + oy), title[:20], fill="#1A1A2E", font=title_font)
-        draw.text((tx, ty), title[:20], fill=accent, font=title_font)
+        # 标题 — 大字+描边
+        title_font = _get_font(56, "title")
+        tx = x0 + 34
+        ty = y0 + 40
+        display_title = title[:22]
+        for ox, oy in [(-3, 0), (3, 0), (0, -3), (0, 3)]:
+            draw.text((tx + ox, ty + oy), display_title, fill=(0, 0, 0, 255), font=title_font)
+        draw.text((tx, ty), display_title, fill=accent, font=title_font)
 
-        # 标题下方装饰线
-        deco_y = ty + 80
-        draw.line([(tx, deco_y), (tx + 200, deco_y)], fill="#1A1A2E", width=3)
-        draw.line([(tx, deco_y + 8), (tx + 120, deco_y + 8)], fill=accent, width=2)
+        # 副标题/导读行
+        info_font = _get_font(28, "body")
+        if subtitle:
+            info_text = subtitle[:50]
+        else:
+            info_text = "详细讲解 · 建议收藏反复观看"
+        iw = draw.textlength(info_text, font=info_font)
+        ix = (self.w - int(iw)) // 2
+        draw.text((ix, ty + 90), info_text, fill=(80, 80, 90, 255), font=info_font)
+
+        # 装饰线 — 标题下方
+        deco_y = ty + 130
+        draw.line([(tx, deco_y), (tx + 300, deco_y)], fill=(0, 0, 0, 255), width=3)
+        draw.line([(tx, deco_y + 8), (tx + 180, deco_y + 8)], fill=accent, width=2)
+
+        # 右下角小标签
+        tag_font = _get_font(20, "body")
+        tag_text = "MANGA EXPLAIN"
+        tag_w = draw.textlength(tag_text, font=tag_font)
+        draw.text((x1 - int(tag_w) - 30, y1 - 40), tag_text, fill=(150, 150, 160, 255), font=tag_font)
 
         return y1
 
     # ── 底栏 ────────────────────────────────────────────
 
     def _draw_bottom_bar(self, draw, subtitle: str, idx: int, total: int, accent: str) -> int:
-        """绘制底部信息栏，返回栏顶部 y 坐标。"""
-        bar_h = 180
+        """底部信息栏 — 速度线+页码+总结+装饰。"""
+        bar_h = 140
         y1 = self.h - PANEL_GAP
         y0 = y1 - bar_h
+        x0, x1 = PANEL_GAP, self.w - PANEL_GAP
 
-        draw.rounded_rectangle([PANEL_GAP, y0, self.w - PANEL_GAP, y1],
-                               radius=14, fill=self.panel_bg,
-                               outline="#1A1A2E", width=BORDER_W)
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=14,
+                               fill=self.panel_bg, outline="#1A1A2E", width=BORDER_W)
 
-        # 场景编号
-        num_font = _get_font(28, "body")
-        num_text = f"第 {idx+1}/{total} 话"
-        draw.text((PANEL_GAP + 24, y0 + 16), num_text, fill="#8A8A9A", font=num_font)
+        # 速度线装饰（底部微妙的动感）
+        draw_parallel_speed_lines(draw, x0 + 30, y0 + 140, x1 - 30, y0 + 140, count=12, opacity=20)
 
-        # 副标题
+        # 场景编号 + 进度条
+        num_font = _get_font(22, "body")
+        num_text = f"第{idx+1}/{total}话"
+        draw.text((x0 + 24, y0 + 14), num_text, fill=(120, 120, 140, 255), font=num_font)
+
+        # 进度点
+        dot_y = y0 + 20
+        bar_x0 = x0 + 140
+        bar_x1 = x1 - 140
+        bar_cx = (bar_x0 + bar_x1) // 2
+        seg_w = (bar_x1 - bar_x0) // max(total, 1)
+        for i in range(total):
+            sx = bar_x0 + i * seg_w + 2
+            ex = bar_x0 + (i + 1) * seg_w - 2
+            fill_c = accent if i <= idx else (200, 200, 210, 255)
+            draw.rounded_rectangle([sx, dot_y - 4, ex, dot_y + 4], radius=3, fill=fill_c)
+
+        # 中间总结文字
         if subtitle:
-            sub_font = _get_font(32, "body")
-            sub = subtitle[:40]
+            sub_font = _get_font(30, "body")
+            sub = subtitle[:48]
             sub_w = draw.textlength(sub, font=sub_font)
             sub_x = (self.w - int(sub_w)) // 2
-            draw.text((sub_x, y0 + 60), sub, fill=self.text_c, font=sub_font)
+            draw.text((sub_x, y0 + 52), sub, fill=self.text_c, font=sub_font)
 
-            # 底部装饰速度线
-            line_y = y0 + 110
-            draw_parallel_speed_lines(draw, PANEL_GAP + 40, line_y,
-                                      self.w - PANEL_GAP - 40, line_y,
-                                      count=8, opacity=25)
+        # 底部标签行
+        tag_font = _get_font(22, "body")
+        tags = ["收藏", "点赞", "转发"]
+        tag_x = x0 + 24
+        for tag in tags:
+            tw = draw.textlength(tag, font=tag_font)
+            draw.rounded_rectangle([tag_x, y0 + 108, tag_x + int(tw) + 24, y0 + 138],
+                                   radius=8, fill=None, outline=(180, 180, 190, 255), width=1)
+            draw.text((tag_x + 12, y0 + 112), tag, fill=(130, 130, 150, 255), font=tag_font)
+            tag_x += int(tw) + 36
 
-        # 右侧 "▶ NEXT" 标识
-        next_font = _get_font(24, "body")
-        draw.text((self.w - PANEL_GAP - 120, y0 + 16), "▶ NEXT",
-                  fill=accent, font=next_font)
+        # 右侧"▶ NEXT"
+        next_font = _get_font(20, "body")
+        draw.text((x1 - 100, y0 + 14), "▶ NEXT", fill=accent, font=next_font)
 
         return y0
 
-    # ── 纯文字内容区 ────────────────────────────────────
-
     def _draw_content_text_only(self, draw, img, bullets: List[str],
                                 y0: int, y1: int, accent: str):
-        """纯文字要点布局：多格不规则排版。"""
+        """文字流式布局 — 大字号连续排版，填满整个内容区。"""
         n = len(bullets)
         if n == 0:
             return
@@ -510,116 +499,124 @@ class MangaFrameRenderer:
         content_h = y1 - y0
         margin = PANEL_GAP + 10
 
-        if n == 1:
-            # 单要点：大字居中 + 速度线背景
-            self._draw_single_bullet_hero(draw, bullets[0], y0, y1, accent)
-        elif n == 2:
-            # 双要点：上下平分
-            h0 = content_h // 2 - 8
-            self._draw_bullet_panel(draw, bullets[0], margin, y0,
-                                    self.w - margin, y0 + h0, accent, 0)
-            self._draw_bullet_panel(draw, bullets[1], margin, y0 + h0 + 16,
-                                    self.w - margin, y1, accent, 1)
-        elif n == 3:
-            # 三要点：上大下二
-            h_top = content_h * 3 // 5
-            h_bot = content_h - h_top - 12
-            w_half = (self.w - margin * 2 - 12) // 2
-            self._draw_bullet_panel(draw, bullets[0], margin, y0,
-                                    self.w - margin, y0 + h_top, accent, 0)
-            self._draw_bullet_panel(draw, bullets[1], margin, y0 + h_top + 12,
-                                    margin + w_half, y1, accent, 1)
-            self._draw_bullet_panel(draw, bullets[2], margin + w_half + 12, y0 + h_top + 12,
-                                    self.w - margin, y1, accent, 2)
-        else:
-            # 4+ 要点：2×2 网格
-            h_half = (content_h - 12) // 2
-            w_half = (self.w - margin * 2 - 12) // 2
-            positions = [
-                (margin, y0, margin + w_half, y0 + h_half),
-                (margin + w_half + 12, y0, self.w - margin, y0 + h_half),
-                (margin, y0 + h_half + 12, margin + w_half, y1),
-                (margin + w_half + 12, y0 + h_half + 12, self.w - margin, y1),
-            ]
-            for i, (bx0, by0, bx1, by1) in enumerate(positions[:4]):
-                if i < n:
-                    self._draw_bullet_panel(draw, bullets[i], bx0, by0, bx1, by1, accent, i)
+        # 限制每帧最多4个要点，保证每个足够大
+        bullets = bullets[:4]
+        n = len(bullets)
 
-    def _draw_single_bullet_hero(self, draw, text: str, y0: int, y1: int, accent: str):
-        """单要点 Hero 布局：大号文字 + 集中线背景。"""
-        cx, cy = self.w // 2, (y0 + y1) // 2
-        draw_speed_lines(draw, cx, cy, 120, 580, count=28, opacity=30)
+        # 每个要点获取均等高度
+        gap = 16
+        card_h = (content_h - gap * (n - 1)) // n
 
-        font = _get_font(56, "title")
-        lines = self._wrap_text(text, font, self.w - 200)
-        line_h = 78
-        total_h = len(lines) * line_h
-        start_y = (y0 + y1 - total_h) // 2 + 20
+        for i in range(n):
+            cy0 = y0 + i * (card_h + gap)
+            cy1 = cy0 + card_h if i < n - 1 else y1
+            self._draw_fullwidth_card(draw, bullets[i], margin, cy0,
+                                      self.w - margin, cy1, accent, i)
+            # 分隔线
+            if i < n - 1:
+                sep_y = cy1 + gap // 2
+                draw.line([(margin + 60, sep_y), (self.w - margin - 60, sep_y)],
+                         fill=(200, 200, 210, 255), width=1)
 
-        for ln in lines:
-            tw = draw.textlength(ln, font=font)
-            x = (self.w - int(tw)) // 2
-            for ox, oy in [(-3, 0), (3, 0), (0, -3), (0, 3)]:
-                draw.text((x + ox, start_y + oy), ln, fill="#1A1A2E", font=font)
-            draw.text((x, start_y), ln, fill=accent, font=font)
-            start_y += line_h
-
-    def _draw_bullet_panel(self, draw, text: str,
+    def _draw_fullwidth_card(self, draw, text: str,
                            x0: int, y0: int, x1: int, y1: int,
                            accent: str, index: int):
-        """绘制单个要点面板：漫画格 + 强调符号 + 文字。"""
+        """大字卡片 — 用最大的字号填满卡片，漫画冲击力排版。"""
         panel_w = x1 - x0
         panel_h = y1 - y0
-        if panel_w < 60 or panel_h < 60:
+        if panel_w < 100 or panel_h < 60:
             return
 
-        # 面板背景填充 + 边框
+        # 极简边框
         draw.rounded_rectangle([x0, y0, x1, y1], radius=10,
-                               fill=(255, 252, 248, 255) if not self.dark else (40, 40, 55, 255),
-                               outline="#1A1A2E", width=BORDER_W)
+                               fill=None, outline=(180, 180, 190, 100), width=1)
 
-        # 序号圆圈
-        circ_r = 20
-        circ_x = x0 + 24
-        circ_y = y0 + 20
-        draw.ellipse([circ_x, circ_y, circ_x + circ_r * 2, circ_y + circ_r * 2],
-                     fill=accent, outline="#1A1A2E", width=3)
-        num_font = _get_font(18, "title")
-        num_str = str(index + 1)
-        nw = draw.textlength(num_str, font=num_font)
-        draw.text((circ_x + circ_r - int(nw) // 2, circ_y + 8),
-                  num_str, fill="#FFFFFF", font=num_font)
+        pad = 24
+        text_w = panel_w - pad * 2
+        text_h = panel_h - pad * 2
 
-        # 要点文字
-        body_font = _get_font(34, "body")
-        max_text_w = panel_w - 90
-        text_y = y0 + 18
-        text_x = circ_x + circ_r * 2 + 18
+        # ── 拆分冒号引导词 ──
+        if '：' in text:
+            lead_raw, body_raw = text.split('：', 1)
+            lead = lead_raw + '：'
+            body = body_raw
+        elif ':' in text:
+            lead_raw, body_raw = text.split(':', 1)
+            lead = lead_raw + ':'
+            body = body_raw
+        else:
+            lead = ''
+            body = text
 
-        # 小面板时缩小字号
-        if panel_h < 180:
-            body_font = _get_font(26, "body")
-        if panel_h < 120:
-            body_font = _get_font(20, "body")
+        # ── 找最大能放下的字号（含大行距）──
+        best_size = 20
+        for size in [56, 50, 44, 40, 36, 34, 32, 30, 28, 26, 24, 22, 20]:
+            body_f = _get_font(size, "body")
+            lead_f = _get_font(size + 4, "title")
+            line_spacing = max(8, size // 3)  # 大字多留行距
+            lh = size + line_spacing
 
-        line_h = body_font.size + 12
-        lines = self._wrap_text(text, body_font, max_text_w)
-        for ln in lines[:3]:
-            draw.text((text_x, text_y), ln, fill=self.text_c, font=body_font)
-            text_y += line_h
+            total = 0
+            if lead:
+                total += len(self._wrap_text(lead, lead_f, text_w)) * (lh + 6)
+            total += len(self._wrap_text(body, body_f, text_w)) * lh
+            if total <= text_h:
+                best_size = size
+                break
 
-        # 面板角落装饰
-        deco_size = 7
-        for dx, dy in [(x1 - 14, y0 + 6), (x0 + 6, y1 - 14)]:
-            draw.rectangle([dx, dy, dx + deco_size, dy + deco_size], fill=accent)
+        body_font = _get_font(best_size, "body")
+        lead_font = _get_font(best_size + 4, "title")
+        line_spacing = max(8, best_size // 3)
+        lh = best_size + line_spacing
+
+        # ── 按冒号拆分排版 → 引导词（彩色）+ 正文（黑色）──
+        all_segments = []
+        if lead:
+            all_segments.append(('lead', lead))
+        all_segments.append(('body', body))
+
+        # 计算总行数用于垂直居中
+        total_lines = 0
+        for seg_type, seg_text in all_segments:
+            f = lead_font if seg_type == 'lead' else body_font
+            slh = lh + 6 if seg_type == 'lead' else lh
+            total_lines += len(self._wrap_text(seg_text, f, text_w))
+        total_text_px = 0
+        for seg_type, seg_text in all_segments:
+            f = lead_font if seg_type == 'lead' else body_font
+            slh = lh + 6 if seg_type == 'lead' else lh
+            total_text_px += len(self._wrap_text(seg_text, f, text_w)) * slh
+
+        start_y = y0 + pad + (text_h - total_text_px) // 2
+        text_y = max(y0 + pad, start_y)
+
+        for seg_type, seg_text in all_segments:
+            f = lead_font if seg_type == 'lead' else body_font
+            slh = lh + 6 if seg_type == 'lead' else lh
+            lines = self._wrap_text(seg_text, f, text_w)
+            for ln in lines:
+                if text_y + slh > y1 - pad:
+                    break
+                color = accent if seg_type == 'lead' else self.text_c
+                draw.text((x0 + pad, text_y), ln, fill=color, font=f)
+                text_y += slh
+
+        # ── 序号圆圈（左上角）──
+        cr = 12
+        ccx, ccy = x0 + pad + cr, y0 + pad + cr
+        draw.ellipse([ccx - cr, ccy - cr, ccx + cr, ccy + cr], fill=accent)
+        nf = _get_font(13, "title")
+        ns = str(index + 1)
+        nw = draw.textlength(ns, font=nf)
+        draw.text((ccx - int(nw)//2, ccy - 8), ns, fill=(255,255,255,255), font=nf)
 
     # ── 带素材的内容区 ──────────────────────────────────
 
     def _draw_content_with_media(self, draw, img, bullets: List[str],
                                  media_path: str, y0: int, y1: int, accent: str):
-        """文字+素材混合布局：左文字面板 + 右素材图。"""
+        """文字+素材混合 — 左文字面板(网点+速度线) + 右素材图(漫画框)。"""
         content_h = y1 - y0
-        media_w = 360
+        media_w = 380
         gap_w = 16
 
         # 素材图片区域（右侧）
@@ -628,46 +625,274 @@ class MangaFrameRenderer:
         my0 = y0
         my1 = y1
 
-        # 素材面板背景+边框
-        draw.rounded_rectangle([mx0, my0, mx1, my1], radius=12,
-                               fill=(255, 252, 248, 255) if not self.dark else (40, 40, 55, 255),
-                               outline="#1A1A2E", width=BORDER_W)
+        # 素材面板 — 双线漫画框
+        draw.rounded_rectangle([mx0, my0, mx1, my1], radius=14,
+                               fill=(248, 246, 242, 255) if not self.dark else (40, 40, 55, 255),
+                               outline=(26, 26, 46, 255), width=BORDER_W)
+        # 内框
+        draw.rounded_rectangle([mx0 + 6, my0 + 6, mx1 - 6, my1 - 6], radius=10,
+                               outline=(26, 26, 46, 255), width=2)
+        # 图标签
+        img_label = _get_font(20, "title")
+        draw.text((mx0 + 16, my0 + 12), "素材参考", fill=accent, font=img_label)
 
         try:
-            media_img = Image.open(media_path).convert("RGB")
-            mw = media_w - 20
-            mh = content_h - 20
+            media_img = Image.open(media_path).convert("RGBA")
+            mw = media_w - 36
+            mh = content_h - 60
             media_img.thumbnail((mw, mh), Image.LANCZOS)
             px = mx0 + (media_w - media_img.width) // 2
-            py = my0 + (content_h - media_img.height) // 2
-            img.paste(media_img, (px, py))
-            draw.rectangle([px - 3, py - 3, px + media_img.width + 3, py + media_img.height + 3],
-                           outline="#1A1A2E", width=3)
+            py = my0 + 44
+            img.paste(media_img, (px, py), media_img if media_img.mode == "RGBA" else None)
+            draw.rounded_rectangle([px - 3, py - 3, px + media_img.width + 3, py + media_img.height + 3],
+                                   radius=6, outline=(26, 26, 46, 255), width=3)
         except Exception:
-            ph_font = _get_font(24, "body")
-            draw.text((mx0 + 40, my0 + content_h // 2 - 16),
-                      "素材暂无", fill="#A0A0B0", font=ph_font)
+            ph_font = _get_font(22, "body")
+            no_img_text = "暂无素材"
+            nw = draw.textlength(no_img_text, font=ph_font)
+            draw.text((mx0 + (media_w - int(nw)) // 2, my0 + content_h // 2 - 14),
+                      no_img_text, fill=(150, 150, 165, 255), font=ph_font)
 
-        # 文字要点区（左侧）
+        # 文字要点区（左侧）— 面板间速度线
         lx0, lx1 = PANEL_GAP, mx0 - gap_w
-        text_h = content_h
         n = len(bullets)
 
         if n == 1:
-            self._draw_bullet_panel(draw, bullets[0], lx0, y0, lx1, y1, accent, 0)
+            self._draw_fullwidth_card(draw, bullets[0], lx0, y0, lx1, y1, accent, 0)
         elif n == 2:
-            h0 = text_h // 2 - 8
-            self._draw_bullet_panel(draw, bullets[0], lx0, y0, lx1, y0 + h0, accent, 0)
-            self._draw_bullet_panel(draw, bullets[1], lx0, y0 + h0 + 16, lx1, y1, accent, 1)
+            h0 = (content_h - gap_w) // 2
+            self._draw_fullwidth_card(draw, bullets[0], lx0, y0, lx1, y0 + h0, accent, 0)
+            m_y = y0 + h0 + gap_w // 2
+            draw_parallel_speed_lines(draw, lx0 + 40, m_y, lx1 - 40, m_y, count=8, opacity=20)
+            self._draw_fullwidth_card(draw, bullets[1], lx0, y0 + h0 + gap_w, lx1, y1, accent, 1)
         elif n >= 3:
-            h0 = text_h // 3 - 6
-            h1 = text_h // 3 - 6
-            h2 = text_h - h0 - h1 - 18
-            self._draw_bullet_panel(draw, bullets[0], lx0, y0, lx1, y0 + h0, accent, 0)
-            if n >= 2:
-                self._draw_bullet_panel(draw, bullets[1], lx0, y0 + h0 + 10, lx1, y0 + h0 + 10 + h1, accent, 1)
-            if n >= 3:
-                self._draw_bullet_panel(draw, bullets[2], lx0, y0 + h0 + h1 + 20, lx1, y1, accent, 2)
+            h_each = (content_h - gap_w * 2) // 3
+            for j in range(min(n, 3)):
+                py0 = y0 + j * (h_each + gap_w)
+                py1 = py0 + h_each
+                self._draw_fullwidth_card(draw, bullets[j], lx0, py0, lx1, min(py1, y1), accent, j)
+                if j < min(n, 3) - 1:
+                    m_y = py1 + gap_w // 2
+                    draw_parallel_speed_lines(draw, lx0 + 40, m_y, lx1 - 40, m_y, count=6, opacity=20)
+
+    # ── 横屏布局 (1920×1080) ─────────────────────────────
+
+    def _render_frame_landscape(self, title, bullets, output_path, subtitle,
+                                 media_path, scene_index, total_scenes, sfx_text, accent):
+        """横屏漫画帧渲染 — 左侧标题栏 + 右侧3列分镜格。"""
+        img = Image.new("RGBA", (self.w, self.h),
+                       self.paper + "FF" if len(self.paper) == 7 else self.paper)
+        draw = ImageDraw.Draw(img, "RGBA")
+
+        self._draw_bg_texture(draw, img)
+        apply_halftone(img, (PANEL_GAP, PANEL_GAP, self.w - PANEL_GAP, self.h - PANEL_GAP),
+                      dot_size=2, spacing=8, angle=45, opacity=0.04)
+
+        # 左侧标题栏
+        sidebar_w = 280
+        self._draw_title_sidebar(draw, title, sfx_text, subtitle, accent, sidebar_w)
+
+        # 底部信息条
+        bottom_y0 = self._draw_bottom_bar_landscape(draw, subtitle, scene_index, total_scenes, accent)
+
+        # 右侧主内容区
+        content_x0 = sidebar_w + PANEL_GAP * 2
+        content_y0 = PANEL_GAP
+        content_y1 = bottom_y0 - PANEL_GAP
+
+        has_media = media_path and Path(media_path).exists()
+        if has_media:
+            self._draw_content_landscape(draw, img, bullets, content_x0, content_y0,
+                                        self.w - PANEL_GAP, content_y1, accent, media_path)
+        else:
+            self._draw_content_landscape(draw, img, bullets, content_x0, content_y0,
+                                        self.w - PANEL_GAP, content_y1, accent)
+
+        rgb = Image.new("RGB", (self.w, self.h), self.paper)
+        rgb.paste(img, (0, 0), img)
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        rgb.save(output_path, quality=92)
+        return output_path
+
+    def _draw_title_sidebar(self, draw, title, sfx, subtitle, accent, sidebar_w):
+        """横屏左侧标题栏 — 窄竖条，标题竖排/缩排。"""
+        x0, y0 = PANEL_GAP, PANEL_GAP
+        x1 = x0 + sidebar_w
+        y1 = self.h - PANEL_GAP
+
+        # 面板背景
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=18,
+                               fill=self.panel_bg, outline="#1A1A2E", width=BORDER_W)
+        draw_crosshatch(draw, x0 + 14, y0 + 14, x1 - 14, y1 - 14,
+                      spacing=22, opacity=7, angle=30)
+
+        # 内边框
+        draw.rounded_rectangle([x0 + BORDER_W + 3, y0 + BORDER_W + 3,
+                                x1 - BORDER_W - 3, y1 - BORDER_W - 3],
+                               radius=14, outline="#1A1A2E", width=2)
+
+        # SFX拟声词 — 顶部居中
+        if sfx:
+            sfx_font = _get_font(48, "sfx")
+            sfx_w = draw.textlength(sfx, font=sfx_font)
+            sfx_x = (x0 + x1 - int(sfx_w)) // 2
+            sfx_y = y0 + 30
+            for ox, oy in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
+                draw.text((sfx_x + ox, sfx_y + oy), sfx, fill=(0, 0, 0, 255), font=sfx_font)
+            draw.text((sfx_x, sfx_y), sfx, fill=accent, font=sfx_font)
+
+        # 标题 — 窄栏内大字号折行
+        title_font = _get_font(34, "title")
+        inner_x0 = x0 + 24
+        inner_x1 = x1 - 24
+        inner_w = inner_x1 - inner_x0
+        title_lines = self._wrap_text(title[:28], title_font, inner_w)
+        ty = sfx_y + 70 if sfx else y0 + 40
+
+        for ln in title_lines[:4]:
+            draw.text((inner_x0, ty), ln, fill=accent, font=title_font)
+            ty += 42
+
+        # 装饰线
+        deco_y = ty + 16
+        draw.line([(inner_x0, deco_y), (inner_x0 + 160, deco_y)], fill=(0, 0, 0, 255), width=3)
+        draw.line([(inner_x0, deco_y + 6), (inner_x0 + 90, deco_y + 6)], fill=accent, width=2)
+
+        # 副标题
+        info_font = _get_font(22, "body")
+        info_lines = self._wrap_text(subtitle[:40] or "详细讲解", info_font, inner_w)
+        iy = deco_y + 30
+        for ln in info_lines[:3]:
+            draw.text((inner_x0, iy), ln, fill=(80, 80, 90, 255), font=info_font)
+            iy += 30
+
+        # 底部标签
+        tag_font = _get_font(18, "body")
+        tag_text = "MANGA"
+        tw = draw.textlength(tag_text, font=tag_font)
+        draw.text(((x0 + x1 - int(tw)) // 2, y1 - 40), tag_text,
+                 fill=(150, 150, 160, 255), font=tag_font)
+
+        return x1
+
+    def _draw_content_landscape(self, draw, img, bullets, x0, y0, x1, y1, accent,
+                                media_path=None):
+        """横屏主内容区 — 水平多列分镜格布局。"""
+        n = len(bullets)
+        if n == 0:
+            return
+
+        content_w = x1 - x0
+        content_h = y1 - y0
+        gap = PANEL_GAP
+
+        # 有图片时：左侧3列文字 + 右侧图片
+        has_media = media_path and Path(media_path).exists()
+        if has_media:
+            media_w = min(420, content_w // 3)
+            text_w = content_w - media_w - gap
+            text_x0, text_x1 = x0, x0 + text_w
+            media_x0, media_x1 = text_x1 + gap, x1
+
+            # 绘制图片区域
+            try:
+                photo = Image.open(media_path).convert("RGBA")
+                pw, ph = photo.size
+                scale = min((media_x1 - media_x0) / pw, (y1 - y0 - 20) / ph)
+                nw, nh = int(pw * scale), int(ph * scale)
+                photo = photo.resize((nw, nh), Image.LANCZOS)
+                px = media_x0 + (media_x1 - media_x0 - nw) // 2
+                py = y0 + (y1 - y0 - nh) // 2
+                img.paste(photo, (px, py), photo)
+            except Exception:
+                pass
+
+            # 文字区域
+            self._layout_landscape_grid(draw, bullets[:min(n, 4)], text_x0, y0, text_x1, y1, accent)
+        else:
+            self._layout_landscape_grid(draw, bullets, x0, y0, x1, y1, accent)
+
+    def _layout_landscape_grid(self, draw, bullets, x0, y0, x1, y1, accent):
+        """横屏分镜格布局 — 根据子弹数量自适应列/行。"""
+        n = len(bullets)
+        if n == 0:
+            return
+        gap = PANEL_GAP
+        content_w = x1 - x0
+        content_h = y1 - y0
+
+        if n == 1:
+            # 单面板全宽
+            self._draw_fullwidth_card(draw, bullets[0], x0, y0, x1, y1, accent, 0)
+        elif n == 2:
+            # 左右两栏
+            hw = (content_w - gap) // 2
+            self._draw_fullwidth_card(draw, bullets[0], x0, y0, x0 + hw, y1, accent, 0)
+            self._draw_fullwidth_card(draw, bullets[1], x0 + hw + gap, y0, x1, y1, accent, 1)
+        elif n == 3:
+            # 三列
+            cw = (content_w - gap * 2) // 3
+            for i in range(3):
+                cx0 = x0 + i * (cw + gap) if i > 0 else x0
+                self._draw_fullwidth_card(draw, bullets[i], cx0, y0, cx0 + cw, y1, accent, i)
+        elif n == 4:
+            # 2x2网格
+            cw = (content_w - gap) // 2
+            rh = (content_h - gap) // 2
+            for i in range(4):
+                col, row = i % 2, i // 2
+                cx0 = x0 + col * (cw + gap) if col > 0 else x0
+                cy0 = y0 + row * (rh + gap) if row > 0 else y0
+                self._draw_fullwidth_card(draw, bullets[i], cx0, cy0, cx0 + cw, cy0 + rh, accent, i)
+        else:
+            # 5-6: 3列×2行
+            cw = (content_w - gap * 2) // 3
+            rh = (content_h - gap) // 2
+            for i in range(n):
+                col, row = i % 3, i // 2
+                cx0 = x0 + col * (cw + gap) if col > 0 else x0
+                cy0 = y0 + row * (rh + gap) if row > 0 else y0
+                self._draw_fullwidth_card(draw, bullets[i], cx0, cy0, cx0 + cw, cy0 + rh, accent, i)
+
+    def _draw_bottom_bar_landscape(self, draw, subtitle, idx, total, accent):
+        """横屏底部紧凑信息栏。"""
+        bar_h = 100
+        y1 = self.h - PANEL_GAP
+        y0 = y1 - bar_h
+        x0, x1 = PANEL_GAP, self.w - PANEL_GAP
+
+        # 速度线背景
+        draw_parallel_speed_lines(draw, x0, y0 + bar_h // 2, x1, y0 + bar_h // 2,
+                                count=12, opacity=12)
+
+        # 半透明底条
+        draw.rectangle([x0, y0, x1, y1], fill=(255, 252, 246, 220))
+
+        # 分隔线
+        draw.line([(x0, y0), (x1, y0)], fill="#1A1A2E", width=2)
+
+        # 页码 + 总结
+        page_font = _get_font(24, "body")
+        page_text = f"{idx+1}/{total}"
+        draw.text((x0 + 20, y0 + 16), page_text, fill=accent, font=page_font)
+
+        summary = subtitle[:50] if subtitle else "详细讲解 · 建议收藏"
+        sum_font = _get_font(22, "body")
+        sw = draw.textlength(summary, font=sum_font)
+        draw.text(((self.w - int(sw)) // 2, y0 + 18), summary,
+                 fill=(80, 80, 90, 255), font=sum_font)
+
+        # 右侧进度点
+        dot_r = 6
+        total_dots = min(total, 10)
+        start_dx = x1 - 30 - total_dots * 20
+        for d in range(total_dots):
+            dx = start_dx + d * 20
+            fill_c = accent if d == idx else (200, 200, 205, 255)
+            draw.ellipse([dx, y0 + bar_h // 2 - dot_r, dx + dot_r * 2, y0 + bar_h // 2 + dot_r],
+                        fill=fill_c)
+
+        return y0
 
     # ── 文字换行 ────────────────────────────────────────
 
@@ -721,7 +946,12 @@ class MangaFrameRenderer:
             title = str(scene.get("title") or f"场景 {i+1}")[:24]
             subtitle = str(scene.get("subtitle") or "")
             bullets = scene.get("bullets") if isinstance(scene.get("bullets"), list) else self._extract_bullets(subtitle or script_content)
-            bullets = [str(x).strip() for x in bullets if str(x).strip()][:4] or ["要点讲解"]
+            bullets = [str(x).strip() for x in bullets if str(x).strip()] or ["要点讲解"]
+            # 每帧最多4个要点，保证每个足够大；短要点合并加长
+            bullets = bullets[:4]
+            if len(bullets) > 1 and all(len(b) < 20 for b in bullets):
+                # 短要点合并为更大的文本块
+                bullets = ["，".join(bullets[:2]), "，".join(bullets[2:])] if len(bullets) >= 4 else ["，".join(bullets)]
             sfx = str(scene.get("sfx") or "")
             mp = materials.get(str(i)) or scene.get("material_url")
 
@@ -741,10 +971,15 @@ class MangaFrameRenderer:
         return outputs
 
     @staticmethod
-    def _extract_bullets(text: str, max_items: int = 4) -> list:
+    def _extract_bullets(text: str, max_items: int = 6) -> list:
         import re
-        candidates = [s.strip("，。；;、 ") for s in re.split(r"[，。；;、\n]", text or "") if s.strip("，。；;、 ")]
-        return candidates[:max_items] if candidates else [text.strip()[:24]] if text.strip() else []
+        parts = re.split(r'(?<=[。！？!?])\s*|\n+', text or "")
+        candidates = [s.strip() for s in parts if s.strip()]
+        if candidates:
+            return candidates[:max_items]
+        if text and text.strip():
+            return [text.strip()]
+        return []
 
     @staticmethod
     def _split_sentences(text: str) -> list:
@@ -752,14 +987,5 @@ class MangaFrameRenderer:
         return [s.strip() for s in re.split(r'(?<=[。！？!?])\s*|\n+', text or "") if s.strip()]
 
 
-# ═══════════════════════════════════════════════════════════════
-# 便捷函数
-# ═══════════════════════════════════════════════════════════════
 
-_instance = None
 
-def get_manga_renderer(dark_mode: bool = False) -> MangaFrameRenderer:
-    global _instance
-    if _instance is None:
-        _instance = MangaFrameRenderer(dark_mode=dark_mode)
-    return _instance

@@ -117,6 +117,9 @@ def init_topics_db():
         ("tts_audio_path", "TEXT"),
         ("materials_json", "TEXT"),
         ("animation_style", "TEXT DEFAULT 'contain'"),
+        ("video_width", "INTEGER DEFAULT 1080"),
+        ("video_height", "INTEGER DEFAULT 1920"),
+        ("orientation", "TEXT DEFAULT 'portrait'"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE ecom_videos ADD COLUMN {col} {default}")
