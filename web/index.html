@@ -1413,6 +1413,31 @@
             outline: none;
             background: #FFF;
         }
+        /* 脚本加载进度条 */
+        .script-progress-wrap {
+            margin-bottom: 16px;
+            background: #F6F8FA;
+            border-radius: 8px;
+            padding: 16px 20px;
+        }
+        .script-progress-label {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px; color: #606773; margin-bottom: 8px;
+        }
+        .script-progress-label .pct { font-weight: 700; font-size: 14px; color: var(--bili-pink); }
+        .script-progress-track {
+            width: 100%; height: 8px; border-radius: 4px;
+            background: #E3E5E7; overflow: hidden;
+        }
+        .script-progress-fill {
+            height: 100%; width: 0%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #FB7299, #FF6B9D);
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .script-progress-fill.done {
+            background: linear-gradient(90deg, #52C41A, #73D13D);
+        }
 
         /* ========== 分镜预览 ========== */
         .storyboard-preview {
@@ -1976,21 +2001,6 @@
             </div>
         </div>
 
-        <!-- ========== 生成中 (ken_burns 兼容旧流程) ========== -->
-        <div id="page-generating" class="page">
-            <div class="bili-card">
-                <div class="card-header">
-                    <span class="card-title">视频生成中</span>
-                </div>
-                <div class="card-body">
-                    <div class="progress-wrap">
-                        <div class="progress-tv"></div>
-                    </div>
-                    <div class="log-box" id="log-box"></div>
-                </div>
-            </div>
-        </div>
-
         <!-- ========== 题材流水线（新步进式） ========== -->
         <div id="page-pipeline" class="page">
             <div class="pipeline-container">
@@ -2022,7 +2032,8 @@
                     <div style="font-weight:600;color:#CF1322;margin-bottom:8px;">生成失败</div>
                     <div id="pipeline-error-msg" style="font-size:13px;color:#606773;"></div>
                     <div style="margin-top:12px;display:flex;gap:8px;">
-                        <button class="bili-btn bili-btn-primary" onclick="topicReset()">重新开始</button>
+                        <button class="bili-btn bili-btn-primary" onclick="topicRetryFromTts()">从配音步骤重试</button>
+                        <button class="bili-btn bili-btn-secondary" onclick="topicReset()">重新开始</button>
                         <button class="bili-btn bili-btn-secondary" onclick="showPage('home')">返回首页</button>
                     </div>
                 </div>
@@ -2030,6 +2041,18 @@
                 <!-- Step 1: 脚本编辑器 -->
                 <div id="pipeline-script-card" class="pipeline-card" style="display:none;">
                     <h3>✍️ 脚本编辑</h3>
+                    <!-- 脚本加载进度条 -->
+                    <div id="script-progress-wrap" class="script-progress-wrap" style="display:none;">
+                        <div class="script-progress-label">
+                            <span id="script-progress-msg">正在准备...</span>
+                            <span class="pct" id="script-progress-pct">0%</span>
+                        </div>
+                        <div class="script-progress-track">
+                            <div id="script-progress-fill" class="script-progress-fill"></div>
+                        </div>
+                    </div>
+                    <!-- 流式进度日志 -->
+                    <div id="pipe-progress-log" style="background:#F6F8FA; border-radius:8px; padding:12px; margin-bottom:16px; max-height:200px; overflow-y:auto; font-size:13px; color:#606773;"></div>
                     <div class="script-edit-section">
                         <div class="script-field-label">Hook（开头3秒抓人）</div>
                         <textarea id="pipe-hook" class="script-textarea" rows="2" oninput="topicScriptChanged()"></textarea>
@@ -3602,15 +3625,6 @@
 
         function _doGenerate() {
             if (selectedMode === 'mode_a') {
-                // Check for ken_burns → old flow
-                var vsEl = document.getElementById('home-visual-style') || document.getElementById('mode-a-visual-style');
-                var visualStyle = vsEl ? vsEl.value : 'manga';
-                if (visualStyle === 'ken_burns') {
-                    // Fall through to old SSE flow
-                    showPage('generating');
-                    callModeAApiOld();
-                    return;
-                }
                 topicFormSubmit();
             } else {
                 if (selectedMaterials.size === 0) {
@@ -3622,64 +3636,7 @@
             }
         }
 
-        // Old SSE flow for ken_burns backward compatibility
-        function callModeAApiOld() {
-            var topicKeyword = document.getElementById('home-topic-keyword') ? document.getElementById('home-topic-keyword').value : '';
-            var category = document.getElementById('home-mode-a-category') ? document.getElementById('home-mode-a-category').value : '';
-            var platform = document.getElementById('home-mode-a-platform') ? document.getElementById('home-mode-a-platform').value : '抖音';
-            var vsEl = document.getElementById('home-visual-style') || document.getElementById('mode-a-visual-style');
-            var visualStyle = vsEl ? vsEl.value : 'manga';
-
-            var log = document.getElementById('log-box');
-            if (log) { log.innerHTML = ''; }
-
-            function addLogLegacy(type, msg) {
-                var box = document.getElementById('log-box');
-                if (box) { box.innerHTML += '<div class="log-line log-' + type + '">' + msg + '</div>'; box.scrollTop = box.scrollHeight; }
-            }
-            addLogLegacy('info', '🚀 开始题材全自动生成 (Ken Burns)...');
-
-            fetch(API + '/generate/mode-a', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    topic_keyword: topicKeyword, category: category, platform: platform,
-                    duration: 30, voice: 'zh-CN-XiaoxiaoNeural',
-                    use_whisper_subtitle: true, add_bgm: true, fetch_images: true,
-                    visual_style: visualStyle
-                })
-            })
-            .then(function(res) {
-                var reader = res.body.getReader();
-                var decoder = new TextDecoder();
-                var buffer = '';
-                function read() {
-                    reader.read().then(function(result) {
-                        if (result.done) return;
-                        buffer += decoder.decode(result.value, {stream: true});
-                        var lines = buffer.split('\n');
-                        buffer = lines.pop();
-                        for (var i = 0; i < lines.length; i++) {
-                            var line = lines[i];
-                            if (line.startsWith('data: ')) {
-                                try {
-                                    var data = JSON.parse(line.substring(6));
-                                    if (data.type === 'ping') continue;
-                                    if (data.type === 'error') { addLogLegacy('err', '错误: ' + data.msg); alert('生成失败: ' + data.msg); showPage('materials'); return; }
-                                    if (data.type === 'done') { handleGenerationResult(data.result); return; }
-                                    addLogLegacy(data.level || 'info', '[' + (data.time || '') + '] ' + data.msg);
-                                } catch(e) {}
-                            }
-                        }
-                        read();
-                    });
-                }
-                read();
-            })
-            .catch(function(e) { addLogLegacy('err', '请求失败: ' + e.message); alert('生成失败: ' + e.message); showPage('materials'); });
-        }
-
-        // ========== 新题材步进式流水线 JS ==========
+        // ========== 题材步进式流水线 JS ==========
 
         function topicFormSubmit() {
             // Read form data
@@ -3697,18 +3654,17 @@
 
             // Show pipeline page and loading state
             showPage('pipeline');
+            window.scrollTo(0, 0);
             resetPipelineUI();
             topicUpdateProgressBar('init');
 
             document.getElementById('pipeline-script-card').style.display = 'block';
-            var spinner = document.createElement('div');
-            spinner.className = 'pipeline-spinner';
-            spinner.id = 'pipe-gen-spinner';
-            spinner.innerHTML = '<div class="spin"></div><span style="color:#909090;">脚本生成中...</span>';
-            var card = document.getElementById('pipeline-script-card');
-            card.appendChild(spinner);
+            showScriptLoading();  // 骨架屏加载动画
+            var logEl = document.getElementById('pipe-progress-log');
+            if (logEl) { logEl.innerHTML = ''; logEl.style.display = 'block'; }
+            topicPipeAddLog('🚀 开始 AI 生成...');
 
-            fetch(API + '/topic/generate', {
+            fetch(API + '/topic/generate/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -3721,35 +3677,76 @@
                     voice: voice
                 })
             })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                var sp = document.getElementById('pipe-gen-spinner');
-                if (sp) sp.remove();
-                if (data.error) { showPipelineError(data.error); return; }
+            .then(function(res) {
+                var reader = res.body.getReader();
+                var decoder = new TextDecoder();
+                var buffer = '';
+                function read() {
+                    reader.read().then(function(result) {
+                        if (result.done) return;
+                        buffer += decoder.decode(result.value, {stream: true});
+                        var lines = buffer.split('\n');
+                        buffer = lines.pop();
+                        for (var i = 0; i < lines.length; i++) {
+                            var line = lines[i];
+                            if (!line.startsWith('data: ')) continue;
+                            try {
+                                var data = JSON.parse(line.substring(6));
+                                if (data.type === 'ping' || data.type === 'progress') {
+                                    if (data.type === 'progress') {
+                                        topicPipeAddLog('⏳ ' + data.msg);
+                                        topicUpdateScriptProgress(data.msg);
+                                    }
+                                    continue;
+                                }
+                                if (data.type === 'error') {
+                                    topicPipeAddLog('❌ ' + data.msg, 'err');
+                                    hideScriptLoading();
+                                    showPipelineError(data.msg);
+                                    return; // stop on error
+                                }
+                                if (data.type === 'done') {
+                                    topicPipeAddLog('✅ ' + data.msg);
+                                    topicVideoId = data.video_id;
+                                    topicScript = { hook: data.script.hook || '', body: data.script.body || '', cta: data.script.cta || '', full_script: data.script.full_script || '' };
+                                    topicStoryboard = data.script.storyboard || [];
+                                    topicPipelineStep = 'script_ready';
 
-                topicVideoId = data.video_id;
-                topicScript = { hook: data.script.hook || '', body: data.script.body || '', cta: data.script.cta || '', full_script: data.script.full_script || '' };
-                topicStoryboard = data.script.storyboard || [];
-                topicPipelineStep = 'script_ready';
+                                    hideScriptLoading();
 
-                // Fill script editor
-                setVal('pipe-hook', topicScript.hook);
-                setVal('pipe-body', topicScript.body);
-                setVal('pipe-cta', topicScript.cta);
-                setVal('pipe-full-script', topicScript.full_script);
+                                    setVal('pipe-hook', topicScript.hook);
+                                    setVal('pipe-body', topicScript.body);
+                                    setVal('pipe-cta', topicScript.cta);
+                                    setVal('pipe-full-script', topicScript.full_script);
 
-                // Render storyboard
-                topicRenderStoryboard();
-                topicUpdateProgressBar('script_ready');
-
-                // Show save button
-                document.getElementById('pipe-save-script-btn').disabled = false;
+                                    topicRenderStoryboard();
+                                    topicUpdateProgressBar('script_ready');
+                                    document.getElementById('pipe-save-script-btn').disabled = false;
+                                    setTimeout(function() {
+                                        var el = document.getElementById('pipe-progress-log');
+                                        if (el) el.style.display = 'none';
+                                    }, 3000);
+                                    return; // stop on done
+                                }
+                            } catch(e) {}
+                        }
+                        read(); // continue reading
+                    });
+                }
+                read();
             })
             .catch(function(e) {
-                var sp = document.getElementById('pipe-gen-spinner');
-                if (sp) sp.remove();
+                topicPipeAddLog('❌ 请求失败: ' + e.message, 'err');
                 showPipelineError('请求失败: ' + e.message);
             });
+        }
+
+        function topicPipeAddLog(msg, level) {
+            var el = document.getElementById('pipe-progress-log');
+            if (!el) return;
+            var color = level === 'err' ? '#CF1322' : '#606773';
+            el.innerHTML += '<div style="padding:2px 0;color:' + color + ';">' + msg + '</div>';
+            el.scrollTop = el.scrollHeight;
         }
 
         function topicScriptChanged() {
@@ -3859,6 +3856,9 @@
                 } else if (data.pipeline_step === 'failed') {
                     clearInterval(topicPollTimer);
                     topicPollTimer = null;
+                    topicPipelineStep = 'failed';
+                    document.getElementById('pipe-render-spinner').style.display = 'none';
+                    document.getElementById('pipe-render-btn').disabled = false;
                     showPipelineError(data.error || '视频渲染失败');
                 }
             })
@@ -3965,17 +3965,77 @@
         // ========== 流水线 UI 辅助 ==========
 
         function topicUpdateProgressBar(step) {
-            var steps = ['init', 'script_ready', 'script_ready', 'tts_ready', 'done'];
+            // Map pipeline steps to dot indices (0=生成脚本, 1=编辑确认, 2=生成配音, 3=渲染完成)
+            var stepToDot = {
+                'init': 0,
+                'script_ready': 1,
+                'script_edited': 1,
+                'tts_ready': 2,
+                'rendering': 2,
+                'done': 3
+            };
+            var dotIdx = stepToDot[step];
+            if (dotIdx === undefined) return;
+            var isDone = (step === 'done');
             var dots = document.querySelectorAll('#pipeline-steps-bar .pipeline-step-dot');
             var lines = document.querySelectorAll('#pipeline-steps-bar .pipeline-step-line');
-            var stepIdx = steps.indexOf(step);
             dots.forEach(function(d, i) {
                 d.classList.remove('active', 'done');
-                if (i <= stepIdx && stepIdx >= 0) d.classList.add(i < stepIdx ? 'done' : 'active');
+                if (i < dotIdx) d.classList.add('done');
+                else if (i === dotIdx && !isDone) d.classList.add('active');
+                else if (i === dotIdx && isDone) d.classList.add('done');
             });
             lines.forEach(function(l, i) {
-                l.classList.toggle('done', i < stepIdx);
+                l.classList.toggle('done', i < dotIdx || (i === dotIdx && isDone));
             });
+        }
+
+        function showScriptLoading() {
+            // 进度条初始化
+            var wrap = document.getElementById('script-progress-wrap');
+            if (wrap) wrap.style.display = 'block';
+            var fill = document.getElementById('script-progress-fill');
+            if (fill) { fill.style.width = '0%'; fill.classList.remove('done'); }
+            var msg = document.getElementById('script-progress-msg');
+            if (msg) msg.textContent = '正在准备...';
+            var pct = document.getElementById('script-progress-pct');
+            if (pct) pct.textContent = '0%';
+            // storyboard → 等待状态
+            var list = document.getElementById('sb-scene-list');
+            if (list) list.innerHTML = '<div style="padding:16px;color:#909090;text-align:center;">等待生成...</div>';
+            var panel = document.getElementById('sb-detail-panel');
+            if (panel) panel.innerHTML = '<div style="color:#909090;text-align:center;padding-top:80px;">生成中...</div>';
+            document.getElementById('sb-progress-dots').innerHTML = '';
+            document.getElementById('sb-scene-counter').textContent = '...';
+            // 脚本进度计数
+            window._scriptProgressStep = 0;
+            window._scriptProgressTotal = 7;  // 共7个进度步骤
+        }
+
+        function topicUpdateScriptProgress(msg, step) {
+            var fill = document.getElementById('script-progress-fill');
+            var label = document.getElementById('script-progress-msg');
+            var pct = document.getElementById('script-progress-pct');
+            if (step !== undefined) window._scriptProgressStep = step;
+            else window._scriptProgressStep = (window._scriptProgressStep || 0) + 1;
+            var done = window._scriptProgressStep >= (window._scriptProgressTotal || 7);
+            var actualPct = done ? 100 : Math.round(window._scriptProgressStep / (window._scriptProgressTotal || 7) * 100);
+            if (fill) fill.style.width = actualPct + '%';
+            if (label && msg) label.textContent = msg;
+            if (pct) pct.textContent = actualPct + '%';
+            if (done) {
+                if (fill) fill.classList.add('done');
+                if (pct) pct.style.color = '#52C41A';
+            }
+        }
+
+        function hideScriptLoading() {
+            // 进度条跳至100%并保持1秒后收起
+            topicUpdateScriptProgress('完成', window._scriptProgressTotal || 7);
+            setTimeout(function() {
+                var wrap = document.getElementById('script-progress-wrap');
+                if (wrap) wrap.style.display = 'none';
+            }, 1200);
         }
 
         function resetPipelineUI() {
@@ -3993,13 +4053,56 @@
             document.getElementById('pipe-save-script-btn').disabled = false;
             document.getElementById('pipe-tts-btn').disabled = false;
             document.getElementById('pipe-render-btn').disabled = false;
+            hideScriptLoading();
             setVal('pipe-hook', ''); setVal('pipe-body', ''); setVal('pipe-cta', ''); setVal('pipe-full-script', '');
+            document.getElementById('sb-scene-list').innerHTML = '<div style="padding:16px;color:#909090;text-align:center;">等待生成...</div>';
+            document.getElementById('sb-detail-panel').innerHTML = '<div style="color:#909090;text-align:center;padding-top:80px;">点击左侧场景查看详情</div>';
+            var logEl = document.getElementById('pipe-progress-log');
+            if (logEl) { logEl.innerHTML = ''; logEl.style.display = 'none'; }
+            document.getElementById('script-progress-wrap').style.display = 'none';
+            document.getElementById('script-progress-fill').style.width = '0%';
+            document.getElementById('script-progress-fill').classList.remove('done');
         }
 
         function showPipelineError(msg) {
             document.getElementById('pipeline-error').style.display = 'block';
             document.getElementById('pipeline-error-msg').textContent = msg;
             document.getElementById('pipeline-error').scrollIntoView({behavior: 'smooth'});
+        }
+
+        function topicRetryFromTts() {
+            // 从配音步骤重试渲染，保留脚本+配音（短期记忆）
+            if (!topicVideoId) return;
+            document.getElementById('pipeline-error').style.display = 'none';
+            // 恢复渲染卡片
+            document.getElementById('pipeline-done-card').style.display = 'none';
+            document.getElementById('pipeline-render-card').style.display = 'block';
+            document.getElementById('pipeline-progress-bar').value = 60;
+            document.getElementById('pipe-render-spinner').style.display = 'block';
+            document.getElementById('pipe-render-btn').disabled = true;
+            topicPipelineStep = 'rendering';
+            topicUpdateProgressBar('rendering');
+
+            fetch(API + '/topic/videos/' + topicVideoId + '/retry-render', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    showPipelineError(data.error);
+                    document.getElementById('pipe-render-spinner').style.display = 'none';
+                    document.getElementById('pipe-render-btn').disabled = false;
+                    return;
+                }
+                topicPollTimer = setInterval(topicPollStatus, 1200);
+            })
+            .catch(function(e) {
+                showPipelineError('重试失败: ' + e.message);
+                document.getElementById('pipe-render-spinner').style.display = 'none';
+                document.getElementById('pipe-render-btn').disabled = false;
+            });
         }
 
         function topicReset() {

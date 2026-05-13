@@ -57,6 +57,17 @@ def get_cloud_llm_config() -> dict:
         "model": DEEPSEEK_MODEL if DEEPSEEK_API_KEY else OPENAI_MODEL,
     }
 
+# RAG 知识增强引擎配置
+RAG_CONFIG = {
+    "enabled": True,                     # 是否启用RAG（可在选题生成入口控制）
+    "embedding_model": "nomic-embed-text",  # nomic-embed-text(137M,快) / bge-m3(567M,中英好)
+    "chunk_size": 480,                   # 切块字符数
+    "chunk_overlap": 120,                # 重叠字符数
+    "top_k_retrieve": 5,                 # 检索返回的片段数
+    "max_context_tokens": 800,           # 注入prompt的上下文最大token数
+    "search_num_results": 5,             # 搜索引擎返回数
+}
+
 # Agent企业级配置
 AGENT_CONFIG = {
     "max_retries": 3,              # 最大重试次数

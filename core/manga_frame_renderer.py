@@ -306,7 +306,10 @@ class MangaFrameRenderer:
                      scene_index: int = 0,
                      total_scenes: int = 1,
                      sfx_text: str = "",
-                     accent_color: str = None) -> str:
+                     accent_color: str = None,
+                     visual_element: str = "",
+                     visual_data: dict = None,
+                     visible_bullets: int = 0) -> str:
         """渲染单帧漫画讲解图 — 网点纸+气泡框+速度线+分镜格全开。
 
         布局 (1080×1920)：
@@ -355,13 +358,29 @@ class MangaFrameRenderer:
         main_y0 = title_y1 + self.panel_gap
         main_y1 = bottom_y0 - self.panel_gap
 
-        has_media = media_path and Path(media_path).exists()
-        if has_media:
-            self._draw_content_with_media(draw, img, bullets, media_path,
-                                          main_y0, main_y1, accent)
+        vd = visual_data or {}
+        # Auto-detect big_number from bullets
+        if not visual_element and bullets and not (media_path and Path(media_path).exists()):
+            first = str(bullets[0]) if bullets else ""
+            import re as _re
+            if _re.search(r'[\d.]+[万亿千百]', first) and len(first) < 40:
+                visual_element = "big_number"
+                vd = {"value": _re.sub(r'[^\d.万亿千百%+]', '', first), "label": subtitle or title, "trend": "up" if any(w in first for w in ["增","涨","升","超","突"]) else ""}
+
+        if visual_element == "big_number":
+            self._draw_big_number(draw, img, main_y0, main_y1, vd, accent)
+        elif visual_element == "vs_compare":
+            self._draw_vs_compare(draw, img, main_y0, main_y1, vd, accent)
         else:
-            self._draw_content_text_only(draw, img, bullets,
-                                         main_y0, main_y1, accent)
+            # 要点逐条弹出：visible_bullets 控制显示前N条
+            show_bullets = bullets[:visible_bullets] if visible_bullets > 0 else bullets
+            has_media = media_path and Path(media_path).exists()
+            if has_media:
+                self._draw_content_with_media(draw, img, show_bullets, media_path,
+                                              main_y0, main_y1, accent)
+            else:
+                self._draw_content_text_only(draw, img, show_bullets,
+                                             main_y0, main_y1, accent)
 
         # 转回RGB保存
         rgb = Image.new("RGB", (self.w, self.h), self.paper)
@@ -427,28 +446,39 @@ class MangaFrameRenderer:
                 draw.text((sfx_x + ox, sfx_y + oy), sfx, fill=(0, 0, 0, 255), font=sfx_font)
             draw.text((sfx_x, sfx_y), sfx, fill=accent, font=sfx_font)
 
-        # 标题 — 大字+描边
-        title_font = _get_font(56, "title")
+        # 标题 — 大字+描边（允许2行）
+        title_font = _get_font(52, "title")
         tx = x0 + 34
-        ty = y0 + 40
-        display_title = title[:22]
-        for ox, oy in [(-3, 0), (3, 0), (0, -3), (0, 3)]:
-            draw.text((tx + ox, ty + oy), display_title, fill=(0, 0, 0, 255), font=title_font)
-        draw.text((tx, ty), display_title, fill=accent, font=title_font)
+        ty = y0 + 28
+        title_max_w = x1 - tx - 40
+        display_title = title[:48]
+        title_lines = self._wrap_text(display_title, title_font, title_max_w)[:4]
+        title_line_h = 60
+        for li, tline in enumerate(title_lines):
+            tty = ty + li * title_line_h
+            for ox, oy in [(-3, 0), (3, 0), (0, -3), (0, 3)]:
+                draw.text((tx + ox, tty + oy), tline, fill=(0, 0, 0, 255), font=title_font)
+            draw.text((tx, tty), tline, fill=accent, font=title_font)
+        title_bottom = ty + len(title_lines) * title_line_h
 
-        # 副标题/导读行
-        info_font = _get_font(28, "body")
+        # 副标题/导读行 — 允许换行（最多2行）
+        info_font = _get_font(26, "body")
         if subtitle:
-            info_text = subtitle[:50]
+            info_text = subtitle[:120]
         else:
             info_text = self.style.get("default_subtitle", "详细讲解 · 建议收藏反复观看")
-        iw = draw.textlength(info_text, font=info_font)
-        ix = (self.w - int(iw)) // 2
-        draw.text((ix, ty + 90), info_text, fill=self.text_secondary, font=info_font)
+        info_max_w = x1 - tx - 40
+        info_lines = self._wrap_text(info_text, info_font, info_max_w)[:4]
+        info_line_h = 34
+        for li, iline in enumerate(info_lines):
+            iw = draw.textlength(iline, font=info_font)
+            ix = (self.w - int(iw)) // 2
+            draw.text((ix, title_bottom + 24 + li * info_line_h), iline, fill=self.text_secondary, font=info_font)
+        info_bottom = title_bottom + 24 + len(info_lines) * info_line_h
 
         # 装饰线 — 标题下方
         if self.style.get("enable_decorative_lines", True):
-            deco_y = ty + 130
+            deco_y = info_bottom + 12
             draw.line([(tx, deco_y), (tx + 300, deco_y)], fill=(0, 0, 0, 255), width=3)
             draw.line([(tx, deco_y + 8), (tx + 180, deco_y + 8)], fill=accent, width=2)
 
@@ -496,13 +526,16 @@ class MangaFrameRenderer:
                 fill_c = accent if i <= idx else self.progress_inactive
                 draw.rounded_rectangle([sx, dot_y - 4, ex, dot_y + 4], radius=3, fill=fill_c)
 
-        # 中间总结文字
+        # 中间总结文字 — 允许2行换行
         if subtitle:
-            sub_font = _get_font(30, "body")
-            sub = subtitle[:48]
-            sub_w = draw.textlength(sub, font=sub_font)
-            sub_x = (self.w - int(sub_w)) // 2
-            draw.text((sub_x, y0 + 52), sub, fill=self.style["text_c"], font=sub_font)
+            sub_font = _get_font(28, "body")
+            sub = subtitle[:120]
+            sub_max_w = x1 - x0 - 160
+            sub_lines = self._wrap_text(sub, sub_font, sub_max_w)[:3]
+            for li, sline in enumerate(sub_lines):
+                sw = draw.textlength(sline, font=sub_font)
+                sx = (self.w - int(sw)) // 2
+                draw.text((sx, y0 + 38 + li * 34), sline, fill=self.style["text_c"], font=sub_font)
 
         # 底部标签行
         if self.style.get("enable_bottom_tags", True):
@@ -532,8 +565,8 @@ class MangaFrameRenderer:
         content_h = y1 - y0
         margin = self.panel_gap + 10
 
-        # 限制每帧最多6个要点
-        bullets = bullets[:6]
+        # 限制每帧最多8个要点
+        bullets = bullets[:8]
         n = len(bullets)
 
         # 每个要点获取均等高度
@@ -581,9 +614,9 @@ class MangaFrameRenderer:
             lead = ''
             body = text
 
-        # ── 找最大能放下的字号（含大行距）──
+        # ── 找最大能放下的字号（上限40px，确保多行排版）──
         best_size = 16
-        for size in [56, 50, 44, 40, 36, 34, 32, 30, 28, 26, 24, 22, 20, 18, 16]:
+        for size in [32, 30, 28, 26, 24, 22, 20, 18, 16]:
             body_f = _get_font(size, "body")
             lead_f = _get_font(size + 4, "title")
             line_spacing = max(8, size // 3)  # 大字多留行距
@@ -700,14 +733,169 @@ class MangaFrameRenderer:
             draw_parallel_speed_lines(draw, lx0 + 40, m_y, lx1 - 40, m_y, count=8 if self.style.get("enable_speed_lines") else 0, opacity=20)
             self._draw_fullwidth_card(draw, bullets[1], lx0, y0 + h0 + gap_w, lx1, y1, accent, 1)
         elif n >= 3:
-            h_each = (content_h - gap_w * 2) // 3
-            for j in range(min(n, 3)):
+            show_n = min(n, 6)
+            h_each = (content_h - gap_w * (show_n - 1)) // show_n
+            for j in range(show_n):
                 py0 = y0 + j * (h_each + gap_w)
                 py1 = py0 + h_each
                 self._draw_fullwidth_card(draw, bullets[j], lx0, py0, lx1, min(py1, y1), accent, j)
-                if j < min(n, 3) - 1:
+                if j < show_n - 1:
                     m_y = py1 + gap_w // 2
                     draw_parallel_speed_lines(draw, lx0 + 40, m_y, lx1 - 40, m_y, count=6 if self.style.get("enable_speed_lines") else 0, opacity=20)
+
+    # ── 大数字炸裂卡片 ────────────────────────────────
+
+    def _draw_big_number(self, draw, img, y0: int, y1: int, data: dict, accent: str):
+        """大数字冲击卡片 — 居中巨数+标签+趋势箭头+脉冲光环。"""
+        content_h = y1 - y0
+        x0 = self.panel_gap
+        x1 = self.w - self.panel_gap
+
+        value = str(data.get("value") or data.get("number") or "0")
+        label = str(data.get("label") or data.get("title") or "")
+        trend = data.get("trend", "")
+        sub_text = str(data.get("subtitle") or data.get("description") or "")
+
+        # 面板背景
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=18,
+                               fill=self.panel_bg, outline=self.style['border_color'], width=self.style['border_width'])
+
+        # 网点纹理
+        if self.style.get("enable_crosshatch", True):
+            draw_crosshatch(draw, x0 + 14, y0 + 14, x1 - 14, y1 - 14,
+                          spacing=self.style["crosshatch_spacing"], opacity=self.style["crosshatch_opacity"], angle=self.style["crosshatch_angle"])
+
+        # 脉冲光环 — 多层同心圆
+        cx, cy = self.w // 2, y0 + content_h // 2
+        ring_base = min(content_h, self.w - x0 * 2) // 3
+        for ri in range(3):
+            rr = ring_base + ri * 50
+            ring_alpha = max(25, 160 - ri * 50)
+            for rw in [3, 2, 1]:
+                draw.ellipse([cx - rr - rw, cy - rr - rw, cx + rr + rw, cy + rr + rw],
+                             outline=(_hex_to_rgba(accent)[0], _hex_to_rgba(accent)[1], _hex_to_rgba(accent)[2], ring_alpha // (rw * 2)), width=rw)
+
+        # 找到能放下的最大数字字号
+        best_size = 36
+        for size in [180, 160, 140, 120, 100, 80, 72, 64, 56, 48, 42, 36]:
+            nf = _get_font(size, "title")
+            nw = draw.textlength(value, font=nf)
+            if nw < (x1 - x0) * 0.85:
+                best_size = size
+                break
+
+        num_font = _get_font(best_size, "title")
+        label_font = _get_font(max(28, best_size // 3), "body")
+        sub_font = _get_font(26, "body")
+
+        nw = draw.textlength(value, font=num_font)
+        nx = (self.w - int(nw)) // 2
+        ny = y0 + content_h * 0.25
+
+        # 趋势箭头
+        arrow = {"up": "↑", "down": "↓", "flat": "→"}.get(trend, "")
+        if arrow:
+            arrow_color = {"up": "#E04040", "down": "#3060C0", "flat": "#888888"}.get(trend, accent)
+            arrow_font = _get_font(best_size // 2, "sfx")
+            aw = draw.textlength(arrow, font=arrow_font)
+            draw.text((nx - aw - 20, ny + best_size * 0.15), arrow, fill=arrow_color, font=arrow_font)
+
+        # 主数字 — 粗描边
+        for ox, oy in [(-4, 0), (4, 0), (0, -4), (0, 4), (-3, -3), (3, 3)]:
+            draw.text((nx + ox, ny + oy), value, fill=(0, 0, 0, 255), font=num_font)
+        draw.text((nx, ny), value, fill=accent, font=num_font)
+
+        # 标签
+        if label:
+            lw = draw.textlength(label, font=label_font)
+            lx = (self.w - int(lw)) // 2
+            ly = ny + best_size + 16
+            draw.text((lx, ly), label, fill=self.text_c, font=label_font)
+
+        # 副标题
+        if sub_text:
+            sw = draw.textlength(sub_text, font=sub_font)
+            sx = (self.w - int(sw)) // 2
+            sy = max(ly + 44, y0 + content_h * 0.78)
+            draw.text((sx, sy), sub_text[:80], fill=self.text_secondary, font=sub_font)
+
+        # 下划线装饰
+        if self.style.get("enable_decorative_lines", True):
+            deco_y = y0 + content_h - 24
+            draw.line([(self.w // 2 - 120, deco_y), (self.w // 2 + 120, deco_y)], fill=accent, width=3)
+
+    # ── VS对比面板 ──────────────────────────────────────
+
+    def _draw_vs_compare(self, draw, img, y0: int, y1: int, data: dict, accent: str):
+        """VS对比双栏面板 — 左右分屏数据PK，适合对比分析场景。"""
+        content_h = y1 - y0
+        x0 = self.panel_gap
+        x1 = self.w - self.panel_gap
+        panel_w = x1 - x0
+        mid_x = self.w // 2
+
+        # 面板背景
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=18,
+                               fill=self.panel_bg, outline=self.style['border_color'], width=self.style['border_width'])
+
+        left = data.get("left", {})
+        right = data.get("right", {})
+        vs_text = data.get("vs_text", "VS")
+
+        # 中央 VS 分隔
+        vs_font = _get_font(48, "sfx")
+        vs_w = draw.textlength(vs_text, font=vs_font)
+        vs_x = mid_x - int(vs_w) // 2
+        vs_y = y0 + content_h // 2 - 30
+        # VS 描边
+        for ox, oy in [(-3, 0), (3, 0), (0, -3), (0, 3)]:
+            draw.text((vs_x + ox, vs_y + oy), vs_text, fill=(0, 0, 0, 255), font=vs_font)
+        draw.text((vs_x, vs_y), vs_text, fill=accent, font=vs_font)
+
+        # 竖线分隔
+        draw.line([(mid_x, y0 + 20), (mid_x, y1 - 20)], fill=(200, 200, 210, 255), width=2)
+
+        # 左右两栏
+        for side, side_data, col_x0, col_x1 in [
+            ("left", left, x0, mid_x - 30),
+            ("right", right, mid_x + 30, x1),
+        ]:
+            col_w = col_x1 - col_x0
+            s_label = str(side_data.get("label") or side_data.get("title") or side)
+            s_value = str(side_data.get("value") or side_data.get("number") or "-")
+            s_desc = str(side_data.get("description") or side_data.get("subtitle") or "")
+
+            # 数值字号自适应
+            best_size = 28
+            for size in [72, 60, 52, 44, 36, 32, 28]:
+                nf = _get_font(size, "title")
+                if draw.textlength(s_value, font=nf) < col_w * 0.8:
+                    best_size = size
+                    break
+
+            num_font = _get_font(best_size, "title")
+            name_font = _get_font(max(24, best_size // 2), "body")
+            desc_font = _get_font(20, "body")
+
+            # 标签
+            nw = draw.textlength(s_label, font=name_font)
+            draw.text((col_x0 + (col_w - int(nw)) // 2, y0 + 28), s_label, fill=self.text_c, font=name_font)
+
+            # 数值
+            vw = draw.textlength(s_value, font=num_font)
+            vx = col_x0 + (col_w - int(vw)) // 2
+            vy = y0 + content_h * 0.32
+            draw.text((vx, vy), s_value, fill=accent if side == "left" else self.style.get("accent_blue", "#3060C0"), font=num_font)
+
+            # 描述
+            if s_desc:
+                desc_lines = self._wrap_text(s_desc[:60], desc_font, col_w - 20)[:3]
+                for li, dline in enumerate(desc_lines):
+                    dw = draw.textlength(dline, font=desc_font)
+                    dx = col_x0 + (col_w - int(dw)) // 2
+                    dy = vy + best_size + 20 + li * 26
+                    if dy < y1 - 20:
+                        draw.text((dx, dy), dline, fill=self.text_secondary, font=desc_font)
 
     # ── 横屏布局 (1920×1080) ─────────────────────────────
 
@@ -799,7 +987,7 @@ class MangaFrameRenderer:
 
         # 副标题
         info_font = _get_font(22, "body")
-        info_lines = self._wrap_text(subtitle[:40] or "详细讲解", info_font, inner_w)
+        info_lines = self._wrap_text(subtitle[:80] or "详细讲解", info_font, inner_w)
         iy = deco_y + 30
         for ln in info_lines[:3]:
             draw.text((inner_x0, iy), ln, fill=self.text_secondary, font=info_font)
@@ -916,7 +1104,7 @@ class MangaFrameRenderer:
         page_text = f"{idx+1}/{total}"
         draw.text((x0 + 20, y0 + 16), page_text, fill=accent, font=page_font)
 
-        summary = subtitle[:50] if subtitle else self.style.get("default_subtitle", "详细讲解")[:20]
+        summary = subtitle[:80] if subtitle else self.style.get("default_subtitle", "详细讲解")[:20]
         sum_font = _get_font(22, "body")
         sw = draw.textlength(summary, font=sum_font)
         draw.text(((self.w - int(sw)) // 2, y0 + 18), summary,
@@ -984,32 +1172,36 @@ class MangaFrameRenderer:
             scenes = [{"title": "讲解", "subtitle": script_content[:60], "bullets": ["内容概要"]}]
 
         for i, scene in enumerate(scenes):
-            title = str(scene.get("title") or f"场景 {i+1}")[:24]
+            title = str(scene.get("title") or f"场景 {i+1}")[:36]
             subtitle = str(scene.get("subtitle") or "")
             bullets = scene.get("bullets") if isinstance(scene.get("bullets"), list) else self._extract_bullets(subtitle or script_content)
             bullets = [str(x).strip() for x in bullets if str(x).strip()] or ["要点讲解"]
-            # 每帧最多6个要点
-            bullets = bullets[:6]
+            # 每帧最多8个要点
+            bullets = bullets[:8]
             sfx = str(scene.get("sfx") or "")
             mp = materials.get(str(i)) or scene.get("material_url")
+            ve = str(scene.get("visual_element") or "")
+            vd = scene.get("visual_data") if isinstance(scene.get("visual_data"), dict) else {}
 
             out = work_dir / f"manga_scene_{i:03d}.png"
             self.render_frame(
                 title=title,
                 bullets=bullets,
                 output_path=str(out),
-                subtitle=subtitle[:44],
+                subtitle=subtitle[:200],
                 media_path=mp,
                 scene_index=i,
                 total_scenes=len(scenes),
                 sfx_text=sfx,
+                visual_element=ve,
+                visual_data=vd,
             )
             outputs.append(str(out))
 
         return outputs
 
     @staticmethod
-    def _extract_bullets(text: str, max_items: int = 6) -> list:
+    def _extract_bullets(text: str, max_items: int = 8) -> list:
         import re
         parts = re.split(r'(?<=[。！？!?])\s*|\n+', text or "")
         candidates = [s.strip() for s in parts if s.strip()]

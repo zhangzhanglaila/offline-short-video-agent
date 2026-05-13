@@ -27,6 +27,10 @@ python-dotenv>=1.0.0
 # playwright>=1.40.0  # 爬虫功能 (可选)
 # gtts>=2.3.0          # Google TTS (备用)
 
+# ========== Agent编排 (Phase 2 新增) ==========
+langgraph>=0.2.0
+langchain-core>=0.3.0
+
 # ========== 环境配置说明 ==========
 # 1. FFmpeg (必须): https://ffmpeg.org/download.html
 #    Windows: winget install ffmpeg
@@ -34,6 +38,7 @@ python-dotenv>=1.0.0
 #
 # 2. Ollama (推荐): https://ollama.com/download
 #    模型: ollama pull qwen2.5:14b
+#    Embedding模型(RAG): ollama pull nomic-embed-text
 #
 # 3. Pexels API (联网配图,可选):
 #    获取API Key: https://www.pexels.com/api/
@@ -61,10 +66,10 @@ python-dotenv>=1.0.0
 #    http://127.0.0.1:5001/docs
 #
 # 4. 测试视频生成:
-#    # 模式A - 题材全自动生成
-#    curl -X POST http://127.0.0.1:5001/api/generate/mode-a \
+#    # 素材智能剪辑
+#    curl -X POST http://127.0.0.1:5001/api/generate/mode-b \
 #      -H "Content-Type: application/json" \
-#      -d '{"topic_keyword": "AI变现", "duration": 30}'
+#      -d '{"material_paths": ["path/to/img.jpg"], "duration_per_image": 4}'
 #
 #    # 模式B - 素材智能剪辑
 #    curl -X POST http://127.0.0.1:5001/api/generate/mode-b \

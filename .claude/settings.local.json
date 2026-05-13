@@ -271,7 +271,8 @@
       "Bash(taskkill *)",
       "Bash(taskkill //F //IM python.exe)",
       "Bash(git show *)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(ffmpeg *)"
     ]
   }
 }

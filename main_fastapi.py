@@ -111,7 +111,7 @@ def create_app() -> "FastAPI":
     app.include_router(topic_api.router, tags=["选题"])
     app.include_router(work_api.router, tags=["作品"])
     app.include_router(tts_api.router, tags=["TTS配音"])
-    app.include_router(dual_mode_api.router, tags=["双模式生成"])
+    app.include_router(dual_mode_api.router, tags=["素材剪辑"])
     app.include_router(thinking_api.router, tags=["Thinking智能导演"])
     app.include_router(timeline_api.router, tags=["Timeline时间线编辑"])
     app.include_router(ecom_api.router, tags=["电商带货"])

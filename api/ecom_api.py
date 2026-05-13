@@ -466,6 +466,43 @@ async def api_render_video(video_id: int, data: dict = None):
     return JSONResponse({'success': True, 'video_id': video_id})
 
 
+@router.post("/api/ecom/videos/{video_id}/retry-render")
+async def api_ecom_retry_render(video_id: int, data: dict = None):
+    """Step 4 重试: 从失败状态回退到 tts_ready 后重新触发渲染，保留脚本和配音。"""
+    import threading
+    from core.db_init import get_db_path
+    import sqlite3
+
+    if data is None:
+        data = {}
+
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT pipeline_step, tts_audio_path FROM ecom_videos WHERE id = ?", (video_id,))
+        row = cursor.fetchone()
+        if not row:
+            return JSONResponse({'error': '视频不存在'}, status_code=404)
+        if row['pipeline_step'] != 'failed':
+            return JSONResponse({'error': f'当前状态不允许重试: {row["pipeline_step"]}'}, status_code=400)
+        if not row['tts_audio_path']:
+            return JSONResponse({'error': '配音文件丢失，请重新生成脚本和配音'}, status_code=400)
+
+        cursor.execute("UPDATE ecom_videos SET pipeline_step='rendering', status='generating', notes='' WHERE id=?", (video_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return JSONResponse({'error': str(e)}, status_code=500)
+    finally:
+        conn.close()
+
+    thread = threading.Thread(target=_run_render_pipeline, args=(video_id,), daemon=True)
+    thread.start()
+
+    return JSONResponse({'success': True, 'video_id': video_id})
+
+
 @router.get("/api/ecom/videos/{video_id}/status")
 async def api_ecom_video_status(video_id: int):
     """状态轮询端点（含 pipeline_step）。"""

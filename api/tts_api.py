@@ -134,6 +134,8 @@ async def api_get_audio(filename: str):
     try:
         audio_path = config.OUTPUT_DIR / "临时" / filename
         if not audio_path.exists():
+            audio_path = config.OUTPUT_DIR / "topic" / filename
+        if not audio_path.exists():
             audio_path = config.OUTPUT_DIR / "ecom" / filename
         if not audio_path.exists():
             audio_path = config.OUTPUT_DIR / filename

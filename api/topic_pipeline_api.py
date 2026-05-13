@@ -2,14 +2,19 @@
 """
 题材全自动生成 API 路由 — 步进式流水线（复刻 ecom_api 模式）
 端点: POST generate → PUT script → POST tts → POST render → GET status
+支持 SSE 流式输出: POST /api/topic/generate/stream
 """
 import sys
 import os
 import json
+import time
+import queue
+import threading
+import asyncio
 from pathlib import Path
 
-from fastapi import APIRouter, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, UploadFile, File, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -106,11 +111,13 @@ async def api_topic_generate(data: dict):
     try:
         cursor = conn.cursor()
         cursor.execute("BEGIN")
+        chart_data = script_result.get("chart_data", [])
+        diagram_layout = script_result.get("diagram_layout", "")
         cursor.execute("""
             INSERT INTO topic_videos (topic_keyword, category, platform, style, script_content, storyboard,
             status, pipeline_step, prompt_snapshot, llm_model, duration, animation_style, orientation,
-            video_width, video_height, visual_style, voice)
-            VALUES (?, ?, ?, ?, ?, ?, 'script_ready', 'script_ready', ?, ?, ?, 'manga_frame', ?, ?, ?, ?, ?)
+            video_width, video_height, visual_style, voice, chart_data, diagram_layout)
+            VALUES (?, ?, ?, ?, ?, ?, 'script_ready', 'script_ready', ?, ?, ?, 'manga_frame', ?, ?, ?, ?, ?, ?, ?)
         """, (
             topic_keyword, category, platform, "manga",
             script_result.get("full_script", ""),
@@ -123,6 +130,8 @@ async def api_topic_generate(data: dict):
             video_height,
             visual_style if visual_style in config.VISUAL_STYLES else "manga",
             voice,
+            json.dumps(chart_data, ensure_ascii=False) if chart_data else "[]",
+            diagram_layout or "",
         ))
         video_id = cursor.lastrowid
         normalized_storyboard = ensure_storyboard_placeholders(video_id, normalized_storyboard, script_result.get("full_script", ""), table_name="topic_videos")
@@ -137,9 +146,163 @@ async def api_topic_generate(data: dict):
     return JSONResponse({
         "success": True,
         "video_id": video_id,
-        "script": {**script_result, "storyboard": normalized_storyboard},
+        "script": {**script_result, "storyboard": normalized_storyboard, "chart_data": chart_data, "diagram_layout": diagram_layout},
         "topic": topic,
     })
+
+
+# ==================== Step 1b: 流式生成脚本 (SSE) ====================
+
+@router.post("/api/topic/generate/stream")
+async def api_topic_generate_stream(request: Request):
+    """
+    Step 1 SSE: 从题材关键词流式生成脚本 + 结构化分镜。
+    支持实时推送进度: 选题 → LLM生成 → 分镜规范化 → 入库
+    事件类型: progress / done / error
+    """
+    import sqlite3
+
+    data = await request.json()
+
+    topic_keyword = (data.get("topic_keyword") or "").strip()
+    category = (data.get("category") or "").strip()
+    platform = data.get("platform", "抖音")
+    duration = data.get("duration", 30)
+    orientation = data.get("orientation", "portrait")
+    visual_style = data.get("visual_style", "manga")
+    voice = data.get("voice", "zh-CN-XiaoxiaoNeural")
+
+    log_queue = queue.Queue()
+    result_queue = queue.Queue()
+
+    def log_send(event_type, msg, extra=None):
+        entry = {"type": event_type, "time": time.strftime("%H:%M:%S"), "msg": msg}
+        if extra:
+            entry.update(extra)
+        log_queue.put_nowait(entry)
+
+    def run_generation():
+        try:
+            if not topic_keyword and not category:
+                log_send("error", "请输入题材关键词或选择赛道")
+                return
+
+            video_width, video_height = config.get_output_dimensions(orientation)
+
+            # Step 1: 选题
+            log_send("progress", "正在分析题材关键词...")
+            topic = _generate_topic(topic_keyword, category, platform)
+            log_send("progress", f"选题完成: {topic.get('title', '')}")
+
+            # Step 2: LLM 脚本生成
+            log_send("progress", "正在调用 AI 生成脚本...")
+            try:
+                from core.script_module import generate_script
+                script_result = generate_script(topic, platform, duration)
+            except Exception as e:
+                log_send("error", f"脚本生成失败: {str(e)}")
+                return
+
+            if "error" in script_result:
+                log_send("error", f"LLM 生成失败: {script_result['error']}")
+                return
+
+            script_result = normalize_script_result(script_result)
+
+            if not script_result.get("full_script"):
+                log_send("error", "LLM 返回空内容，请检查 API Key 是否有效或稍后重试")
+                return
+
+            log_send("progress", f"脚本生成完成 ({len(script_result.get('full_script', ''))} 字)")
+
+            # Step 3: 分镜规范化
+            log_send("progress", "正在结构化分镜头...")
+            normalized_storyboard = normalize_storyboard(script_result, int(duration))
+            log_send("progress", f"分镜完成，共 {len(normalized_storyboard)} 个场景")
+
+            # Step 4: 入库
+            log_send("progress", "正在保存到数据库...")
+            chart_data = script_result.get("chart_data", [])
+            diagram_layout = script_result.get("diagram_layout", "")
+            conn = sqlite3.connect(get_db_path())
+            try:
+                cursor = conn.cursor()
+                cursor.execute("BEGIN")
+                cursor.execute("""
+                    INSERT INTO topic_videos (topic_keyword, category, platform, style, script_content, storyboard,
+                    status, pipeline_step, prompt_snapshot, llm_model, duration, animation_style, orientation,
+                    video_width, video_height, visual_style, voice, chart_data, diagram_layout)
+                    VALUES (?, ?, ?, ?, ?, ?, 'script_ready', 'script_ready', ?, ?, ?, 'manga_frame', ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    topic_keyword, category, platform, "manga",
+                    script_result.get("full_script", ""),
+                    json.dumps(normalized_storyboard, ensure_ascii=False),
+                    json.dumps({"topic": topic, "platform": platform}, ensure_ascii=False),
+                    config.OPENAI_MODEL,
+                    duration,
+                    orientation,
+                    video_width,
+                    video_height,
+                    visual_style if visual_style in config.VISUAL_STYLES else "manga",
+                    voice,
+                    json.dumps(chart_data, ensure_ascii=False) if chart_data else "[]",
+                    diagram_layout or "",
+                ))
+                video_id = cursor.lastrowid
+                normalized_storyboard = ensure_storyboard_placeholders(video_id, normalized_storyboard, script_result.get("full_script", ""), table_name="topic_videos")
+                cursor.execute("UPDATE topic_videos SET storyboard=? WHERE id=?", (json.dumps(normalized_storyboard, ensure_ascii=False), video_id))
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                log_send("error", f"数据库写入失败: {str(e)}")
+                return
+            finally:
+                conn.close()
+
+            log_send("done", "脚本生成完毕", {
+                "video_id": video_id,
+                "script": {**script_result, "storyboard": normalized_storyboard, "chart_data": chart_data, "diagram_layout": diagram_layout},
+                "topic": topic,
+            })
+
+        except Exception as e:
+            log_send("error", f"生成过程异常: {str(e)}")
+
+    thread = threading.Thread(target=run_generation)
+    thread.start()
+
+    async def event_generator():
+        while True:
+            try:
+                entry = log_queue.get(timeout=0.15)
+                yield f"data: {json.dumps(entry, ensure_ascii=False)}\n\n"
+            except queue.Empty:
+                pass
+
+            if not thread.is_alive():
+                # Drain remaining
+                while True:
+                    try:
+                        entry = log_queue.get_nowait()
+                        yield f"data: {json.dumps(entry, ensure_ascii=False)}\n\n"
+                    except queue.Empty:
+                        break
+                break
+
+            yield f"data: {json.dumps({'type': 'ping'})}\n\n"
+            await asyncio.sleep(0.1)
+
+        thread.join()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        }
+    )
 
 
 # ==================== Step 2: 保存脚本 ====================
@@ -386,6 +549,66 @@ async def api_topic_render_video(video_id: int, data: dict = None):
     return JSONResponse({"success": True, "video_id": video_id})
 
 
+@router.post("/api/topic/videos/{video_id}/retry-render")
+async def api_topic_retry_render(video_id: int, data: dict = None):
+    """Step 4 重试: 从失败状态回退到 tts_ready 后重新触发渲染，保留脚本和配音。"""
+    import threading
+    import sqlite3
+
+    if data is None:
+        data = {}
+
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT pipeline_step, tts_audio_path FROM topic_videos WHERE id = ?", (video_id,))
+        row = cursor.fetchone()
+        if not row:
+            return JSONResponse({"error": "视频不存在"}, status_code=404)
+        if row["pipeline_step"] != "failed":
+            return JSONResponse({"error": f"当前状态不允许重试: {row['pipeline_step']}"}, status_code=400)
+        if not row["tts_audio_path"]:
+            return JSONResponse({"error": "配音文件丢失，请重新生成脚本和配音"}, status_code=400)
+
+        cursor.execute("UPDATE topic_videos SET pipeline_step='rendering', status='generating', notes='' WHERE id=?", (video_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return JSONResponse({"error": str(e)}, status_code=500)
+    finally:
+        conn.close()
+
+    orientation = (data or {}).get("orientation")
+    visual_style = (data or {}).get("visual_style")
+    if orientation in ("portrait", "landscape") or (visual_style and visual_style in config.VISUAL_STYLES):
+        try:
+            conn = sqlite3.connect(get_db_path())
+            sets, params = [], []
+            if visual_style in config.VISUAL_STYLES:
+                sets.append("visual_style=?")
+                params.append(visual_style)
+            if orientation in ("portrait", "landscape"):
+                w, h = config.get_output_dimensions(orientation)
+                sets.append("orientation=?")
+                params.append(orientation)
+                sets.append("video_width=?")
+                params.append(w)
+                sets.append("video_height=?")
+                params.append(h)
+            params.append(video_id)
+            conn.execute(f"UPDATE topic_videos SET {', '.join(sets)} WHERE id=?", params)
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
+    thread = threading.Thread(target=run_render_pipeline, args=(video_id, "topic_videos"), daemon=True)
+    thread.start()
+
+    return JSONResponse({"success": True, "video_id": video_id})
+
+
 # ==================== 状态轮询 ====================
 
 @router.get("/api/topic/videos/{video_id}/status")
@@ -438,7 +661,7 @@ async def api_topic_video_detail(video_id: int):
             return JSONResponse({"error": "视频不存在"}, status_code=404)
 
         d = dict(row)
-        for key in ("storyboard",):
+        for key in ("storyboard", "chart_data"):
             if d.get(key) and isinstance(d[key], str):
                 try:
                     d[key] = json.loads(d[key])
@@ -473,11 +696,12 @@ async def api_topic_videos(
         items = []
         for row in cursor.fetchall():
             d = dict(row)
-            if d.get("storyboard") and isinstance(d["storyboard"], str):
-                try:
-                    d["storyboard"] = json.loads(d["storyboard"])
-                except json.JSONDecodeError:
-                    d["storyboard"] = []
+            for key in ("storyboard", "chart_data"):
+                if d.get(key) and isinstance(d[key], str):
+                    try:
+                        d[key] = json.loads(d[key])
+                    except json.JSONDecodeError:
+                        d[key] = [] if key == "chart_data" else d.get(key, [])
             d["video_url"] = video_path_to_url(d.get("video_path", ""))
             items.append(d)
 

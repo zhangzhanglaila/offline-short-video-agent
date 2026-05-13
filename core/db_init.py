@@ -168,6 +168,8 @@ def init_topics_db():
         ("orientation", "TEXT DEFAULT 'portrait'"),
         ("visual_style", "TEXT DEFAULT 'manga'"),
         ("voice", "TEXT DEFAULT 'zh-CN-XiaoxiaoNeural'"),
+        ("chart_data", "TEXT"),
+        ("diagram_layout", "TEXT"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE topic_videos ADD COLUMN {col} {default}")

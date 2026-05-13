@@ -55,7 +55,7 @@ def normalize_script_result(script_result: dict) -> dict:
     return normalized
 
 
-def extract_bullets(text: str, max_items: int = 6) -> list[str]:
+def extract_bullets(text: str, max_items: int = 8) -> list[str]:
     parts = re.split(r'(?<=[。！？!?])\s*|\n+', text or "")
     candidates = [s.strip() for s in parts if s.strip()]
     if candidates:
@@ -156,6 +156,58 @@ def generate_manga_frames(storyboard, script_content, work_dir, materials=None, 
     )
 
 
+def generate_chart_materials(script_result: dict, work_dir: Path, visual_style: str,
+                              video_width: int = 1080, video_height: int = 1920) -> dict:
+    """从 script_result 的 chart_data 生成图表 PNG，返回 {scene_index: file_path} 字典。"""
+    chart_data = script_result.get("chart_data", [])
+    if not isinstance(chart_data, list):
+        chart_data = []
+    diagram_layout = script_result.get("diagram_layout", "")
+
+    materials = {}
+    chart_dir = Path(work_dir) / "charts"
+    chart_dir.mkdir(parents=True, exist_ok=True)
+
+    chart_w = min(340, video_width // 3)
+    chart_h = min(700, video_height * 2 // 5)
+
+    # 处理 chart_data 条目（跳过 big_number / vs_compare — 它们在漫画帧层渲染）
+    CHART_RENDER_TYPES = {"bar", "bar_chart", "column", "pie", "pie_chart", "line", "line_chart", "flowchart", "diagram", "architecture"}
+    for chart_spec in chart_data:
+        if not isinstance(chart_spec, dict):
+            continue
+        ct = chart_spec.get("chart_type", "bar")
+        if ct not in CHART_RENDER_TYPES:
+            continue  # big_number / vs_compare 在漫画帧渲染器层处理
+        scene_idx = chart_spec.get("scene_index", 0)
+        output_path = str(chart_dir / f"chart_{scene_idx:03d}.png")
+        try:
+            from core.chart_renderer import render_chart
+            render_chart(chart_spec, output_path, visual_style, width=chart_w, height=chart_h)
+            materials[str(scene_idx)] = output_path
+        except Exception as e:
+            print(f"[Chart] 图表渲染失败 scene={scene_idx}: {e}")
+
+    # 处理旧 diagram_layout（无 flowchart 时）
+    has_flowchart = any(
+        isinstance(c, dict) and c.get("chart_type") in ("flowchart", "diagram")
+        for c in chart_data
+    )
+    if diagram_layout and not has_flowchart:
+        dsl_output = str(chart_dir / "diagram_000.png")
+        try:
+            from core.chart_renderer import parse_diagram_dsl, render_chart
+            layout = parse_diagram_dsl(diagram_layout, target_w=chart_w, target_h=chart_h)
+            if layout:
+                render_chart({"chart_type": "flowchart", "title": ""}, dsl_output, visual_style,
+                            width=chart_w, height=chart_h, _override_layout=layout)
+                materials["0"] = dsl_output
+        except Exception as e:
+            print(f"[Chart] diagram_layout 渲染失败: {e}")
+
+    return materials
+
+
 def ensure_storyboard_placeholders(video_id: int, storyboard: list[dict], script_content: str, table_name: str = "ecom_videos") -> list[dict]:
     """Generate manga-style placeholders for scenes without material_url."""
     scene_dir = config.OUTPUT_DIR / "storyboard" / f"video_{video_id}"
@@ -221,35 +273,193 @@ def run_render_pipeline(video_id: int, table_name: str = "ecom_videos"):
         work_dir = config.OUTPUT_DIR / "_work" / f"{'topic' if 'topic' in table_name else 'ecom'}_{video_id}"
         work_dir.mkdir(parents=True, exist_ok=True)
 
-        # 漫画风讲解帧（文字主导，素材次要）
-        images = generate_manga_frames(storyboard, script_content, work_dir, materials=materials,
-                                        width=video_width, height=video_height, visual_style=visual_style)
+        # ═══ 自动图表生成（含动态图表动画） ═══
+        chart_data_raw = json.loads(row.get("chart_data") or "[]") if isinstance(row.get("chart_data"), str) else (row.get("chart_data") or [])
+        if not isinstance(chart_data_raw, list):
+            chart_data_raw = []
+        chart_script = {"chart_data": chart_data_raw,
+                        "diagram_layout": row.get("diagram_layout") or ""}
+
+        # 静态图表 PNG（进度=1.0）→ 用于素材字典
+        chart_materials = generate_chart_materials(chart_script, work_dir, visual_style, video_width, video_height)
+        for k, v in chart_materials.items():
+            if k not in materials or not materials[k]:
+                materials[k] = v
+
+        # 动态图表动画帧（进度=0→1 的多帧序列）
+        ANIM_FRAMES = 12
+        chart_anim_frames = {}  # {scene_index: [frame_png_paths]}
+        if chart_data_raw:
+            anim_dir = work_dir / "charts" / "anim"
+            anim_dir.mkdir(parents=True, exist_ok=True)
+            chart_w = min(340, video_width // 3)
+            chart_h = min(700, video_height * 2 // 5)
+            for cspec in chart_data_raw:
+                if not isinstance(cspec, dict):
+                    continue
+                ct = cspec.get("chart_type", "bar")
+                if ct not in ("bar", "bar_chart", "column", "pie", "pie_chart", "line", "line_chart", "flowchart", "diagram", "architecture"):
+                    continue  # big_number / vs_compare 不需要图表帧
+                si = cspec.get("scene_index", 0)
+                scene_anim_dir = anim_dir / f"scene_{si:03d}"
+                scene_anim_dir.mkdir(parents=True, exist_ok=True)
+                try:
+                    from core.chart_renderer import render_chart_frames
+                    paths = render_chart_frames(cspec, str(scene_anim_dir), visual_style, chart_w, chart_h, ANIM_FRAMES)
+                    chart_anim_frames[str(si)] = paths
+                except Exception as e:
+                    print(f"[Chart] 动画帧生成失败 scene={si}: {e}")
+
+        # ═══ 漫画风讲解帧（含动态图表多帧支持） ═══
+        from core.manga_frame_renderer import MangaFrameRenderer
+        renderer = MangaFrameRenderer(width=video_width, height=video_height, visual_style=visual_style)
+
+        # 合并 storyboard 场景的 visual_data（从 chart_data 中提取 big_number / vs_compare 数据）
+        for cspec in chart_data_raw:
+            if not isinstance(cspec, dict):
+                continue
+            si = cspec.get("scene_index", 0)
+            ct = cspec.get("chart_type", "")
+            if si < len(storyboard):
+                sb = storyboard[si]
+                if ct in ("big_number",):
+                    sb["visual_element"] = "big_number"
+                    sb["visual_data"] = {"value": cspec.get("value", ""), "label": cspec.get("title", ""),
+                                          "trend": cspec.get("trend", ""), "subtitle": cspec.get("subtitle", "")}
+                elif ct in ("vs_compare", "vs", "compare"):
+                    sb["visual_element"] = "vs_compare"
+                    sb["visual_data"] = {"left": cspec.get("left", {}), "right": cspec.get("right", {}), "vs_text": cspec.get("vs_text", "VS")}
+
+        images = []
+        chart_frame_counts = {}  # {scene_index: frame_count} for segment subdivision
+        total_scenes = len(storyboard) if storyboard else 1
+
+        if storyboard:
+            for i, scene in enumerate(storyboard):
+                title = str(scene.get("title") or f"场景 {i+1}")[:36]
+                subtitle = str(scene.get("subtitle") or "")
+                bullets = scene.get("bullets") if isinstance(scene.get("bullets"), list) else []
+                if not bullets:
+                    import re as _re
+                    bullets = [s.strip() for s in _re.split(r'(?<=[。！？!?])\s*|\n+', subtitle or script_content) if s.strip()][:8]
+                bullets = [str(x).strip() for x in bullets if str(x).strip()] or ["要点讲解"]
+                bullets = bullets[:8]
+                sfx = str(scene.get("sfx") or "")
+                ve = str(scene.get("visual_element") or "")
+                vd = scene.get("visual_data") if isinstance(scene.get("visual_data"), dict) else {}
+
+                anim_frames = chart_anim_frames.get(str(i)) or []
+                if anim_frames:
+                    # 动态图表：每个 chart frame 生成独立的漫画帧 + 要点逐条弹出
+                    chart_frame_counts[i] = len(anim_frames)
+                    n_anim = len(anim_frames)
+                    n_bullets = len(bullets)
+                    for fi, chart_fp in enumerate(anim_frames):
+                        # 要点逐条弹出：从第2条开始，逐帧增加
+                        if n_bullets > 2 and n_anim > 1:
+                            vis = min(n_bullets, 2 + int((n_bullets - 2) * fi / max(n_anim - 1, 1)))
+                        else:
+                            vis = 0  # 0 = 全部显示
+                        out = work_dir / f"manga_scene_{i:03d}_f{fi:03d}.png"
+                        renderer.render_frame(
+                            title=title, bullets=bullets, output_path=str(out),
+                            subtitle=subtitle[:200], media_path=chart_fp,
+                            scene_index=i, total_scenes=total_scenes, sfx_text=sfx,
+                            visual_element=ve, visual_data=vd,
+                            visible_bullets=vis,
+                        )
+                        images.append(str(out))
+                else:
+                    mp = materials.get(str(i)) or scene.get("material_url")
+                    out = work_dir / f"manga_scene_{i:03d}.png"
+                    renderer.render_frame(
+                        title=title, bullets=bullets, output_path=str(out),
+                        subtitle=subtitle[:200], media_path=mp,
+                        scene_index=i, total_scenes=total_scenes, sfx_text=sfx,
+                        visual_element=ve, visual_data=vd,
+                    )
+                    images.append(str(out))
+                    chart_frame_counts[i] = 1
+        else:
+            # fallback: 从 script_content 分句生成场景
+            import re as _re
+            chunks = [s.strip() for s in _re.split(r'(?<=[。！？!?])\s*|\n+', script_content) if s.strip()]
+            total_scenes = max(3, min(8, len(chunks) or 3))
+            for i in range(total_scenes):
+                sub = chunks[i] if i < len(chunks) else "内容要点"
+                out = work_dir / f"manga_scene_{i:03d}.png"
+                renderer.render_frame(
+                    title=f"场景 {i+1}", bullets=[sub], output_path=str(out),
+                    subtitle=sub[:200], scene_index=i, total_scenes=total_scenes,
+                )
+                images.append(str(out))
+                chart_frame_counts[i] = 1
+
         if not images:
             _update(step='failed', status='failed', error_msg='漫画帧生成失败，请检查素材')
             return
 
-        # 生成 timeline segments
+        # ═══ 智能节奏控制 + segments 生成 ═══
+        # 场景节奏权重：前2个场景(钩子)短快，图表场景长，CTA结尾长
         segments = []
+        image_offset = 0
         if storyboard:
-            seg_duration = duration / len(storyboard)
+            n_scenes = len(storyboard)
+            # 计算每个场景的节奏权重
+            weights = []
             for i, sb in enumerate(storyboard):
-                segments.append({
-                    'start': i * seg_duration,
-                    'end': (i + 1) * seg_duration,
-                    'text': sb.get('subtitle', sb.get('text', '')),
-                    'image_index': i % len(images),
-                })
+                ve = str(sb.get("visual_element") or "")
+                has_chart = bool(chart_anim_frames.get(str(i)))
+                if i < 2 and not has_chart:
+                    weights.append(0.7)   # 钩子：快节奏
+                elif has_chart or ve in ("big_number", "vs_compare"):
+                    weights.append(1.35)  # 数据/图表：慢，给观众消化时间
+                elif i >= n_scenes - 1:
+                    weights.append(1.2)   # CTA结尾：略慢
+                else:
+                    weights.append(1.0)
+            weight_sum = sum(weights)
+            time_base = 0.0
+            for i, sb in enumerate(storyboard):
+                scene_dur = duration * weights[i] / weight_sum
+                n_frames = chart_frame_counts.get(i, 1)
+                sub_dur = scene_dur / n_frames
+                ve = str(sb.get("visual_element") or "")
+                has_chart = bool(chart_anim_frames.get(str(i)))
+                # 确定强调效果
+                if ve == "big_number":
+                    emphasis = "big_number"
+                elif has_chart and i > 0:
+                    emphasis = "chart_done"
+                elif i == 0:
+                    emphasis = "hook"
+                elif i >= n_scenes - 1:
+                    emphasis = "cta"
+                else:
+                    emphasis = None
+
+                for fi in range(n_frames):
+                    segments.append({
+                        'start': time_base + fi * sub_dur,
+                        'end': time_base + (fi + 1) * sub_dur,
+                        'text': sb.get('subtitle', sb.get('text', '')),
+                        'image_index': image_offset + fi,
+                        'emphasis': emphasis if fi == n_frames - 1 else None,
+                    })
+                time_base += scene_dur
+                image_offset += n_frames
         else:
-            seg_duration = duration / max(len(images), 1)
             for i in range(len(images)):
+                seg_dur = duration / max(len(images), 1)
                 segments.append({
-                    'start': i * seg_duration,
-                    'end': (i + 1) * seg_duration,
+                    'start': i * seg_dur,
+                    'end': (i + 1) * seg_dur,
                     'text': '',
                     'image_index': i,
+                    'emphasis': 'hook' if i == 0 else ('cta' if i == len(images) - 1 else None),
                 })
 
-        # Step: 动画视频（横竖屏自适应）
+        # Step: 动画视频（xfade 转场 + 强调动效 + 电影调色）
         _update(step='rendering')
         from core.animation_module import get_animation_module
         animation = get_animation_module()
@@ -262,19 +472,23 @@ def run_render_pipeline(video_id: int, table_name: str = "ecom_videos"):
             segments=segments,
             output_path=raw_video_path,
             animation_style="manga_frame",
-            transition="fade",
+            transition="fadegrays",
+            film_look=True,
         )
         if not anim_ok:
             _update(step='failed', status='failed', error_msg='动画视频生成失败')
             return
 
-        # Step: 字幕
-        from core.subtitle_module import get_subtitle_module
-        subtitle_mod = get_subtitle_module()
-        srt_path = str(work_dir / "subtitle.srt")
-        subtitle_mod.generate_srt(segments, srt_path)
+        # Step: 字幕 (漫画帧已自带文字排版，跳过 drawtext 烧录避免双层字)
+        if animation_style == "manga_frame":
+            srt_path = None
+        else:
+            from core.subtitle_module import get_subtitle_module
+            subtitle_mod = get_subtitle_module()
+            srt_path = str(work_dir / "subtitle.srt")
+            subtitle_mod.generate_srt(segments, srt_path)
 
-        # Step: 多轨道合成
+        # Step: 多轨道合成 (TTS + BGM)
         from core.dual_mode_module import multitrack_composite
         final_video_path = str(work_dir / "final_video.mp4")
 
@@ -295,6 +509,20 @@ def run_render_pipeline(video_id: int, table_name: str = "ecom_videos"):
         if not composite_ok:
             _update(step='failed', status='failed', error_msg='多轨道合成失败')
             return
+
+        # Step: 音效混合 (ding/whoosh/emphasis 混入音轨)
+        try:
+            from core.sfx_module import generate_sfx_for_scenes, mix_sfx_to_video
+            sfx_map = generate_sfx_for_scenes(segments, str(work_dir / "sfx"))
+            if sfx_map:
+                sfx_output = str(work_dir / "sfx_mixed.mp4")
+                mixed = mix_sfx_to_video(final_video_path, tts_audio_path, sfx_map, bgm_path, sfx_output)
+                if mixed != final_video_path and Path(mixed).exists():
+                    # 替换为含音效的版本
+                    import shutil as _shutil
+                    _shutil.move(mixed, final_video_path)
+        except Exception as e:
+            print(f"[SFX] 音效混合失败（非致命）: {e}")
 
         _update(step='done', status='done', video_path=final_video_path)
         print(f"[Render] {table_name} video_id={video_id} done: {final_video_path}")

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-双模式视频生成模块
-模式A【题材全自动生成】：题材→联网选题→脚本→TTS→配图抓取→动画视频→字幕→多轨道合成
-模式B【素材智能剪辑】：用户上传素材→仅剪辑拼接→转场→字幕烧录→多轨道合成
+素材智能剪辑模块 (原双模式生成器)
+Mode A 已迁移至 topic_pipeline_api.py + pipeline_helpers.py
+Mode B 素材智能剪辑：用户上传素材→仅剪辑拼接→转场→字幕烧录→多轨道合成
 """
 import os
 import re
@@ -10,21 +10,15 @@ import json
 import time
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from datetime import datetime
 
 import config
-from core.tts_module import get_tts_module, TTSModule
+from core.tts_module import get_tts_module
 from core.subtitle_module import get_subtitle_module
 from core.video_module import get_video_module
 from core.animation_module import get_animation_module
 from core.timeline_sync_module import get_timeline_module
-from core.image_fetch_module import get_image_fetch_module
-from core.topics_module import TopicsModule
-from core.script_module import ScriptModule
-from core.spring_diagram_animation_module import get_spring_diagram_module as get_diagram_module
-from core.remotion_bridge import RemotionBridge
-from core.manga_frame_renderer import MangaFrameRenderer
 
 # 日志回调 - 实时推送进度到前端
 _dual_log_callback = None
@@ -43,12 +37,10 @@ def _log(msg: str, level: str = 'info'):
 
 def _parse_srt(srt_path: str) -> list:
     """解析SRT字幕文件，返回 [(start_sec, end_sec, text), ...]"""
-    import re
     segments = []
     try:
         with open(srt_path, 'r', encoding='utf-8') as f:
             content = f.read()
-        # 匹配 SRT 格式: 序号 + 时间码 + 文本
         pattern = r'(\d+)\s*\n(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})\s*\n(.*?)(?=\n\n|\n\d+\s*\n|\Z)'
         for m in re.finditer(pattern, content, re.DOTALL):
             start = _srt_time_to_sec(m.group(2))
@@ -79,17 +71,14 @@ def multitrack_composite(
     subtitled_video = Path(output_path).parent / "video_with_subs.mp4"
 
     if subtitle_path and Path(subtitle_path).exists():
-        # 使用 drawtext 滤镜烧录字幕（比 subtitles 滤镜更可靠，不依赖 libass）
         segments = _parse_srt(subtitle_path)
         if segments:
             drawtext_filters = []
             total = len(segments)
             for i, (start, end, text) in enumerate(segments):
-                # 转义 FFmpeg drawtext 特殊字符
                 escaped = text.replace("'", "\\'").replace(":", "\\:").replace("\\", "\\\\")
                 is_title = (i == 0 and len(text) < 30) or (i == 0 and total > 2)
                 if is_title:
-                    # 标题样式：大字、加粗感、带背景卡片
                     dt = (
                         f"drawtext=text='{escaped}'"
                         f":fontfile=C\\\\:/Windows/Fonts/msyh.ttc"
@@ -105,7 +94,6 @@ def multitrack_composite(
                         f":enable='between(t,{start:.3f},{end:.3f})'"
                     )
                 else:
-                    # 正文样式：中等字号、带半透明背景卡片
                     dt = (
                         f"drawtext=text='{escaped}'"
                         f":fontfile=C\\\\:/Windows/Fonts/msyh.ttc"
@@ -193,487 +181,16 @@ def multitrack_composite(
 
 
 class DualModeVideoGenerator:
-    """双模式视频生成器"""
+    """素材智能剪辑生成器 — Mode A 已迁移至 topic_pipeline_api.py"""
 
-    # 模式枚举
-    MODE_AUTO = "mode_a"      # 题材全自动生成
-    MODE_CLIP = "mode_b"      # 素材智能剪辑
+    MODE_CLIP = "mode_b"
 
     def __init__(self):
         self.tts = get_tts_module()
         self.subtitle = get_subtitle_module()
         self.video = get_video_module()
         self.animation = get_animation_module()
-        self.diagram = get_diagram_module()
         self.timeline = get_timeline_module()
-        self.image_fetch = get_image_fetch_module()
-        self.topics = TopicsModule(
-            enable_cache=config.CACHE_CONFIG.get("enabled", True),
-            preload_count=config.CACHE_CONFIG.get("preload_count", 500)
-        )
-        self.script_mod = ScriptModule()
-        self._remotion_bridge: Optional[RemotionBridge] = None
-
-    def _get_remotion_bridge(self) -> Optional[RemotionBridge]:
-        """懒加载Remotion桥接器单例"""
-        if self._remotion_bridge is None:
-            try:
-                self._remotion_bridge = RemotionBridge()
-                if self._remotion_bridge.start_server(timeout=30):
-                    return self._remotion_bridge
-                else:
-                    print("[DualMode] Remotion server failed to start, falling back to PIL")
-                    self._remotion_bridge = None
-                    return None
-            except Exception as e:
-                print(f"[DualMode] Remotion bridge init failed: {e}")
-                self._remotion_bridge = None
-                return None
-        return self._remotion_bridge
-
-    def _convert_layout_for_remotion(
-        self,
-        layout: List[Dict],
-        bg_image: str = None,
-        fps: int = 30,
-    ) -> Dict:
-        """
-        将 diagram_layout 格式转换为 Remotion 布局格式
-
-        输入格式 (diagram_animation_module):
-            [
-                {"type": "rect", "id": 0, "label": "API网关", "x": 400, "y": 100,
-                 "w": 200, "h": 80, "scheme": "teal"},
-                {"type": "arrow", "from": 0, "to": 1, "label": "HTTP"},
-            ]
-
-        输出格式 (Remotion):
-            {
-                "backgroundImage": "...",
-                "boxes": [{"id": "box0", "label": "API网关", ...}],
-                "arrows": [{"id": "a0", "fromBoxId": "box0", ...}],
-            }
-        """
-        if not layout:
-            return None
-
-        boxes = []
-        arrows = []
-        box_id_map = {}  # original index -> remotion id
-
-        # 预定义配色（与 diagram_animation_module 一致）
-        color_schemes = {
-            "teal":    {"color": "#4EC9B0", "fill": "#4EC9B033", "text": "#FFFFFF"},
-            "blue":    {"color": "#569CD6", "fill": "#569CD633", "text": "#FFFFFF"},
-            "orange":  {"color": "#CE9178", "fill": "#CE917833", "text": "#FFFFFF"},
-            "purple":  {"color": "#C586C0", "fill": "#C586C033", "text": "#FFFFFF"},
-        }
-
-        for i, item in enumerate(layout):
-            t = item.get("type")
-            if t == "rect":
-                scheme = item.get("scheme", "teal")
-                colors = color_schemes.get(scheme, color_schemes["teal"])
-                box_id = f"box{i}"
-                box_id_map[i] = box_id
-
-                boxes.append({
-                    "id": box_id,
-                    "label": item.get("label", ""),
-                    "subLabel": item.get("sub", ""),
-                    "x": item.get("x", 0),
-                    "y": item.get("y", 0),
-                    "width": item.get("w", 180),
-                    "height": item.get("h", 80),
-                    "color": colors["color"],
-                    "fillColor": colors["fill"],
-                    "textColor": colors["text"],
-                    "fontSize": 18,
-                    "showFrom": i * fps * 2,   # 每个元素2秒后出现
-                    "durationInFrames": fps * 4,  # 显示4秒
-                    "highlighted": False,
-                    "highlightColor": "#CE9178",
-                })
-            elif t == "arrow":
-                from_idx = item.get("from")
-                to_idx = item.get("to")
-                if from_idx in box_id_map and to_idx in box_id_map:
-                    arrows.append({
-                        "id": f"arrow{i}",
-                        "fromBoxId": box_id_map[from_idx],
-                        "toBoxId": box_id_map[to_idx],
-                        "label": item.get("label", ""),
-                        "color": "#808080",
-                        "showFrom": (max(from_idx, to_idx) + 1) * fps * 2,
-                    })
-
-        if not boxes:
-            return None
-
-        return {
-            "backgroundImage": bg_image or "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1080",
-            "boxes": boxes,
-            "arrows": arrows,
-            "width": 1080,
-            "height": 1920,
-        }
-
-    # 技术讲座风格触发的赛道分类
-    TECH_LECTURE_CATEGORIES = {"科技数码", "技术教程", "编程教学", "极客科普"}
-    TECH_LECTURE_STYLE = "tech_lecture"  # 中性标识，不含外部关键词
-
-    def generate_mode_a(
-        self,
-        topic_keyword: str = None,
-        category: str = None,
-        platform: str = "抖音",
-        duration: int = 30,
-        voice: str = "zh-CN-XiaoxiaoNeural",
-        use_whisper_subtitle: bool = True,
-        add_bgm: bool = True,
-        fetch_images: bool = True,
-        style: str = "normal",
-        visual_style: str = "manga",
-        orientation: str = "portrait",
-    ) -> Dict:
-        """
-        模式A：题材全自动生成
-
-        参数:
-            topic_keyword: 题材关键词（联网选题用）
-            category: 赛道分类
-            platform: 目标平台
-            duration: 视频时长（秒）
-            voice: 配音人
-            use_whisper_subtitle: 字幕是否用Whisper对齐
-            add_bgm: 是否添加BGM
-            fetch_images: 是否联网抓取配图
-            style: 动画风格 ("normal"=默认KenBurns | "tech_lecture"=技术讲座风格)
-            visual_style: 视觉风格 (manga/minimal/neon/magazine/vibrant/ken_burns)
-            orientation: 视频方向 (portrait=竖屏 | landscape=横屏)
-
-        返回:
-            生成结果字典
-        """
-
-        # 判断是否触发技术讲座风格
-        is_tech_lecture = (
-            style == self.TECH_LECTURE_STYLE or
-            (category and category in self.TECH_LECTURE_CATEGORIES)
-        )
-        # 判断是否使用漫画帧渲染
-        use_manga_frames = (
-            visual_style and visual_style != "ken_burns"
-            and visual_style in getattr(config, "VISUAL_STYLES", {})
-        )
-        if orientation not in ("portrait", "landscape"):
-            orientation = "portrait"
-        video_width, video_height = config.get_output_dimensions(orientation)
-        result = {
-            "mode": self.MODE_AUTO,
-            "success": False,
-            "steps": [],
-            "topic": None,
-            "script": None,
-            "audio": None,
-            "images": [],
-            "timeline": None,
-            "video": None,
-            "final_video": None,
-            "manga_frames": [],
-            "visual_style": visual_style,
-        }
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        # 临时工作目录（不暴露给用户）
-        output_dir = config.OUTPUT_DIR / "_work" / timestamp
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Step 1: 获取选题
-        _log("🔍 正在获取选题...", 'info')
-        print("[Mode A] Step 1: 获取选题...")
-        if topic_keyword:
-            # 有关键词 → 直接用LLM生成选题
-            _log(f"📡 正在用AI根据「{topic_keyword}」生成选题...", 'info')
-            generated = self._generate_topic_from_keyword(topic_keyword, category)
-            if generated:
-                topic_list = [generated]
-                _log(f"✅ AI选题生成成功: {generated.get('title', '')}", 'info')
-            else:
-                _log("⚠️ AI连接失败，回退到本地选题库...", 'warn')
-                topic_list = self.topics.recommend_topics(category=category, count=10)
-        elif category:
-            topic_list = self.topics.get_topics_by_category(category, limit=10)
-        else:
-            topic_list = self.topics.recommend_topics(count=5)
-
-        if not topic_list:
-            result["error"] = "未找到合适选题"
-            _log("❌ 未找到合适选题", 'error')
-            return result
-
-        topic = topic_list[0]
-        result["topic"] = topic
-        result["steps"].append({"step": "topic", "status": "success", "data": topic.get("title")})
-        _log(f"✅ 选题: {topic.get('title')}", 'info')
-        print(f"  选题: {topic.get('title')}")
-
-        # Step 2: 生成脚本
-        _log("✍️ 正在生成AI脚本...", 'info')
-        print("[Mode A] Step 2: 生成脚本...")
-        script_result = self.script_mod.generate_script(topic, platform, duration)
-        result["script"] = script_result
-        result["steps"].append({"step": "script", "status": "success", "preview": script_result.get("full_script", "")[:100]})
-        script_preview = script_result.get('full_script', '')[:80]
-        _log(f"✅ 脚本生成完成: {script_preview}...", 'info')
-        print(f"  脚本生成完成: {script_preview}...")
-
-        # Step 3: 分句TTS配音
-        _log("🎙️ 正在生成配音...", 'info')
-        print("[Mode A] Step 3: TTS配音...")
-        sentences = self._split_sentences(script_result.get("full_script", ""))
-        audio_path = str(output_dir / "narration.wav")
-
-        audio_success = self._generate_tts_segments(sentences, audio_path, voice)
-        if not audio_success:
-            result["error"] = "TTS生成失败"
-            result["steps"].append({"step": "tts", "status": "failed"})
-            _log("❌ TTS生成失败", 'error')
-            return result
-
-        result["audio"] = audio_path
-        result["steps"].append({"step": "tts", "status": "success", "path": audio_path})
-        _log("✅ 配音生成完成", 'info')
-        print(f"  配音生成完成: {audio_path}")
-
-        script_text = script_result.get("full_script", "")
-        raw_video_path = str(output_dir / "raw_video.mp4")
-
-        if use_manga_frames:
-            # ═══ 新路径：漫画帧渲染 ═══
-            # Step 4: 生成漫画帧
-            _log("🎨 正在生成漫画帧...", 'info')
-            print("[Mode A] Step 4: 生成漫画帧...")
-            storyboard = self._build_storyboard_from_sentences(sentences, script_text)
-            manga_frames = self._render_manga_frames(
-                storyboard, script_text, output_dir, visual_style,
-                video_width, video_height
-            )
-            if not manga_frames:
-                _log("⚠️ 漫画帧生成失败，回退到素材库配图", 'warn')
-                image_paths = self.video.auto_select_materials(count=len(sentences))
-                if not image_paths:
-                    image_paths = self.video.auto_select_materials(count=5)
-                result["images"] = image_paths
-                result["steps"].append({"step": "manga_frames", "status": "fallback", "count": len(image_paths)})
-                timeline = self._generate_timeline(sentences, image_paths)
-                result["timeline"] = timeline
-                animation_success = self.animation.create_animated_video_from_segments(
-                    images=image_paths, segments=timeline,
-                    output_path=raw_video_path,
-                    animation_style="ken_burns", transition="fade"
-                )
-            else:
-                result["manga_frames"] = manga_frames
-                result["images"] = manga_frames
-                result["steps"].append({"step": "manga_frames", "status": "success", "count": len(manga_frames)})
-                _log(f"✅ 漫画帧生成完成 ({len(manga_frames)}帧)", 'info')
-                print(f"  漫画帧: {len(manga_frames)} 帧")
-
-                # Step 5: 构建时间轴（等分时长）
-                _log("⏱️ 正在构建时间轴...", 'info')
-                print("[Mode A] Step 5: 构建时间轴...")
-                n_frames = len(manga_frames)
-                seg_dur = float(duration) / max(n_frames, 1)
-                timeline = []
-                for i in range(n_frames):
-                    timeline.append({
-                        "start": i * seg_dur,
-                        "end": (i + 1) * seg_dur,
-                        "text": sentences[i] if i < len(sentences) else "",
-                        "image_index": i,
-                    })
-                result["timeline"] = timeline
-                result["steps"].append({"step": "timeline", "status": "success", "segments": len(timeline)})
-                _log(f"✅ 时间轴构建完成 ({len(timeline)}个片段)", 'info')
-
-                # Step 6: 漫画帧动画合成
-                _log("🎬 正在合成漫画帧动画...", 'info')
-                print("[Mode A] Step 6: 漫画帧动画合成...")
-                animation_success = self.animation.create_animated_video_from_segments(
-                    images=manga_frames,
-                    segments=timeline,
-                    output_path=raw_video_path,
-                    animation_style="manga_frame",
-                    transition="fade"
-                )
-        else:
-            # ═══ 原路径：配图 + Ken Burns ═══
-            # Step 4: 联网抓取配图
-            _log("🖼️ 正在抓取配图...", 'info')
-            print("[Mode A] Step 4: 联网抓取配图...")
-            if fetch_images:
-                _, image_paths = self.image_fetch.fetch_by_script_keywords(script_text, count_per_keyword=2)
-            else:
-                image_paths = self.video.auto_select_materials(count=len(sentences))
-
-            if not image_paths:
-                image_paths = self.video.auto_select_materials(count=5)
-
-            result["images"] = image_paths
-            result["steps"].append({"step": "image_fetch", "status": "success", "count": len(image_paths)})
-            _log(f"✅ 配图获取完成 ({len(image_paths)}张)", 'info')
-            print(f"  配图: {len(image_paths)} 张")
-
-            # Step 5: 时间轴同步
-            _log("⏱️ 正在进行时间轴同步...", 'info')
-            print("[Mode A] Step 5: 时间轴同步...")
-            timeline = self._generate_timeline(sentences, image_paths)
-            result["timeline"] = timeline
-            result["steps"].append({"step": "timeline", "status": "success", "segments": len(timeline)})
-            _log(f"✅ 时间轴同步完成 ({len(timeline)}个片段)", 'info')
-            print(f"  时间轴: {len(timeline)} 个片段")
-
-            # Step 6: 动画视频生成
-            _log("🎬 正在生成动画视频...", 'info')
-            print("[Mode A] Step 6: 动画视频生成...")
-
-            if is_tech_lecture:
-                _log("📺 使用技术讲座风格生成", 'info')
-                raw_response = script_result.get("raw_llm_response", "")
-                combined_text = raw_response if raw_response else script_text
-                layout = self._parse_diagram_layout(combined_text, topic)
-
-                if layout and len(layout) >= 2:
-                    _log("📊 检测到架构/流程描述，生成2D示意图动画", 'info')
-                    remotion_bridge = self._get_remotion_bridge()
-                    bg_image = image_paths[0] if image_paths else None
-
-                    if remotion_bridge and bg_image:
-                        _log("🎬 使用 Remotion 渲染（Spring动画+WebGL背景）", 'info')
-                        try:
-                            remotion_layout = self._convert_layout_for_remotion(
-                                layout, bg_image=bg_image, fps=30
-                            )
-                            if remotion_layout:
-                                remotion_output = remotion_bridge.render_sync(
-                                    remotion_layout, output_path=raw_video_path, timeout=300,
-                                )
-                                if remotion_output and Path(remotion_output).exists():
-                                    animation_success = True
-                                    _log("✅ Remotion视频生成完成", 'info')
-                                else:
-                                    animation_success = False
-                                    _log("⚠️ Remotion渲染失败，降级到Ken Burns", 'warn')
-                            else:
-                                animation_success = False
-                        except Exception as e:
-                            print(f"[DualMode] Remotion render error: {e}")
-                            animation_success = False
-                            _log("⚠️ Remotion异常，降级到Ken Burns", 'warn')
-                    else:
-                        animation_success = False
-
-                    if not animation_success:
-                        _log("📦 使用PIL Spring动画（备选方案）", 'info')
-                        diagram_success = self.diagram.generate_from_layout(
-                            layout=layout, output_path=raw_video_path, fps=30, auto_duration=True,
-                        )
-                        animation_success = diagram_success
-                        if animation_success:
-                            _log("✅ 2D流程图动画生成完成", 'info')
-                        else:
-                            _log("⚠️ 流程图生成失败，降级到Ken Burns图文风格", 'warn')
-                            animation_success = self.animation.create_animated_video_from_segments(
-                                images=image_paths if image_paths else [],
-                                segments=timeline, output_path=raw_video_path,
-                                animation_style="ken_burns", transition="fade"
-                            )
-                else:
-                    _log("📺 无流程图描述，使用Ken Burns图文风格", 'info')
-                    bg_image = image_paths[0] if image_paths else None
-                    lecture_title = topic.get("title", "技术分享")[:30]
-                    lecture_points = [s[:40] for s in sentences[:5] if s.strip()]
-                    code_match = re.search(r'```[\w]*\n(.*?)```', script_text, re.DOTALL)
-                    lecture_code = code_match.group(1).strip()[:300] if code_match else ""
-                    code_lang = "python"
-
-                    if bg_image and Path(bg_image).exists():
-                        animation_success = self.animation.create_tech_lecture_video(
-                            bg_image=bg_image, output_path=raw_video_path,
-                            title=lecture_title, points=lecture_points,
-                            code=lecture_code, code_lang=code_lang,
-                            duration=float(duration), animation_style="ken_burns"
-                        )
-                    else:
-                        animation_success = False
-                        _log("⚠️ 素材池无可用图片，无法生成Ken Burns视频", 'warn')
-            else:
-                animation_success = self.animation.create_animated_video_from_segments(
-                    images=image_paths, segments=timeline,
-                    output_path=raw_video_path,
-                    animation_style="ken_burns", transition="fade"
-                )
-
-        if not animation_success:
-            result["error"] = "动画视频生成失败"
-            result["steps"].append({"step": "animation", "status": "failed"})
-            _log("❌ 动画视频生成失败", 'error')
-            return result
-
-        result["video"] = raw_video_path
-        result["steps"].append({"step": "animation", "status": "success"})
-        _log("✅ 动画视频生成完成", 'info')
-        print(f"  动画视频: {raw_video_path}")
-
-        # Step 7: 字幕生成
-        _log("📝 正在生成字幕...", 'info')
-        print("[Mode A] Step 7: 字幕生成...")
-        srt_path = str(output_dir / "subtitle.srt")
-
-        if use_whisper_subtitle:
-            aligned_timeline, _ = self.timeline.sync_subtitles_to_audio(
-                audio_path=audio_path,
-                original_script=script_result.get("full_script", "")
-            )
-            self.subtitle.generate_srt(aligned_timeline if aligned_timeline else timeline, srt_path)
-        else:
-            self.subtitle.generate_srt(timeline, srt_path)
-
-        result["steps"].append({"step": "subtitle", "status": "success", "path": srt_path})
-        _log("✅ 字幕生成完成", 'info')
-
-        # Step 8: 多轨道合成
-        _log("🎵 正在进行多轨道合成...", 'info')
-        print("[Mode A] Step 8: 多轨道合成...")
-        final_video_path = str(output_dir / "final_video.mp4")
-
-        bgm_path = None
-        if add_bgm:
-            available_bgm = self.video.get_available_bgm()
-            if available_bgm:
-                bgm_path = available_bgm[0]
-
-        composite_success = self._multitrack_composite(
-            video_path=raw_video_path,
-            audio_path=audio_path,
-            subtitle_path=srt_path,
-            bgm_path=bgm_path,
-            output_path=final_video_path
-        )
-
-        if not composite_success:
-            result["error"] = "多轨道合成失败"
-            result["steps"].append({"step": "composite", "status": "failed"})
-            _log("❌ 多轨道合成失败", 'error')
-            return result
-
-        result["final_video"] = final_video_path
-        result["steps"].append({"step": "composite", "status": "success"})
-        result["success"] = True
-        print(f"  最终视频: {final_video_path}")
-
-        return result
 
     def generate_mode_b(
         self,
@@ -686,7 +203,7 @@ class DualModeVideoGenerator:
         duration_per_image: int = 4,
     ) -> Dict:
         """
-        模式B：素材智能剪辑
+        素材智能剪辑
 
         参数:
             material_paths: 用户上传的素材路径（图片/视频/音频）
@@ -736,7 +253,6 @@ class DualModeVideoGenerator:
         print("[Mode B] Step 1: 素材拼接...")
 
         if videos:
-            # 视频素材直接拼接
             raw_video_path = str(output_dir / "raw_video.mp4")
             concat_success = self._concat_videos(videos, raw_video_path)
             if not concat_success:
@@ -744,7 +260,6 @@ class DualModeVideoGenerator:
                 return result
             result["steps"].append({"step": "concat_videos", "status": "success"})
         elif images:
-            # 图片素材生成视频
             raw_video_path = str(output_dir / "raw_video.mp4")
             video_success = self.video.create_video_from_images(
                 images=images,
@@ -795,15 +310,12 @@ class DualModeVideoGenerator:
             srt_path = str(output_dir / "subtitle.srt")
 
             if audio and use_whisper:
-                # 用Whisper从配音识别字幕
                 whisper_segments = self.timeline.transcribe_audio(audio)
                 if whisper_segments:
                     self.subtitle.generate_srt(whisper_segments, srt_path)
                 else:
-                    # 降级：静默字幕
                     self.subtitle.generate_srt_from_script(" ", video_duration, srt_path)
             elif audio:
-                # 从脚本生成分句字幕
                 from core.script_module import ScriptModule
                 script = ScriptModule().generate_script(
                     {"title": "素材剪辑"}, platform, int(video_duration)
@@ -819,7 +331,6 @@ class DualModeVideoGenerator:
                     })
                 self.subtitle.generate_srt(segments, srt_path)
             else:
-                # 无配音只烧录空字幕（显示时间戳）
                 self.subtitle.generate_srt_from_script(" ", video_duration, srt_path)
 
             # 烧录字幕
@@ -839,9 +350,7 @@ class DualModeVideoGenerator:
     def _generate_topic_from_keyword(self, keyword: str, category: str = None) -> Optional[Dict]:
         """用LLM根据关键词直接生成选题"""
         import requests
-        import os
         try:
-            # Reload config to pick up any .env changes
             import importlib
             import config as _cfg
             importlib.reload(_cfg)
@@ -894,12 +403,10 @@ class DualModeVideoGenerator:
             content = result['choices'][0]['message']['content']
             _log(f"✅ LLM 返回: {content[:100]}...", 'info')
 
-            # 解析JSON
-            import re
             json_match = re.search(r'\{[\s\S]*\}', content)
             if json_match:
                 topic = json.loads(json_match.group())
-                topic['id'] = 0  # 标记为LLM生成
+                topic['id'] = 0
                 return topic
             else:
                 _log(f"⚠️ LLM 返回内容无法解析为JSON: {content[:100]}", 'warn')
@@ -915,147 +422,9 @@ class DualModeVideoGenerator:
         """分句（按标点）"""
         if not text:
             return []
-        pattern = r'[。！？.!?；;，,]'
+        pattern = r'[。！？.!?；;]'
         parts = re.split(pattern, text)
-        return [p.strip() for p in parts if p.strip()]
-
-    def _generate_tts_segments(self, sentences: List[str], output_path: str, voice: str) -> bool:
-        """生成分句配音并合并"""
-        if not sentences:
-            return False
-
-        temp_dir = Path(output_path).parent / "temp_tts"
-        temp_dir.mkdir(parents=True, exist_ok=True)
-
-        audio_files = []
-        self.tts.voice = voice
-
-        for i, sent in enumerate(sentences):
-            if not sent.strip():
-                continue
-            seg_path = str(temp_dir / f"seg_{i:03d}.wav")
-            if self.tts.generate_audio(sent, seg_path):
-                audio_files.append(seg_path)
-
-        if not audio_files:
-            return False
-
-        # 合并音频
-        concat_list = temp_dir / "concat_list.txt"
-        with open(concat_list, "w", encoding="utf-8") as f:
-            for af in audio_files:
-                f.write(f"file '{Path(af).absolute().as_posix()}'\n")
-
-        cmd = [
-            "ffmpeg", "-y",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", str(concat_list),
-            "-c:a", "libmp3lame",
-            "-b:a", config.OUTPUT_AUDIO_BITRATE,
-            output_path
-        ]
-
-        try:
-            result = subprocess.run(cmd, capture_output=True, encoding='utf-8', errors='replace', timeout=300)
-            success = result.returncode == 0 and Path(output_path).exists()
-        except Exception:
-            success = False
-
-        # 清理
-        for f in temp_dir.glob("*"):
-            try:
-                f.unlink()
-            except FileNotFoundError:
-                pass
-        try:
-            temp_dir.rmdir()
-        except FileNotFoundError:
-            pass
-
-        return success
-
-    def _build_storyboard_from_sentences(
-        self, sentences: List[str], script_text: str
-    ) -> List[Dict]:
-        """将句子列表转为 MangaFrameRenderer 兼容的分镜结构。"""
-        storyboard = []
-        for i, sent in enumerate(sentences):
-            if not sent.strip():
-                continue
-            words = sent.strip().split()
-            title = " ".join(words[:4]) if words else f"场景 {i+1}"
-            storyboard.append({
-                "title": title[:24],
-                "subtitle": sent[:80],
-                "bullets": self._extract_bullets_from_sentence(sent),
-            })
-        if not storyboard:
-            storyboard = [{
-                "title": "讲解",
-                "subtitle": script_text[:60],
-                "bullets": ["内容概要"],
-            }]
-        return storyboard[:8]
-
-    @staticmethod
-    def _extract_bullets_from_sentence(text: str) -> List[str]:
-        """将单个句子按标点拆分为多个 bullet 要点。"""
-        import re
-        parts = re.split(r'(?<=[。！？!?])\s*|\n+', text or "")
-        return [s.strip() for s in parts if s.strip()][:3] or [text.strip()]
-
-    def _render_manga_frames(
-        self, storyboard: List[Dict], script_content: str,
-        work_dir: Path, visual_style: str, width: int, height: int
-    ) -> List[str]:
-        """调用 MangaFrameRenderer 批量生成漫画帧 PNG。"""
-        renderer = MangaFrameRenderer(
-            width=width, height=height, visual_style=visual_style
-        )
-        return renderer.render_storyboard(
-            storyboard=storyboard,
-            script_content=script_content,
-            work_dir=str(work_dir),
-        )
-
-    def _generate_timeline(self, sentences: List[str], images: List[str]) -> List[Dict]:
-        """生成时间轴"""
-        if not sentences:
-            return []
-
-        total_duration = sum(len(s) / 4.0 for s in sentences)
-        per_sentence_duration = total_duration / len(sentences) if sentences else 3.0
-
-        timeline = []
-        current_time = 0.0
-
-        for i, sent in enumerate(sentences):
-            img_idx = i % len(images) if images else 0
-            end_time = current_time + per_sentence_duration
-
-            timeline.append({
-                "start": current_time,
-                "end": end_time,
-                "text": sent,
-                "image_index": img_idx,
-                "sentence_index": i
-            })
-
-            current_time = end_time
-
-        return timeline
-
-    def _multitrack_composite(
-        self,
-        video_path: str,
-        audio_path: str,
-        subtitle_path: str,
-        bgm_path: str,
-        output_path: str
-    ) -> bool:
-        """多轨道合成 - 委托给模块级函数"""
-        return multitrack_composite(video_path, audio_path, subtitle_path, bgm_path, output_path)
+        return [p.strip() for p in parts if p.strip() and len(p.strip()) >= 3]
 
     def _concat_videos(self, video_paths: List[str], output_path: str) -> bool:
         """拼接视频"""
@@ -1109,159 +478,21 @@ class DualModeVideoGenerator:
         except Exception:
             return False
 
-    def _parse_diagram_layout(self, script_text: str, topic: Dict) -> List[Dict]:
-        """
-        从脚本文本中提取流程图/架构图布局描述
-
-        支持两种格式：
-        1. Markdown 格式：```diagram ... ``` 包裹的布局描述
-        2. 结构化描述：带有 "→" 或 "->" 箭头的流程描述
-
-        返回 layout 列表，供 diagram_animation_module.generate_from_layout() 使用
-        """
-        layout = []
-
-        # 预处理：将JSON字符串中的转义换行还原为普通换行
-        # raw_llm_response 中的 `\n` 是转义字符，实际存储为 `\\n`
-        script_text_clean = script_text.replace('\\n', '\n').replace('\\"', '"')
-
-        # 格式1: 检查 ```diagram 代码块
-        diagram_block = re.search(r'```diagram\s*\n(.*?)```', script_text_clean, re.DOTALL)
-        if diagram_block:
-            lines = diagram_block.group(1).strip().split('\n')
-            return self._parse_dsl_layout(lines)
-
-        # 格式2: 检查流程箭头模式 "模块A → 模块B → 模块C"
-        arrow_pattern = re.search(r'([^\n→\->]{2,20})\s*(?:→|->)\s*([^\n→\->]{2,20})', script_text_clean)
-        if arrow_pattern:
-            # 提取所有箭头连接的节点
-            nodes = []
-            full_flow = re.findall(r'([^\n→\->]{2,20})\s*(?:→|->)\s*', script_text_clean)
-            if full_flow:
-                # 找到起始节点（箭头左边的第一个）
-                first_node = re.match(r'^([^\n→\->]{2,20})', script_text_clean.strip())
-                if first_node:
-                    nodes.append(first_node.group(1).strip())
-                nodes.extend(full_flow)
-            if len(nodes) >= 2:
-                layout = self._build_flow_layout(nodes)
-                return layout
-
-        return layout
-
-    def _parse_dsl_layout(self, lines: List[str]) -> List[Dict]:
-        """解析 DSL 格式的布局描述"""
-        layout = []
-        rect_index_map = {}
-        scheme_colors = ["teal", "blue", "blue", "orange", "purple", "teal"]
-
-        for i, line in enumerate(lines):
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-
-            # 节点定义: [id] label (x, y, w, h)
-            # 格式: [api] API网关 (400, 100) 或 [api] API网关 (400, 100, 200, 80)
-            node_match = re.match(r'\[(\w+)\]\s+([^\(]+?)(?=\s*\(|\s*$)', line)
-            if node_match:
-                node_id = node_match.group(1)
-                label = node_match.group(2).strip()
-
-                # 单独匹配坐标
-                coord_match = re.search(r'\((\d+),(\d+)(?:,(\d+),(\d+))?\)', line)
-                if coord_match:
-                    x = int(coord_match.group(1))
-                    y = int(coord_match.group(2))
-                    w = int(coord_match.group(3)) if coord_match.group(3) else 180
-                    h = int(coord_match.group(4)) if coord_match.group(4) else 80
-                else:
-                    # 自动布局
-                    x = 350
-                    y = 150 + i * 120
-                    w = 180
-                    h = 80
-                scheme = scheme_colors[i % len(scheme_colors)]
-
-                idx = len(layout)
-                rect_index_map[node_id] = idx
-                layout.append({
-                    "type": "rect",
-                    "id": node_id,
-                    "label": label,
-                    "x": x, "y": y, "w": w, "h": h,
-                    "scheme": scheme
-                })
-                continue
-
-            # 箭头定义: [from] -> [to] label?
-            arrow_match = re.match(r'\[(\w+)\]\s*(?:→|->)\s*\[(\w+)\](?:\s*["""](.+?)["""])?', line)
-            if arrow_match:
-                from_id = arrow_match.group(1)
-                to_id = arrow_match.group(2)
-                label = arrow_match.group(3) or ""
-                if from_id in rect_index_map and to_id in rect_index_map:
-                    layout.append({
-                        "type": "arrow",
-                        "from": from_id, "to": to_id,
-                        "label": label
-                    })
-
-        return layout
-
-    def _build_flow_layout(self, nodes: List[str]) -> List[Dict]:
-        """将线性节点列表转换为网格布局"""
-        layout = []
-        scheme_colors = ["teal", "blue", "blue", "orange", "purple", "teal"]
-        canvas_w = 1080
-        node_w, node_h = 180, 80
-        cols = 3
-        padding = 40
-        gap_x = (canvas_w - cols * node_w - (cols - 1) * padding) // 2
-
-        for i, label in enumerate(nodes):
-            col = i % cols
-            row = i // cols
-            x = gap_x + col * (node_w + padding)
-            y = 150 + row * (node_h + padding + 30)
-            scheme = scheme_colors[i % len(scheme_colors)]
-            layout.append({
-                "type": "rect",
-                "id": f"node_{i}",
-                "label": label[:15],
-                "x": x, "y": y, "w": node_w, "h": node_h,
-                "scheme": scheme
-            })
-            if i > 0:
-                layout.append({
-                    "type": "arrow",
-                    "from": f"node_{i-1}",
-                    "to": f"node_{i}",
-                    "label": ""
-                })
-
-        return layout
-
 
 # ==================== 便捷函数 ====================
 _module_instance = None
 
 
 def get_dual_mode_generator() -> DualModeVideoGenerator:
-    """获取双模式生成器单例"""
+    """获取生成器单例"""
     global _module_instance
     if _module_instance is None:
         _module_instance = DualModeVideoGenerator()
-        # 设置日志回调
         if _dual_log_callback:
             _module_instance._log = _dual_log_callback
     return _module_instance
 
 
-def generate_mode_a(**kwargs) -> Dict:
-    """快速模式A生成"""
-    return get_dual_mode_generator().generate_mode_a(**kwargs)
-
-
 def generate_mode_b(material_paths: List[str], **kwargs) -> Dict:
-    """快速模式B生成"""
+    """快速素材剪辑生成"""
     return get_dual_mode_generator().generate_mode_b(material_paths, **kwargs)

@@ -183,7 +183,7 @@ class SubtitleModule:
             return False
 
     def generate_srt_from_script(self, script: str, duration: float,
-                                 max_chars_per_line: int = 18) -> List[Dict]:
+                                 max_chars_per_line: int = 24) -> List[Dict]:
         """
         根据脚本直接生成字幕(无需语音识别)
 
