@@ -102,7 +102,7 @@ def create_app() -> "FastAPI":
         )
 
     # 注册 API 路由
-    from api import agent_api, generate_api, material_api, system_api, topic_api, work_api, tts_api, dual_mode_api, thinking_api, timeline_api, ecom_api
+    from api import agent_api, generate_api, material_api, system_api, topic_api, work_api, tts_api, dual_mode_api, thinking_api, timeline_api, ecom_api, topic_pipeline_api
 
     app.include_router(agent_api.router, tags=["Agent"])
     app.include_router(generate_api.router, tags=["生成"])
@@ -115,6 +115,7 @@ def create_app() -> "FastAPI":
     app.include_router(thinking_api.router, tags=["Thinking智能导演"])
     app.include_router(timeline_api.router, tags=["Timeline时间线编辑"])
     app.include_router(ecom_api.router, tags=["电商带货"])
+    app.include_router(topic_pipeline_api.router, tags=["题材流水线"])
 
     # 设置日志回调，将模块日志实时推送到SSE
     from core.dual_mode_module import set_dual_log_callback

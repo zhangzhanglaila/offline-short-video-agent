@@ -37,7 +37,9 @@ async def api_generate_mode_a(request: Request):
         "voice": "zh-CN-XiaoxiaoNeural",
         "use_whisper_subtitle": true,
         "add_bgm": true,
-        "fetch_images": true
+        "fetch_images": true,
+        "visual_style": "manga",
+        "orientation": "portrait"
     }
     """
     import queue
@@ -56,6 +58,8 @@ async def api_generate_mode_a(request: Request):
     use_whisper = data.get("use_whisper_subtitle", True)
     add_bgm = data.get("add_bgm", True)
     fetch_images = data.get("fetch_images", True)
+    visual_style = data.get("visual_style", "manga")
+    orientation = data.get("orientation", "portrait")
 
     log_queue = queue.Queue()
     result_queue = queue.Queue()
@@ -77,6 +81,8 @@ async def api_generate_mode_a(request: Request):
                 use_whisper_subtitle=use_whisper,
                 add_bgm=add_bgm,
                 fetch_images=fetch_images,
+                visual_style=visual_style,
+                orientation=orientation,
             )
             result_queue.put(('result', result))
         except Exception as e:
@@ -194,7 +200,9 @@ async def api_modes_info():
                     {"name": "voice", "type": "string", "required": False, "default": "zh-CN-XiaoxiaoNeural"},
                     {"name": "use_whisper_subtitle", "type": "bool", "required": False, "default": True},
                     {"name": "add_bgm", "type": "bool", "required": False, "default": True},
-                    {"name": "fetch_images", "type": "bool", "required": False, "default": True}
+                    {"name": "fetch_images", "type": "bool", "required": False, "default": True},
+                    {"name": "visual_style", "type": "string", "required": False, "default": "manga", "description": "视觉风格：manga=日式漫画, minimal=极简, neon=赛博霓虹, magazine=时尚杂志, vibrant=活力撞色, ken_burns=传统Ken Burns"},
+                    {"name": "orientation", "type": "string", "required": False, "default": "portrait", "description": "视频方向：portrait=竖屏, landscape=横屏"}
                 ]
             },
             "mode_b": {

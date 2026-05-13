@@ -24,6 +24,7 @@ from core.topics_module import TopicsModule
 from core.script_module import ScriptModule
 from core.spring_diagram_animation_module import get_spring_diagram_module as get_diagram_module
 from core.remotion_bridge import RemotionBridge
+from core.manga_frame_renderer import MangaFrameRenderer
 
 # 日志回调 - 实时推送进度到前端
 _dual_log_callback = None
@@ -332,6 +333,8 @@ class DualModeVideoGenerator:
         add_bgm: bool = True,
         fetch_images: bool = True,
         style: str = "normal",
+        visual_style: str = "manga",
+        orientation: str = "portrait",
     ) -> Dict:
         """
         模式A：题材全自动生成
@@ -346,6 +349,8 @@ class DualModeVideoGenerator:
             add_bgm: 是否添加BGM
             fetch_images: 是否联网抓取配图
             style: 动画风格 ("normal"=默认KenBurns | "tech_lecture"=技术讲座风格)
+            visual_style: 视觉风格 (manga/minimal/neon/magazine/vibrant/ken_burns)
+            orientation: 视频方向 (portrait=竖屏 | landscape=横屏)
 
         返回:
             生成结果字典
@@ -356,6 +361,14 @@ class DualModeVideoGenerator:
             style == self.TECH_LECTURE_STYLE or
             (category and category in self.TECH_LECTURE_CATEGORIES)
         )
+        # 判断是否使用漫画帧渲染
+        use_manga_frames = (
+            visual_style and visual_style != "ken_burns"
+            and visual_style in getattr(config, "VISUAL_STYLES", {})
+        )
+        if orientation not in ("portrait", "landscape"):
+            orientation = "portrait"
+        video_width, video_height = config.get_output_dimensions(orientation)
         result = {
             "mode": self.MODE_AUTO,
             "success": False,
@@ -367,6 +380,8 @@ class DualModeVideoGenerator:
             "timeline": None,
             "video": None,
             "final_video": None,
+            "manga_frames": [],
+            "visual_style": visual_style,
         }
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -431,141 +446,174 @@ class DualModeVideoGenerator:
         _log("✅ 配音生成完成", 'info')
         print(f"  配音生成完成: {audio_path}")
 
-        # Step 4: 联网抓取配图
-        _log("🖼️ 正在抓取配图...", 'info')
-        print("[Mode A] Step 4: 联网抓取配图...")
-        if fetch_images:
-            script_text = script_result.get("full_script", "")
-            _, image_paths = self.image_fetch.fetch_by_script_keywords(script_text, count_per_keyword=2)
-        else:
-            image_paths = self.video.auto_select_materials(count=len(sentences))
-
-        if not image_paths:
-            image_paths = self.video.auto_select_materials(count=5)
-
-        result["images"] = image_paths
-        result["steps"].append({"step": "image_fetch", "status": "success", "count": len(image_paths)})
-        _log(f"✅ 配图获取完成 ({len(image_paths)}张)", 'info')
-        print(f"  配图: {len(image_paths)} 张")
-
-        # Step 5: 时间轴同步
-        _log("⏱️ 正在进行时间轴同步...", 'info')
-        print("[Mode A] Step 5: 时间轴同步...")
-        timeline = self._generate_timeline(sentences, image_paths)
-        result["timeline"] = timeline
-        result["steps"].append({"step": "timeline", "status": "success", "segments": len(timeline)})
-        _log(f"✅ 时间轴同步完成 ({len(timeline)}个片段)", 'info')
-        print(f"  时间轴: {len(timeline)} 个片段")
-
-        # Step 6: 动画视频生成
-        _log("🎬 正在生成动画视频...", 'info')
-        print("[Mode A] Step 6: 动画视频生成...")
+        script_text = script_result.get("full_script", "")
         raw_video_path = str(output_dir / "raw_video.mp4")
 
-        if is_tech_lecture:
-            # 技术讲座风格：优先使用2D流程图动画，其次用Ken Burns图文布局
-            _log("📺 使用技术讲座风格生成", 'info')
-
-            # 尝试从脚本中提取流程图布局描述（检查 full_script 和 raw_llm_response）
-            script_text = script_result.get("full_script", "")
-            raw_response = script_result.get("raw_llm_response", "")
-            # 优先从 raw_llm_response 提取（包含完整的LLM输出，包括```diagram块）
-            combined_text = raw_response if raw_response else script_text
-            layout = self._parse_diagram_layout(combined_text, topic)
-
-            if layout and len(layout) >= 2:
-                # 有有效布局 → 使用2D流程图动画（优先Remotion，其次PIL）
-                _log("📊 检测到架构/流程描述，生成2D示意图动画", 'info')
-
-                # 优先尝试Remotion渲染
-                remotion_bridge = self._get_remotion_bridge()
-                bg_image = image_paths[0] if image_paths else None
-
-                if remotion_bridge and bg_image:
-                    _log("🎬 使用 Remotion 渲染（Spring动画+WebGL背景）", 'info')
-                    try:
-                        remotion_layout = self._convert_layout_for_remotion(
-                            layout, bg_image=bg_image, fps=30
-                        )
-                        if remotion_layout:
-                            remotion_output = remotion_bridge.render_sync(
-                                remotion_layout,
-                                output_path=raw_video_path,
-                                timeout=300,
-                            )
-                            if remotion_output and Path(remotion_output).exists():
-                                animation_success = True
-                                _log("✅ Remotion视频生成完成", 'info')
-                            else:
-                                animation_success = False
-                                _log("⚠️ Remotion渲染失败，降级到Ken Burns", 'warn')
-                        else:
-                            animation_success = False
-                    except Exception as e:
-                        print(f"[DualMode] Remotion render error: {e}")
-                        animation_success = False
-                        _log("⚠️ Remotion异常，降级到Ken Burns", 'warn')
-                else:
-                    animation_success = False
-
-                # 降级到PIL Spring动画
-                if not animation_success:
-                    _log("📦 使用PIL Spring动画（备选方案）", 'info')
-                    diagram_success = self.diagram.generate_from_layout(
-                        layout=layout,
-                        output_path=raw_video_path,
-                        fps=30,
-                        auto_duration=True,
-                    )
-                    animation_success = diagram_success
-                    if animation_success:
-                        _log("✅ 2D流程图动画生成完成", 'info')
-                    else:
-                        _log("⚠️ 流程图生成失败，降级到Ken Burns图文风格", 'warn')
-                        animation_success = self.animation.create_animated_video_from_segments(
-                            images=image_paths if image_paths else [],
-                            segments=timeline,
-                            output_path=raw_video_path,
-                            animation_style="ken_burns",
-                            transition="fade"
-                        )
+        if use_manga_frames:
+            # ═══ 新路径：漫画帧渲染 ═══
+            # Step 4: 生成漫画帧
+            _log("🎨 正在生成漫画帧...", 'info')
+            print("[Mode A] Step 4: 生成漫画帧...")
+            storyboard = self._build_storyboard_from_sentences(sentences, script_text)
+            manga_frames = self._render_manga_frames(
+                storyboard, script_text, output_dir, visual_style,
+                video_width, video_height
+            )
+            if not manga_frames:
+                _log("⚠️ 漫画帧生成失败，回退到素材库配图", 'warn')
+                image_paths = self.video.auto_select_materials(count=len(sentences))
+                if not image_paths:
+                    image_paths = self.video.auto_select_materials(count=5)
+                result["images"] = image_paths
+                result["steps"].append({"step": "manga_frames", "status": "fallback", "count": len(image_paths)})
+                timeline = self._generate_timeline(sentences, image_paths)
+                result["timeline"] = timeline
+                animation_success = self.animation.create_animated_video_from_segments(
+                    images=image_paths, segments=timeline,
+                    output_path=raw_video_path,
+                    animation_style="ken_burns", transition="fade"
+                )
             else:
-                # 无布局描述 → 使用Ken Burns图文风格（顶部标题+左侧知识点+右侧代码）
-                _log("📺 无流程图描述，使用Ken Burns图文风格", 'info')
-                if image_paths:
-                    bg_image = image_paths[0]
-                else:
+                result["manga_frames"] = manga_frames
+                result["images"] = manga_frames
+                result["steps"].append({"step": "manga_frames", "status": "success", "count": len(manga_frames)})
+                _log(f"✅ 漫画帧生成完成 ({len(manga_frames)}帧)", 'info')
+                print(f"  漫画帧: {len(manga_frames)} 帧")
+
+                # Step 5: 构建时间轴（等分时长）
+                _log("⏱️ 正在构建时间轴...", 'info')
+                print("[Mode A] Step 5: 构建时间轴...")
+                n_frames = len(manga_frames)
+                seg_dur = float(duration) / max(n_frames, 1)
+                timeline = []
+                for i in range(n_frames):
+                    timeline.append({
+                        "start": i * seg_dur,
+                        "end": (i + 1) * seg_dur,
+                        "text": sentences[i] if i < len(sentences) else "",
+                        "image_index": i,
+                    })
+                result["timeline"] = timeline
+                result["steps"].append({"step": "timeline", "status": "success", "segments": len(timeline)})
+                _log(f"✅ 时间轴构建完成 ({len(timeline)}个片段)", 'info')
+
+                # Step 6: 漫画帧动画合成
+                _log("🎬 正在合成漫画帧动画...", 'info')
+                print("[Mode A] Step 6: 漫画帧动画合成...")
+                animation_success = self.animation.create_animated_video_from_segments(
+                    images=manga_frames,
+                    segments=timeline,
+                    output_path=raw_video_path,
+                    animation_style="manga_frame",
+                    transition="fade"
+                )
+        else:
+            # ═══ 原路径：配图 + Ken Burns ═══
+            # Step 4: 联网抓取配图
+            _log("🖼️ 正在抓取配图...", 'info')
+            print("[Mode A] Step 4: 联网抓取配图...")
+            if fetch_images:
+                _, image_paths = self.image_fetch.fetch_by_script_keywords(script_text, count_per_keyword=2)
+            else:
+                image_paths = self.video.auto_select_materials(count=len(sentences))
+
+            if not image_paths:
+                image_paths = self.video.auto_select_materials(count=5)
+
+            result["images"] = image_paths
+            result["steps"].append({"step": "image_fetch", "status": "success", "count": len(image_paths)})
+            _log(f"✅ 配图获取完成 ({len(image_paths)}张)", 'info')
+            print(f"  配图: {len(image_paths)} 张")
+
+            # Step 5: 时间轴同步
+            _log("⏱️ 正在进行时间轴同步...", 'info')
+            print("[Mode A] Step 5: 时间轴同步...")
+            timeline = self._generate_timeline(sentences, image_paths)
+            result["timeline"] = timeline
+            result["steps"].append({"step": "timeline", "status": "success", "segments": len(timeline)})
+            _log(f"✅ 时间轴同步完成 ({len(timeline)}个片段)", 'info')
+            print(f"  时间轴: {len(timeline)} 个片段")
+
+            # Step 6: 动画视频生成
+            _log("🎬 正在生成动画视频...", 'info')
+            print("[Mode A] Step 6: 动画视频生成...")
+
+            if is_tech_lecture:
+                _log("📺 使用技术讲座风格生成", 'info')
+                raw_response = script_result.get("raw_llm_response", "")
+                combined_text = raw_response if raw_response else script_text
+                layout = self._parse_diagram_layout(combined_text, topic)
+
+                if layout and len(layout) >= 2:
+                    _log("📊 检测到架构/流程描述，生成2D示意图动画", 'info')
+                    remotion_bridge = self._get_remotion_bridge()
                     bg_image = image_paths[0] if image_paths else None
 
-                lecture_title = topic.get("title", "技术分享")[:30]
-                lecture_points = [s[:40] for s in sentences[:5] if s.strip()]
-                code_match = re.search(r'```[\w]*\n(.*?)```', script_text, re.DOTALL)
-                lecture_code = code_match.group(1).strip()[:300] if code_match else ""
-                code_lang = "python"
+                    if remotion_bridge and bg_image:
+                        _log("🎬 使用 Remotion 渲染（Spring动画+WebGL背景）", 'info')
+                        try:
+                            remotion_layout = self._convert_layout_for_remotion(
+                                layout, bg_image=bg_image, fps=30
+                            )
+                            if remotion_layout:
+                                remotion_output = remotion_bridge.render_sync(
+                                    remotion_layout, output_path=raw_video_path, timeout=300,
+                                )
+                                if remotion_output and Path(remotion_output).exists():
+                                    animation_success = True
+                                    _log("✅ Remotion视频生成完成", 'info')
+                                else:
+                                    animation_success = False
+                                    _log("⚠️ Remotion渲染失败，降级到Ken Burns", 'warn')
+                            else:
+                                animation_success = False
+                        except Exception as e:
+                            print(f"[DualMode] Remotion render error: {e}")
+                            animation_success = False
+                            _log("⚠️ Remotion异常，降级到Ken Burns", 'warn')
+                    else:
+                        animation_success = False
 
-                if bg_image and Path(bg_image).exists():
-                    animation_success = self.animation.create_tech_lecture_video(
-                        bg_image=bg_image,
-                        output_path=raw_video_path,
-                        title=lecture_title,
-                        points=lecture_points,
-                        code=lecture_code,
-                        code_lang=code_lang,
-                        duration=float(duration),
-                        animation_style="ken_burns"
-                    )
+                    if not animation_success:
+                        _log("📦 使用PIL Spring动画（备选方案）", 'info')
+                        diagram_success = self.diagram.generate_from_layout(
+                            layout=layout, output_path=raw_video_path, fps=30, auto_duration=True,
+                        )
+                        animation_success = diagram_success
+                        if animation_success:
+                            _log("✅ 2D流程图动画生成完成", 'info')
+                        else:
+                            _log("⚠️ 流程图生成失败，降级到Ken Burns图文风格", 'warn')
+                            animation_success = self.animation.create_animated_video_from_segments(
+                                images=image_paths if image_paths else [],
+                                segments=timeline, output_path=raw_video_path,
+                                animation_style="ken_burns", transition="fade"
+                            )
                 else:
-                    animation_success = False
-                    _log("⚠️ 素材池无可用图片，无法生成Ken Burns视频", 'warn')
-        else:
-            # 默认Ken Burns动画风格
-            animation_success = self.animation.create_animated_video_from_segments(
-                images=image_paths,
-                segments=timeline,
-                output_path=raw_video_path,
-                animation_style="ken_burns",
-                transition="fade"
-            )
+                    _log("📺 无流程图描述，使用Ken Burns图文风格", 'info')
+                    bg_image = image_paths[0] if image_paths else None
+                    lecture_title = topic.get("title", "技术分享")[:30]
+                    lecture_points = [s[:40] for s in sentences[:5] if s.strip()]
+                    code_match = re.search(r'```[\w]*\n(.*?)```', script_text, re.DOTALL)
+                    lecture_code = code_match.group(1).strip()[:300] if code_match else ""
+                    code_lang = "python"
+
+                    if bg_image and Path(bg_image).exists():
+                        animation_success = self.animation.create_tech_lecture_video(
+                            bg_image=bg_image, output_path=raw_video_path,
+                            title=lecture_title, points=lecture_points,
+                            code=lecture_code, code_lang=code_lang,
+                            duration=float(duration), animation_style="ken_burns"
+                        )
+                    else:
+                        animation_success = False
+                        _log("⚠️ 素材池无可用图片，无法生成Ken Burns视频", 'warn')
+            else:
+                animation_success = self.animation.create_animated_video_from_segments(
+                    images=image_paths, segments=timeline,
+                    output_path=raw_video_path,
+                    animation_style="ken_burns", transition="fade"
+                )
 
         if not animation_success:
             result["error"] = "动画视频生成失败"
@@ -926,6 +974,50 @@ class DualModeVideoGenerator:
             pass
 
         return success
+
+    def _build_storyboard_from_sentences(
+        self, sentences: List[str], script_text: str
+    ) -> List[Dict]:
+        """将句子列表转为 MangaFrameRenderer 兼容的分镜结构。"""
+        storyboard = []
+        for i, sent in enumerate(sentences):
+            if not sent.strip():
+                continue
+            words = sent.strip().split()
+            title = " ".join(words[:4]) if words else f"场景 {i+1}"
+            storyboard.append({
+                "title": title[:24],
+                "subtitle": sent[:80],
+                "bullets": self._extract_bullets_from_sentence(sent),
+            })
+        if not storyboard:
+            storyboard = [{
+                "title": "讲解",
+                "subtitle": script_text[:60],
+                "bullets": ["内容概要"],
+            }]
+        return storyboard[:8]
+
+    @staticmethod
+    def _extract_bullets_from_sentence(text: str) -> List[str]:
+        """将单个句子按标点拆分为多个 bullet 要点。"""
+        import re
+        parts = re.split(r'(?<=[。！？!?])\s*|\n+', text or "")
+        return [s.strip() for s in parts if s.strip()][:3] or [text.strip()]
+
+    def _render_manga_frames(
+        self, storyboard: List[Dict], script_content: str,
+        work_dir: Path, visual_style: str, width: int, height: int
+    ) -> List[str]:
+        """调用 MangaFrameRenderer 批量生成漫画帧 PNG。"""
+        renderer = MangaFrameRenderer(
+            width=width, height=height, visual_style=visual_style
+        )
+        return renderer.render_storyboard(
+            storyboard=storyboard,
+            script_content=script_content,
+            work_dir=str(work_dir),
+        )
 
     def _generate_timeline(self, sentences: List[str], images: List[str]) -> List[Dict]:
         """生成时间轴"""

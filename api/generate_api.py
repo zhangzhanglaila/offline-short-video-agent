@@ -462,6 +462,7 @@ async def api_generate_with_materials(request: Request):
         category = data.get('category', '')
         platforms = data.get('platforms', ['抖音', '小红书', 'B站'])
         material_paths = data.get('materials', [])
+        visual_style = data.get('visual_style', '')
 
         from core.topics_module import TopicsModule
         topics = TopicsModule(
@@ -521,21 +522,58 @@ async def api_generate_with_materials(request: Request):
         logs.append({'step': '素材', 'status': 'success', 'msg': f'已加载 {len(images)} 个素材'})
 
         # 步骤4: 生成视频
-        logs.append({'step': '剪辑', 'status': 'running', 'msg': '正在拼接视频帧...'})
+        logs.append({'step': '剪辑', 'status': 'running', 'msg': '正在生成视频...'})
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = str(config.OUTPUT_DIR / "_work" / f"video_{timestamp}.mp4")
-        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        work_dir = Path(output_path).parent
+        work_dir.mkdir(parents=True, exist_ok=True)
 
-        duration_per_image = 5
-        total_duration = len(images) * duration_per_image
+        use_manga = visual_style and visual_style in getattr(config, "VISUAL_STYLES", {})
+        if use_manga:
+            import re
+            script_text = script_result.get('full_script', '')
+            sentences = [s.strip() for s in re.split(r'(?<=[。！？!?])\s*|\n+', script_text) if s.strip()]
+            storyboard = []
+            for i, sent in enumerate(sentences[:8]):
+                words = sent.split()
+                storyboard.append({
+                    "title": " ".join(words[:4]) if words else f"场景 {i+1}",
+                    "subtitle": sent[:80],
+                    "bullets": [s.strip() for s in re.split(r'(?<=[。！？!?])\s*|\n+', sent) if s.strip()][:3] or [sent.strip()],
+                })
+            if not storyboard:
+                storyboard = [{"title": "讲解", "subtitle": script_text[:60], "bullets": ["内容概要"]}]
+            from core.manga_frame_renderer import MangaFrameRenderer
+            renderer = MangaFrameRenderer(visual_style=visual_style)
+            manga_frames = renderer.render_storyboard(
+                storyboard=storyboard, script_content=script_text,
+                work_dir=str(work_dir / "manga_frames"),
+            )
+            if manga_frames:
+                images = manga_frames
+                logs.append({'step': '素材', 'status': 'success', 'msg': f'已生成 {len(images)} 帧漫画风格帧'})
 
-        success = video.create_video_from_images(
-            images=images,
-            output_path=output_path,
-            duration_per_image=duration_per_image,
-            transition="fade",
-            bgm_path=audio
-        )
+            n_frames = len(images)
+            seg_dur = 30.0 / max(n_frames, 1)
+            segments = [{"start": i * seg_dur, "end": (i + 1) * seg_dur, "text": "", "image_index": i} for i in range(n_frames)]
+            total_duration = 30
+            from core.animation_module import get_animation_module
+            anim = get_animation_module()
+            success = anim.create_animated_video_from_segments(
+                images=images, segments=segments,
+                output_path=output_path,
+                animation_style="manga_frame", transition="fade"
+            )
+        else:
+            duration_per_image = 5
+            total_duration = len(images) * duration_per_image
+            success = video.create_video_from_images(
+                images=images,
+                output_path=output_path,
+                duration_per_image=duration_per_image,
+                transition="fade",
+                bgm_path=audio
+            )
 
         if not success:
             logs.append({'step': '剪辑', 'status': 'error', 'msg': '视频拼接失败'})
@@ -605,6 +643,7 @@ async def api_generate(request: Request):
         data = await request.json()
         category = data.get('category', '')
         platforms = data.get('platforms', ['抖音', '小红书', 'B站'])
+        visual_style = data.get('visual_style', '')
 
         from core.topics_module import TopicsModule
         topics = TopicsModule(
@@ -631,21 +670,60 @@ async def api_generate(request: Request):
 
         script_result = scripts.generate_script(topic, platforms[0] if platforms else '抖音', 30)
 
-        images = video.auto_select_materials(count=5)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = str(config.OUTPUT_DIR / "_work" / f"video_{timestamp}.mp4")
+        work_dir = Path(output_path).parent
+        work_dir.mkdir(parents=True, exist_ok=True)
+
+        use_manga = visual_style and visual_style in getattr(config, "VISUAL_STYLES", {})
+        if use_manga:
+            import re
+            script_text = script_result.get('full_script', '')
+            sentences = [s.strip() for s in re.split(r'(?<=[。！？!?])\s*|\n+', script_text) if s.strip()]
+            storyboard = []
+            for i, sent in enumerate(sentences[:8]):
+                words = sent.split()
+                storyboard.append({
+                    "title": " ".join(words[:4]) if words else f"场景 {i+1}",
+                    "subtitle": sent[:80],
+                    "bullets": [s.strip() for s in re.split(r'(?<=[。！？!?])\s*|\n+', sent) if s.strip()][:3] or [sent.strip()],
+                })
+            if not storyboard:
+                storyboard = [{"title": "讲解", "subtitle": script_text[:60], "bullets": ["内容概要"]}]
+            from core.manga_frame_renderer import MangaFrameRenderer
+            renderer = MangaFrameRenderer(visual_style=visual_style)
+            images = renderer.render_storyboard(
+                storyboard=storyboard, script_content=script_text,
+                work_dir=str(work_dir / "manga_frames"),
+            )
+            if not images:
+                images = video.auto_select_materials(count=5)
+        else:
+            images = video.auto_select_materials(count=5)
+
         if not images:
             return JSONResponse({'error': '素材池为空'}, status_code=400)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = str(config.OUTPUT_DIR / "_work" / f"video_{timestamp}.mp4")
-        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        n_images = len(images)
+        seg_dur = 30.0 / max(n_images, 1)
+        segments = [{"start": i * seg_dur, "end": (i + 1) * seg_dur, "text": "", "image_index": i} for i in range(n_images)]
 
-        success = video.create_video_from_images(
-            images=images,
-            output_path=output_path,
-            duration_per_image=5,
-            transition="fade",
-            bgm_path=None
-        )
+        if use_manga:
+            from core.animation_module import get_animation_module
+            anim = get_animation_module()
+            success = anim.create_animated_video_from_segments(
+                images=images, segments=segments,
+                output_path=output_path,
+                animation_style="manga_frame", transition="fade"
+            )
+        else:
+            success = video.create_video_from_images(
+                images=images,
+                output_path=output_path,
+                duration_per_image=5,
+                transition="fade",
+                bgm_path=None
+            )
 
         if not success:
             return JSONResponse({'error': '视频生成失败'}, status_code=500)

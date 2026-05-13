@@ -1311,6 +1311,217 @@
         .thinking-log-line.reasoning { color: #b37feb; font-style: italic; }
         .thinking-log-line.decision { color: #36cfc9; font-weight: 600; }
         .thinking-log-line.status { color: #8c8c8c; }
+
+        /* ========== 流水线容器 ========== */
+        .pipeline-container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        .pipeline-steps {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            padding: 20px 24px;
+            background: #FFF;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            margin-bottom: 20px;
+            position: sticky;
+            top: 72px;
+            z-index: 50;
+        }
+        .pipeline-step-dot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+        }
+        .pipeline-step-circle {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: #E3E5E7;
+            color: #909090;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 600;
+            transition: all 0.3s;
+        }
+        .pipeline-step-dot.done .pipeline-step-circle {
+            background: #18794e; color: #FFF;
+        }
+        .pipeline-step-dot.active .pipeline-step-circle {
+            background: var(--bili-pink); color: #FFF;
+            box-shadow: 0 0 0 4px rgba(251,114,153,0.2);
+        }
+        .pipeline-step-label {
+            font-size: 11px; color: #909090;
+        }
+        .pipeline-step-dot.done .pipeline-step-label { color: #18794e; }
+        .pipeline-step-dot.active .pipeline-step-label { color: var(--bili-pink); font-weight: 600; }
+        .pipeline-step-line {
+            width: 48px; height: 2px;
+            background: #E3E5E7;
+            margin: 0 4px 22px 4px;
+            transition: background 0.3s;
+        }
+        .pipeline-step-line.done { background: #18794e; }
+
+        /* ========== 横竖屏选择卡片 ========== */
+        .orient-cards {
+            display: flex; gap: 12px;
+        }
+        .orient-card {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #E3E5E7;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            background: #FFF;
+        }
+        .orient-card:hover { border-color: #FB7299; }
+        .orient-card.selected { border-color: #FB7299; background: #FFF0F3; }
+        .orient-card-icon { font-size: 24px; margin-bottom: 4px; }
+        .orient-card-title { font-size: 14px; font-weight: 600; color: #232529; }
+        .orient-card-desc { font-size: 11px; color: #909090; margin-top: 2px; }
+
+        /* ========== 脚本编辑器 ========== */
+        .script-edit-section { margin-bottom: 20px; }
+        .script-edit-section h3 {
+            font-size: 15px; color: #232529; margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .script-field-label {
+            font-size: 12px; color: #909090; margin-bottom: 4px; font-weight: 600;
+        }
+        .script-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #E3E5E7;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+            font-family: inherit;
+            resize: vertical;
+            background: #FAFBFC;
+            transition: border 0.2s;
+        }
+        .script-textarea:focus {
+            border-color: var(--bili-pink);
+            outline: none;
+            background: #FFF;
+        }
+
+        /* ========== 分镜预览 ========== */
+        .storyboard-preview {
+            display: flex; gap: 16px; margin-bottom: 20px;
+        }
+        .sb-scene-list {
+            width: 220px; flex-shrink: 0;
+            max-height: 420px; overflow-y: auto;
+            border: 1px solid #E3E5E7; border-radius: 8px;
+            background: #FAFBFC;
+        }
+        .sb-scene-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid #E3E5E7;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 12px;
+        }
+        .sb-scene-item:last-child { border-bottom: none; }
+        .sb-scene-item:hover { background: #FFF0F3; }
+        .sb-scene-item.active {
+            background: #FFF0F3; border-left: 3px solid var(--bili-pink);
+            padding-left: 9px;
+        }
+        .sb-scene-time { color: #909090; font-size: 10px; }
+        .sb-scene-title { color: #232529; font-weight: 600; margin-top: 2px; }
+        .sb-detail-panel {
+            flex: 1; min-width: 0;
+            border: 1px solid #E3E5E7; border-radius: 8px;
+            padding: 16px; background: #FFF;
+            min-height: 420px;
+        }
+        .sb-detail-title {
+            font-size: 16px; font-weight: 700; color: #232529; margin-bottom: 8px;
+        }
+        .sb-detail-bullets {
+            list-style: none; padding: 0; margin: 0 0 12px 0;
+        }
+        .sb-detail-bullets li {
+            font-size: 13px; color: #606773; padding: 3px 0;
+            padding-left: 16px; position: relative;
+        }
+        .sb-detail-bullets li::before {
+            content: '•'; position: absolute; left: 0; color: var(--bili-pink);
+        }
+        .sb-detail-subtitle {
+            font-size: 13px; color: #606773; margin-bottom: 12px;
+            padding: 8px 12px; background: #F5F6F7; border-radius: 4px;
+        }
+        .sb-material-area {
+            border: 2px dashed #E3E5E7; border-radius: 8px;
+            min-height: 120px; display: flex;
+            align-items: center; justify-content: center;
+            color: #909090; font-size: 12px;
+            overflow: hidden;
+        }
+        .sb-material-area img {
+            max-width: 100%; max-height: 200px; object-fit: contain;
+        }
+        .sb-play-controls {
+            display: flex; align-items: center; gap: 10px;
+            margin-top: 12px; padding-top: 12px;
+            border-top: 1px solid #E3E5E7;
+        }
+        .sb-play-btn {
+            width: 36px; height: 36px;
+            border-radius: 50%; border: none;
+            background: var(--bili-pink); color: #FFF;
+            font-size: 16px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.2s;
+        }
+        .sb-play-btn:hover { opacity: 0.85; }
+        .sb-progress-dots {
+            display: flex; gap: 4px; flex: 1; justify-content: center;
+        }
+        .sb-progress-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%; background: #E3E5E7;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .sb-progress-dot.active { background: var(--bili-pink); }
+        .sb-scene-counter { font-size: 12px; color: #909090; min-width: 50px; text-align: right; }
+
+        /* ========== TTS / Render 区 ========== */
+        .pipeline-card {
+            background: #FFF; border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            padding: 20px; margin-bottom: 16px;
+        }
+        .pipeline-card h3 {
+            font-size: 15px; color: #232529; margin-bottom: 12px;
+        }
+        .pipeline-card .desc { font-size: 13px; color: #909090; margin-bottom: 16px; }
+        .pipeline-card audio { width: 100%; max-width: 400px; margin-bottom: 12px; }
+        .pipeline-spinner {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 32px; gap: 12px;
+        }
+        .pipeline-spinner .spin {
+            width: 36px; height: 36px;
+            border: 3px solid #E3E5E7;
+            border-top-color: var(--bili-pink);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .pipeline-video { width: 100%; max-width: 480px; background: #000; border-radius: 8px; }
+        .pipeline-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
     </style>
 </head>
 <body>
@@ -1401,6 +1612,43 @@
                                 <option value="抖音">🎵 抖音</option>
                                 <option value="小红书">📕 小红书</option>
                                 <option value="B站">📺 B站</option>
+                            </select>
+                        </div>
+                        <div class="form-row" style="margin-top:8px;">
+                            <label>视频方向：</label>
+                            <div class="orient-cards" style="flex:1;">
+                                <div class="orient-card selected" id="home-orient-portrait" onclick="selectOrient('home', 'portrait')">
+                                    <div class="orient-card-icon">📱</div>
+                                    <div class="orient-card-title">竖屏 9:16</div>
+                                    <div class="orient-card-desc">抖音/小红书</div>
+                                </div>
+                                <div class="orient-card" id="home-orient-landscape" onclick="selectOrient('home', 'landscape')">
+                                    <div class="orient-card-icon">🖥️</div>
+                                    <div class="orient-card-title">横屏 16:9</div>
+                                    <div class="orient-card-desc">B站/YouTube</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row" style="margin-top:10px;">
+                            <label>视觉风格：</label>
+                            <select id="home-visual-style" class="bili-input" style="width:150px;">
+                                <option value="manga">📖 日式漫画</option>
+                                <option value="minimal">✨ 极简清新</option>
+                                <option value="neon">🌃 赛博霓虹</option>
+                                <option value="magazine">📰 时尚杂志</option>
+                                <option value="vibrant">🎨 活力撞色</option>
+                                <option value="ken_burns">📷 传统Ken Burns</option>
+                            </select>
+                            <label style="margin-left:12px;">时长(秒)：</label>
+                            <input type="number" id="home-duration" class="bili-input" value="30" min="10" max="120" style="width:80px;">
+                            <label style="margin-left:12px;">配音：</label>
+                            <select id="home-voice" class="bili-input" style="width:150px;">
+                                <option value="zh-CN-XiaoxiaoNeural">晓晓（女声-年轻）</option>
+                                <option value="zh-CN-YunxiNeural">云希（男声-年轻）</option>
+                                <option value="zh-CN-YunyangNeural">云扬（男声-新闻）</option>
+                                <option value="zh-CN-Xiaoyi">小艺（女声-温柔）</option>
+                                <option value="zh-CN-Zhiyu">志宇（男声-成熟）</option>
+                                <option value="zh-CN-Xiaomo">小墨（女声-活力）</option>
                             </select>
                         </div>
                     </div>
@@ -1590,6 +1838,43 @@
                                 <option value="B站">📺 B站</option>
                             </select>
                         </div>
+                        <div class="form-row" style="margin-top:8px;">
+                            <label>视频方向：</label>
+                            <div class="orient-cards" style="flex:1;">
+                                <div class="orient-card selected" id="mat-orient-portrait" onclick="selectOrient('mat', 'portrait')">
+                                    <div class="orient-card-icon">📱</div>
+                                    <div class="orient-card-title">竖屏 9:16</div>
+                                    <div class="orient-card-desc">抖音/小红书</div>
+                                </div>
+                                <div class="orient-card" id="mat-orient-landscape" onclick="selectOrient('mat', 'landscape')">
+                                    <div class="orient-card-icon">🖥️</div>
+                                    <div class="orient-card-title">横屏 16:9</div>
+                                    <div class="orient-card-desc">B站/YouTube</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row" style="margin-top:10px;">
+                            <label>视觉风格：</label>
+                            <select id="mode-a-visual-style" class="bili-input" style="width:150px;">
+                                <option value="manga">📖 日式漫画</option>
+                                <option value="minimal">✨ 极简清新</option>
+                                <option value="neon">🌃 赛博霓虹</option>
+                                <option value="magazine">📰 时尚杂志</option>
+                                <option value="vibrant">🎨 活力撞色</option>
+                                <option value="ken_burns">📷 传统Ken Burns</option>
+                            </select>
+                            <label style="margin-left:12px;">时长(秒)：</label>
+                            <input type="number" id="mat-duration" class="bili-input" value="30" min="10" max="120" style="width:80px;">
+                            <label style="margin-left:12px;">配音：</label>
+                            <select id="mat-voice" class="bili-input" style="width:150px;">
+                                <option value="zh-CN-XiaoxiaoNeural">晓晓（女声-年轻）</option>
+                                <option value="zh-CN-YunxiNeural">云希（男声-年轻）</option>
+                                <option value="zh-CN-YunyangNeural">云扬（男声-新闻）</option>
+                                <option value="zh-CN-Xiaoyi">小艺（女声-温柔）</option>
+                                <option value="zh-CN-Zhiyu">志宇（男声-成熟）</option>
+                                <option value="zh-CN-Xiaomo">小墨（女声-活力）</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
@@ -1691,7 +1976,7 @@
             </div>
         </div>
 
-        <!-- ========== 生成中 ========== -->
+        <!-- ========== 生成中 (ken_burns 兼容旧流程) ========== -->
         <div id="page-generating" class="page">
             <div class="bili-card">
                 <div class="card-header">
@@ -1702,6 +1987,142 @@
                         <div class="progress-tv"></div>
                     </div>
                     <div class="log-box" id="log-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== 题材流水线（新步进式） ========== -->
+        <div id="page-pipeline" class="page">
+            <div class="pipeline-container">
+                <!-- 粘性进度条 -->
+                <div class="pipeline-steps" id="pipeline-steps-bar">
+                    <div class="pipeline-step-dot" data-step="init">
+                        <div class="pipeline-step-circle">1</div>
+                        <div class="pipeline-step-label">生成脚本</div>
+                    </div>
+                    <div class="pipeline-step-line"></div>
+                    <div class="pipeline-step-dot" data-step="script_ready">
+                        <div class="pipeline-step-circle">2</div>
+                        <div class="pipeline-step-label">编辑确认</div>
+                    </div>
+                    <div class="pipeline-step-line"></div>
+                    <div class="pipeline-step-dot" data-step="tts_ready">
+                        <div class="pipeline-step-circle">3</div>
+                        <div class="pipeline-step-label">生成配音</div>
+                    </div>
+                    <div class="pipeline-step-line"></div>
+                    <div class="pipeline-step-dot" data-step="done">
+                        <div class="pipeline-step-circle">4</div>
+                        <div class="pipeline-step-label">渲染完成</div>
+                    </div>
+                </div>
+
+                <!-- 错误提示 -->
+                <div id="pipeline-error" style="display:none; background:#FFF2F0; border:1px solid #FFCCC7; border-radius:8px; padding:16px; margin-bottom:20px;">
+                    <div style="font-weight:600;color:#CF1322;margin-bottom:8px;">生成失败</div>
+                    <div id="pipeline-error-msg" style="font-size:13px;color:#606773;"></div>
+                    <div style="margin-top:12px;display:flex;gap:8px;">
+                        <button class="bili-btn bili-btn-primary" onclick="topicReset()">重新开始</button>
+                        <button class="bili-btn bili-btn-secondary" onclick="showPage('home')">返回首页</button>
+                    </div>
+                </div>
+
+                <!-- Step 1: 脚本编辑器 -->
+                <div id="pipeline-script-card" class="pipeline-card" style="display:none;">
+                    <h3>✍️ 脚本编辑</h3>
+                    <div class="script-edit-section">
+                        <div class="script-field-label">Hook（开头3秒抓人）</div>
+                        <textarea id="pipe-hook" class="script-textarea" rows="2" oninput="topicScriptChanged()"></textarea>
+                    </div>
+                    <div class="script-edit-section">
+                        <div class="script-field-label">主体内容</div>
+                        <textarea id="pipe-body" class="script-textarea" rows="3" oninput="topicScriptChanged()"></textarea>
+                    </div>
+                    <div class="script-edit-section">
+                        <div class="script-field-label">行动号召 (CTA)</div>
+                        <textarea id="pipe-cta" class="script-textarea" rows="2" oninput="topicScriptChanged()"></textarea>
+                    </div>
+                    <div class="script-edit-section">
+                        <div class="script-field-label">完整脚本</div>
+                        <textarea id="pipe-full-script" class="script-textarea" rows="4" oninput="topicScriptChanged()"></textarea>
+                    </div>
+
+                    <!-- 分镜预览 -->
+                    <div class="script-edit-section">
+                        <div class="script-field-label">分镜预览</div>
+                        <div class="storyboard-preview" id="sb-preview">
+                            <div class="sb-scene-list" id="sb-scene-list"></div>
+                            <div class="sb-detail-panel" id="sb-detail-panel">
+                                <div style="color:#909090;text-align:center;padding-top:80px;">点击左侧场景查看详情</div>
+                            </div>
+                        </div>
+                        <div class="sb-play-controls" id="sb-play-controls">
+                            <button class="sb-play-btn" id="sb-play-btn" onclick="topicToggleSbPlay()">▶</button>
+                            <div class="sb-progress-dots" id="sb-progress-dots"></div>
+                            <div class="sb-scene-counter" id="sb-scene-counter">0 / 0</div>
+                        </div>
+                    </div>
+
+                    <div style="text-align:center;margin-top:16px;">
+                        <button class="bili-btn bili-btn-primary" id="pipe-save-script-btn" onclick="topicSaveScript()" style="padding:10px 36px;">
+                            💾 保存脚本，继续下一步
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: TTS 配音 -->
+                <div id="pipeline-tts-card" class="pipeline-card" style="display:none;">
+                    <h3>🎤 生成配音</h3>
+                    <p class="desc">脚本已保存，点击下方按钮生成AI配音</p>
+                    <div style="margin-bottom:12px;">
+                        <label style="font-size:12px;color:#909090;">配音选择：</label>
+                        <select id="pipe-voice" class="bili-input" style="width:200px;">
+                            <option value="zh-CN-XiaoxiaoNeural">晓晓（女声-年轻）</option>
+                            <option value="zh-CN-YunxiNeural">云希（男声-年轻）</option>
+                            <option value="zh-CN-YunyangNeural">云扬（男声-新闻）</option>
+                            <option value="zh-CN-Xiaoyi">小艺（女声-温柔）</option>
+                            <option value="zh-CN-Zhiyu">志宇（男声-成熟）</option>
+                            <option value="zh-CN-Xiaomo">小墨（女声-活力）</option>
+                        </select>
+                    </div>
+                    <button class="bili-btn bili-btn-primary" id="pipe-tts-btn" onclick="topicGenerateTts()" style="padding:10px 36px;">
+                        🎙️ 确认生成配音
+                    </button>
+                    <div id="pipe-tts-spinner" class="pipeline-spinner" style="display:none;">
+                        <div class="spin"></div>
+                        <span style="color:#909090;">配音生成中...</span>
+                    </div>
+                    <div id="pipe-tts-player" style="display:none;margin-top:12px;">
+                        <audio id="pipe-audio" controls></audio>
+                        <div style="font-size:12px;color:#909090;margin-top:4px;">时长：<span id="pipe-audio-dur">0</span> 秒</div>
+                    </div>
+                    <div style="margin-top:16px;">
+                        <button class="bili-btn bili-btn-primary" id="pipe-render-btn" onclick="topicStartRender()" style="padding:10px 36px;display:none;background:#52C41A;">
+                            🎬 开始生成视频
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: 渲染 -->
+                <div id="pipeline-render-card" class="pipeline-card" style="display:none;">
+                    <h3>🎬 视频渲染中</h3>
+                    <div class="pipeline-spinner">
+                        <div class="spin"></div>
+                        <span style="color:#909090;">正在进行动画合成、字幕烧录、多轨道混合，请耐心等待...</span>
+                    </div>
+                </div>
+
+                <!-- Step 4: 完成 -->
+                <div id="pipeline-done-card" class="pipeline-card" style="display:none;">
+                    <h3>✅ 视频生成完成</h3>
+                    <div style="text-align:center;">
+                        <video id="pipe-video" class="pipeline-video" controls></video>
+                        <div class="pipeline-actions" style="justify-content:center;">
+                            <a id="pipe-download" class="bili-btn bili-btn-primary" download style="background:#52C41A;text-decoration:none;">📥 下载视频</a>
+                            <button class="bili-btn bili-btn-secondary" onclick="showPage('home')">🏠 返回首页</button>
+                            <button class="bili-btn bili-btn-secondary" onclick="topicReset()">🔄 重新生成</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3074,6 +3495,21 @@
         var selectedMode = null; // 'mode_a' or 'mode_b'
         var homeSelectedCat = null;
 
+        // ========== 题材流水线全局状态 ==========
+        var topicVideoId = null;
+        var topicPipelineStep = 'init';
+        var topicStoryboard = [];
+        var topicScript = { hook: '', body: '', cta: '', full_script: '' };
+        var topicTtsAudioUrl = '';
+        var topicTtsDuration = 0;
+        var topicVideoUrl = '';
+        var topicVisualStyle = 'manga';
+        var topicOrientation = 'portrait';
+        var topicPollTimer = null;
+        var topicSbCurrent = 0;
+        var topicSbPlaying = false;
+        var topicSbTimer = null;
+
         function selectHomeMode(mode) {
             selectedMode = mode;
             document.querySelectorAll('#home-mode-select .mode-card').forEach(function(c) { c.classList.remove('selected'); });
@@ -3156,14 +3592,26 @@
             showApiConfigModal();
         }
 
+        function selectOrient(prefix, value) {
+            topicOrientation = value;
+            var cards = document.querySelectorAll('#' + prefix + '-orient-portrait, #' + prefix + '-orient-landscape');
+            cards.forEach(function(c) { c.classList.remove('selected'); });
+            var el = document.getElementById(prefix + '-orient-' + value);
+            if (el) el.classList.add('selected');
+        }
+
         function _doGenerate() {
-            showPage('generating');
-
-            var log = document.getElementById('log-box');
-            if (log) log.innerHTML = '';
-
             if (selectedMode === 'mode_a') {
-                callModeAApi();
+                // Check for ken_burns → old flow
+                var vsEl = document.getElementById('home-visual-style') || document.getElementById('mode-a-visual-style');
+                var visualStyle = vsEl ? vsEl.value : 'manga';
+                if (visualStyle === 'ken_burns') {
+                    // Fall through to old SSE flow
+                    showPage('generating');
+                    callModeAApiOld();
+                    return;
+                }
+                topicFormSubmit();
             } else {
                 if (selectedMaterials.size === 0) {
                     alert('素材库为空，请先上传素材！');
@@ -3174,32 +3622,37 @@
             }
         }
 
-        function callModeAApi() {
+        // Old SSE flow for ken_burns backward compatibility
+        function callModeAApiOld() {
             var topicKeyword = document.getElementById('home-topic-keyword') ? document.getElementById('home-topic-keyword').value : '';
             var category = document.getElementById('home-mode-a-category') ? document.getElementById('home-mode-a-category').value : '';
             var platform = document.getElementById('home-mode-a-platform') ? document.getElementById('home-mode-a-platform').value : '抖音';
+            var vsEl = document.getElementById('home-visual-style') || document.getElementById('mode-a-visual-style');
+            var visualStyle = vsEl ? vsEl.value : 'manga';
 
-            addLog('info', '🚀 开始题材全自动生成...');
+            var log = document.getElementById('log-box');
+            if (log) { log.innerHTML = ''; }
+
+            function addLogLegacy(type, msg) {
+                var box = document.getElementById('log-box');
+                if (box) { box.innerHTML += '<div class="log-line log-' + type + '">' + msg + '</div>'; box.scrollTop = box.scrollHeight; }
+            }
+            addLogLegacy('info', '🚀 开始题材全自动生成 (Ken Burns)...');
 
             fetch(API + '/generate/mode-a', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    topic_keyword: topicKeyword,
-                    category: category,
-                    platform: platform,
-                    duration: 30,
-                    voice: 'zh-CN-XiaoxiaoNeural',
-                    use_whisper_subtitle: true,
-                    add_bgm: true,
-                    fetch_images: true
+                    topic_keyword: topicKeyword, category: category, platform: platform,
+                    duration: 30, voice: 'zh-CN-XiaoxiaoNeural',
+                    use_whisper_subtitle: true, add_bgm: true, fetch_images: true,
+                    visual_style: visualStyle
                 })
             })
             .then(function(res) {
                 var reader = res.body.getReader();
                 var decoder = new TextDecoder();
                 var buffer = '';
-
                 function read() {
                     reader.read().then(function(result) {
                         if (result.done) return;
@@ -3212,18 +3665,9 @@
                                 try {
                                     var data = JSON.parse(line.substring(6));
                                     if (data.type === 'ping') continue;
-                                    if (data.type === 'error') {
-                                        addLog('err', '错误: ' + data.msg);
-                                        alert('生成失败: ' + data.msg);
-                                        showPage('materials');
-                                        return;
-                                    }
-                                    if (data.type === 'done') {
-                                        handleGenerationResult(data.result);
-                                        return;
-                                    }
-                                    // Real-time log from backend
-                                    addLog(data.level || 'info', '[' + (data.time || '') + '] ' + data.msg);
+                                    if (data.type === 'error') { addLogLegacy('err', '错误: ' + data.msg); alert('生成失败: ' + data.msg); showPage('materials'); return; }
+                                    if (data.type === 'done') { handleGenerationResult(data.result); return; }
+                                    addLogLegacy(data.level || 'info', '[' + (data.time || '') + '] ' + data.msg);
                                 } catch(e) {}
                             }
                         }
@@ -3232,12 +3676,350 @@
                 }
                 read();
             })
+            .catch(function(e) { addLogLegacy('err', '请求失败: ' + e.message); alert('生成失败: ' + e.message); showPage('materials'); });
+        }
+
+        // ========== 新题材步进式流水线 JS ==========
+
+        function topicFormSubmit() {
+            // Read form data
+            var topicKeyword = getElVal('home-topic-keyword') || getElVal('topic-keyword') || '';
+            var category = getElVal('home-mode-a-category') || getElVal('mode-a-category') || '';
+            var platform = getElVal('home-mode-a-platform') || getElVal('mode-a-platform') || '抖音';
+            var visualStyle = getElVal('home-visual-style') || getElVal('mode-a-visual-style') || 'manga';
+            var duration = parseInt(getElVal('home-duration') || getElVal('mat-duration') || '30');
+            var voice = getElVal('home-voice') || getElVal('mat-voice') || 'zh-CN-XiaoxiaoNeural';
+
+            if (!topicKeyword && !category) { alert('请输入题材关键词或选择赛道！'); return; }
+
+            topicVisualStyle = visualStyle;
+            topicOrientation = getElVal('home-orient-portrait') ? topicOrientation : topicOrientation;
+
+            // Show pipeline page and loading state
+            showPage('pipeline');
+            resetPipelineUI();
+            topicUpdateProgressBar('init');
+
+            document.getElementById('pipeline-script-card').style.display = 'block';
+            var spinner = document.createElement('div');
+            spinner.className = 'pipeline-spinner';
+            spinner.id = 'pipe-gen-spinner';
+            spinner.innerHTML = '<div class="spin"></div><span style="color:#909090;">脚本生成中...</span>';
+            var card = document.getElementById('pipeline-script-card');
+            card.appendChild(spinner);
+
+            fetch(API + '/topic/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topic_keyword: topicKeyword,
+                    category: category,
+                    platform: platform,
+                    duration: duration,
+                    visual_style: visualStyle,
+                    orientation: topicOrientation,
+                    voice: voice
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var sp = document.getElementById('pipe-gen-spinner');
+                if (sp) sp.remove();
+                if (data.error) { showPipelineError(data.error); return; }
+
+                topicVideoId = data.video_id;
+                topicScript = { hook: data.script.hook || '', body: data.script.body || '', cta: data.script.cta || '', full_script: data.script.full_script || '' };
+                topicStoryboard = data.script.storyboard || [];
+                topicPipelineStep = 'script_ready';
+
+                // Fill script editor
+                setVal('pipe-hook', topicScript.hook);
+                setVal('pipe-body', topicScript.body);
+                setVal('pipe-cta', topicScript.cta);
+                setVal('pipe-full-script', topicScript.full_script);
+
+                // Render storyboard
+                topicRenderStoryboard();
+                topicUpdateProgressBar('script_ready');
+
+                // Show save button
+                document.getElementById('pipe-save-script-btn').disabled = false;
+            })
             .catch(function(e) {
-                addLog('err', '请求失败: ' + e.message);
-                alert('生成失败: ' + e.message);
-                showPage('materials');
+                var sp = document.getElementById('pipe-gen-spinner');
+                if (sp) sp.remove();
+                showPipelineError('请求失败: ' + e.message);
             });
         }
+
+        function topicScriptChanged() {
+            // Update full script from parts
+            var hook = getVal('pipe-hook');
+            var body = getVal('pipe-body');
+            var cta = getVal('pipe-cta');
+            var full = getVal('pipe-full-script');
+            if (!full && (hook || body || cta)) {
+                setVal('pipe-full-script', [hook, body, cta].filter(Boolean).join('\n\n'));
+            }
+        }
+
+        function topicSaveScript() {
+            document.getElementById('pipe-save-script-btn').disabled = true;
+            topicScript.full_script = getVal('pipe-full-script');
+            topicScript.hook = getVal('pipe-hook');
+            topicScript.body = getVal('pipe-body');
+            topicScript.cta = getVal('pipe-cta');
+
+            fetch(API + '/topic/videos/' + topicVideoId + '/script', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    full_script: topicScript.full_script,
+                    storyboard: topicStoryboard
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) { showPipelineError(data.error); return; }
+                if (data.storyboard) { topicStoryboard = data.storyboard; topicRenderStoryboard(); }
+                topicPipelineStep = 'script_edited';
+                topicUpdateProgressBar('script_edited');
+                document.getElementById('pipeline-tts-card').style.display = 'block';
+                document.getElementById('pipe-save-script-btn').disabled = false;
+                // Scroll to TTS card
+                document.getElementById('pipeline-tts-card').scrollIntoView({behavior: 'smooth'});
+            })
+            .catch(function(e) { showPipelineError('保存失败: ' + e.message); document.getElementById('pipe-save-script-btn').disabled = false; });
+        }
+
+        function topicGenerateTts() {
+            var voice = getVal('pipe-voice') || 'zh-CN-XiaoxiaoNeural';
+            document.getElementById('pipe-tts-btn').disabled = true;
+            document.getElementById('pipe-tts-spinner').style.display = 'flex';
+
+            fetch(API + '/topic/videos/' + topicVideoId + '/tts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ voice: voice })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                document.getElementById('pipe-tts-spinner').style.display = 'none';
+                if (data.error) { showPipelineError(data.error); return; }
+                topicTtsAudioUrl = data.audio_url;
+                topicTtsDuration = data.duration || 0;
+                topicPipelineStep = 'tts_ready';
+                topicUpdateProgressBar('tts_ready');
+
+                var audio = document.getElementById('pipe-audio');
+                audio.src = topicTtsAudioUrl;
+                document.getElementById('pipe-audio-dur').textContent = (topicTtsDuration || 0).toFixed(1);
+                document.getElementById('pipe-tts-player').style.display = 'block';
+                document.getElementById('pipe-render-btn').style.display = 'inline-block';
+            })
+            .catch(function(e) { document.getElementById('pipe-tts-spinner').style.display = 'none'; showPipelineError('TTS失败: ' + e.message); });
+        }
+
+        function topicStartRender() {
+            document.getElementById('pipe-render-btn').disabled = true;
+            document.getElementById('pipeline-render-card').style.display = 'block';
+            document.getElementById('pipeline-render-card').scrollIntoView({behavior: 'smooth'});
+            topicUpdateProgressBar('rendering');
+
+            fetch(API + '/topic/videos/' + topicVideoId + '/render', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orientation: topicOrientation, visual_style: topicVisualStyle })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) { showPipelineError(data.error); return; }
+                topicPollTimer = setInterval(topicPollStatus, 3000);
+            })
+            .catch(function(e) { showPipelineError('渲染启动失败: ' + e.message); });
+        }
+
+        function topicPollStatus() {
+            fetch(API + '/topic/videos/' + topicVideoId + '/status')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.pipeline_step === 'done' && data.video_url) {
+                    clearInterval(topicPollTimer);
+                    topicPollTimer = null;
+                    topicVideoUrl = data.video_url;
+                    topicPipelineStep = 'done';
+                    topicUpdateProgressBar('done');
+                    document.getElementById('pipeline-render-card').style.display = 'none';
+                    document.getElementById('pipeline-done-card').style.display = 'block';
+                    var video = document.getElementById('pipe-video');
+                    video.src = topicVideoUrl;
+                    video.load();
+                    document.getElementById('pipe-download').href = topicVideoUrl;
+                    document.getElementById('pipeline-done-card').scrollIntoView({behavior: 'smooth'});
+                } else if (data.pipeline_step === 'failed') {
+                    clearInterval(topicPollTimer);
+                    topicPollTimer = null;
+                    showPipelineError(data.error || '视频渲染失败');
+                }
+            })
+            .catch(function() {});
+        }
+
+        // ========== 分镜预览 ==========
+
+        function topicRenderStoryboard() {
+            var list = document.getElementById('sb-scene-list');
+            var dots = document.getElementById('sb-progress-dots');
+            if (!topicStoryboard || !topicStoryboard.length) {
+                list.innerHTML = '<div style="padding:16px;color:#909090;text-align:center;">暂无分镜</div>';
+                dots.innerHTML = '';
+                return;
+            }
+            topicSbCurrent = Math.min(topicSbCurrent, topicStoryboard.length - 1);
+            var html = '';
+            var dotHtml = '';
+            for (var i = 0; i < topicStoryboard.length; i++) {
+                var s = topicStoryboard[i];
+                var cls = (i === topicSbCurrent) ? ' active' : '';
+                html += '<div class="sb-scene-item' + cls + '" onclick="topicSelectScene(' + i + ')">' +
+                    '<div class="sb-scene-time">' + (s.time || '场景' + (i+1)) + '</div>' +
+                    '<div class="sb-scene-title">' + escapeHtml(s.title || '场景 ' + (i+1)) + '</div></div>';
+                dotHtml += '<div class="sb-progress-dot' + cls + '" onclick="topicSelectScene(' + i + ')"></div>';
+            }
+            list.innerHTML = html;
+            dots.innerHTML = dotHtml;
+            topicShowSceneDetail(topicSbCurrent);
+        }
+
+        function topicSelectScene(idx) {
+            topicSbCurrent = idx;
+            // Update list highlights
+            var items = document.querySelectorAll('#sb-scene-list .sb-scene-item');
+            items.forEach(function(el, i) { el.classList.toggle('active', i === idx); });
+            var dots = document.querySelectorAll('#sb-progress-dots .sb-progress-dot');
+            dots.forEach(function(d, i) { d.classList.toggle('active', i === idx); });
+            topicShowSceneDetail(idx);
+
+            // Sync audio
+            if (topicTtsAudioUrl && topicTtsDuration) {
+                var audio = document.getElementById('pipe-audio');
+                var totalDur = topicStoryboard.reduce(function(s, sc) { return s + (sc.duration || 0); }, 0);
+                var cumStart = 0;
+                for (var j = 0; j < idx; j++) { cumStart += topicStoryboard[j].duration || 0; }
+                audio.currentTime = cumStart;
+            }
+        }
+
+        function topicShowSceneDetail(idx) {
+            var s = topicStoryboard[idx];
+            if (!s) return;
+            var panel = document.getElementById('sb-detail-panel');
+            var bullets = (s.bullets || []).map(function(b) { return '<li>' + escapeHtml(b) + '</li>'; }).join('');
+            var matHtml = s.material_url
+                ? '<div class="sb-material-area"><img src="' + s.material_url + '" alt="素材" onerror="this.parentElement.innerHTML=\'<div style=color:#909090>素材加载失败</div>\'"></div>'
+                : '<div class="sb-material-area">暂无素材图片</div>';
+            panel.innerHTML =
+                '<div class="sb-detail-title">' + escapeHtml(s.title || '场景') + '</div>' +
+                '<div class="sb-detail-subtitle">' + escapeHtml(s.subtitle || '') + '</div>' +
+                '<ul class="sb-detail-bullets">' + (bullets || '<li style="color:#909090;">暂无要点</li>') + '</ul>' +
+                matHtml;
+            document.getElementById('sb-scene-counter').textContent = (idx + 1) + ' / ' + topicStoryboard.length;
+        }
+
+        function topicToggleSbPlay() {
+            if (topicSbPlaying) {
+                topicSbPlaying = false;
+                document.getElementById('sb-play-btn').textContent = '▶';
+                if (topicSbTimer) { clearInterval(topicSbTimer); topicSbTimer = null; }
+                return;
+            }
+            topicSbPlaying = true;
+            document.getElementById('sb-play-btn').textContent = '⏸';
+
+            // Sync with TTS audio if available
+            if (topicTtsAudioUrl) {
+                var audio = document.getElementById('pipe-audio');
+                var totalDur = topicStoryboard.reduce(function(s, sc) { return s + (sc.duration || 0); }, 0);
+                var cumStart = 0;
+                for (var j = 0; j < topicSbCurrent; j++) { cumStart += topicStoryboard[j].duration || 0; }
+                audio.currentTime = cumStart;
+                audio.play().catch(function() {});
+                audio.ontimeupdate = function() {
+                    var t = audio.currentTime;
+                    var cum = 0;
+                    for (var i = 0; i < topicStoryboard.length; i++) {
+                        cum += topicStoryboard[i].duration || 0;
+                        if (t < cum) { topicSelectScene(i); return; }
+                    }
+                };
+                audio.onended = function() { topicSbPlaying = false; document.getElementById('sb-play-btn').textContent = '▶'; };
+                return;
+            }
+            // Auto-play without audio: advance every 2s
+            topicSbTimer = setInterval(function() {
+                topicSbCurrent = (topicSbCurrent + 1) % topicStoryboard.length;
+                topicSelectScene(topicSbCurrent);
+            }, 2000);
+        }
+
+        // ========== 流水线 UI 辅助 ==========
+
+        function topicUpdateProgressBar(step) {
+            var steps = ['init', 'script_ready', 'script_ready', 'tts_ready', 'done'];
+            var dots = document.querySelectorAll('#pipeline-steps-bar .pipeline-step-dot');
+            var lines = document.querySelectorAll('#pipeline-steps-bar .pipeline-step-line');
+            var stepIdx = steps.indexOf(step);
+            dots.forEach(function(d, i) {
+                d.classList.remove('active', 'done');
+                if (i <= stepIdx && stepIdx >= 0) d.classList.add(i < stepIdx ? 'done' : 'active');
+            });
+            lines.forEach(function(l, i) {
+                l.classList.toggle('done', i < stepIdx);
+            });
+        }
+
+        function resetPipelineUI() {
+            topicSbCurrent = 0;
+            topicSbPlaying = false;
+            if (topicSbTimer) { clearInterval(topicSbTimer); topicSbTimer = null; }
+            document.getElementById('pipeline-script-card').style.display = 'none';
+            document.getElementById('pipeline-tts-card').style.display = 'none';
+            document.getElementById('pipeline-render-card').style.display = 'none';
+            document.getElementById('pipeline-done-card').style.display = 'none';
+            document.getElementById('pipeline-error').style.display = 'none';
+            document.getElementById('pipe-tts-spinner').style.display = 'none';
+            document.getElementById('pipe-tts-player').style.display = 'none';
+            document.getElementById('pipe-render-btn').style.display = 'none';
+            document.getElementById('pipe-save-script-btn').disabled = false;
+            document.getElementById('pipe-tts-btn').disabled = false;
+            document.getElementById('pipe-render-btn').disabled = false;
+            setVal('pipe-hook', ''); setVal('pipe-body', ''); setVal('pipe-cta', ''); setVal('pipe-full-script', '');
+        }
+
+        function showPipelineError(msg) {
+            document.getElementById('pipeline-error').style.display = 'block';
+            document.getElementById('pipeline-error-msg').textContent = msg;
+            document.getElementById('pipeline-error').scrollIntoView({behavior: 'smooth'});
+        }
+
+        function topicReset() {
+            if (topicPollTimer) { clearInterval(topicPollTimer); topicPollTimer = null; }
+            topicVideoId = null;
+            topicPipelineStep = 'init';
+            topicStoryboard = [];
+            topicScript = { hook: '', body: '', cta: '', full_script: '' };
+            topicTtsAudioUrl = '';
+            topicTtsDuration = 0;
+            topicVideoUrl = '';
+            showPage('home');
+        }
+
+        function getElVal(id) {
+            var el = document.getElementById(id);
+            return el ? el.value : '';
+        }
+        function getVal(id) { return document.getElementById(id) ? document.getElementById(id).value : ''; }
+        function setVal(id, val) { var el = document.getElementById(id); if (el) el.value = val; }
 
         function callModeBApi() {
             var platform = selectedPlatform === 'all' ? '抖音' : selectedPlatform;

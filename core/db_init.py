@@ -128,6 +128,53 @@ def init_topics_db():
             pass  # 列已存在则忽略
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS topic_videos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            topic_keyword TEXT,
+            category TEXT,
+            platform TEXT DEFAULT '抖音',
+            style TEXT DEFAULT 'manga',
+            script_content TEXT,
+            storyboard TEXT,
+            video_path TEXT,
+            thumbnail_path TEXT,
+            duration INTEGER DEFAULT 30,
+            status TEXT DEFAULT 'draft',
+            pipeline_step TEXT DEFAULT 'init',
+            tts_audio_path TEXT,
+            materials_json TEXT,
+            animation_style TEXT DEFAULT 'manga_frame',
+            video_width INTEGER DEFAULT 1080,
+            video_height INTEGER DEFAULT 1920,
+            orientation TEXT DEFAULT 'portrait',
+            visual_style TEXT DEFAULT 'manga',
+            voice TEXT DEFAULT 'zh-CN-XiaoxiaoNeural',
+            prompt_snapshot TEXT,
+            llm_model TEXT,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # 迁移：为 topic_videos 添加新列
+    for col, default in [
+        ("notes", "TEXT"),
+        ("pipeline_step", "TEXT DEFAULT 'init'"),
+        ("tts_audio_path", "TEXT"),
+        ("materials_json", "TEXT"),
+        ("animation_style", "TEXT DEFAULT 'manga_frame'"),
+        ("video_width", "INTEGER DEFAULT 1080"),
+        ("video_height", "INTEGER DEFAULT 1920"),
+        ("orientation", "TEXT DEFAULT 'portrait'"),
+        ("visual_style", "TEXT DEFAULT 'manga'"),
+        ("voice", "TEXT DEFAULT 'zh-CN-XiaoxiaoNeural'"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE topic_videos ADD COLUMN {col} {default}")
+        except Exception:
+            pass  # 列已存在则忽略
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS ecom_analytics (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             video_id INTEGER REFERENCES ecom_videos(id),
