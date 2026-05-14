@@ -41,13 +41,13 @@ VOICES = [
 ]
 
 
-def _generate_topic(topic_keyword: str = "", category: str = "", platform: str = "抖音") -> dict:
+def _generate_topic(topic_keyword: str = "", category: str = "", platform: str = "抖音", stream_callback=None) -> dict:
     """从关键词/赛道生成选题目录。"""
     from core.dual_mode_module import get_dual_mode_generator
     generator = get_dual_mode_generator()
 
     if topic_keyword and topic_keyword.strip():
-        return generator._generate_topic_from_keyword(topic_keyword.strip(), platform)
+        return generator._generate_topic_from_keyword(topic_keyword.strip(), platform, stream_callback=stream_callback)
     if category and category.strip():
         topics_mod = generator.topics
         topics = topics_mod.recommend_topics(category=category, count=1, platform=platform)
@@ -191,14 +191,19 @@ async def api_topic_generate_stream(request: Request):
 
             # Step 1: 选题
             log_send("progress", "正在分析题材关键词...")
-            topic = _generate_topic(topic_keyword, category, platform)
+            def on_topic_stream(chunk):
+                log_send("thinking", "", {"content": chunk})
+            topic = _generate_topic(topic_keyword, category, platform, stream_callback=on_topic_stream)
             log_send("progress", f"选题完成: {topic.get('title', '')}")
 
             # Step 2: LLM 脚本生成
             log_send("progress", "正在调用 AI 生成脚本...")
             try:
                 from core.script_module import generate_script
-                script_result = generate_script(topic, platform, duration)
+                # 流式回调：实时推送LLM输出到前端深度思考面板
+                def on_stream_chunk(chunk):
+                    log_send("thinking", "", {"content": chunk})
+                script_result = generate_script(topic, platform, duration, stream_callback=on_stream_chunk)
             except Exception as e:
                 log_send("error", f"脚本生成失败: {str(e)}")
                 return
@@ -741,6 +746,36 @@ async def api_topic_delete_video(video_id: int):
                     pass
 
         return JSONResponse({"success": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.delete("/api/topic/videos/all")
+async def api_topic_delete_all_videos():
+    """删除全部题材视频（数据库记录 + 文件系统文件）。"""
+    try:
+        import sqlite3
+        conn = sqlite3.connect(get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT video_path, thumbnail_path, tts_audio_path FROM topic_videos")
+        rows = cursor.fetchall()
+
+        cursor.execute("DELETE FROM topic_videos")
+        deleted_count = cursor.rowcount
+        conn.commit()
+        conn.close()
+
+        for row in rows:
+            for fpath in (row["video_path"], row["thumbnail_path"], row["tts_audio_path"]):
+                if fpath and Path(fpath).exists():
+                    try:
+                        Path(fpath).unlink()
+                    except OSError:
+                        pass
+
+        return JSONResponse({"success": True, "deleted": deleted_count})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

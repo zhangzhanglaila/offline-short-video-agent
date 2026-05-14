@@ -347,8 +347,8 @@ class DualModeVideoGenerator:
 
         return result
 
-    def _generate_topic_from_keyword(self, keyword: str, category: str = None) -> Optional[Dict]:
-        """用LLM根据关键词直接生成选题"""
+    def _generate_topic_from_keyword(self, keyword: str, category: str = None, stream_callback=None) -> Optional[Dict]:
+        """用LLM根据关键词直接生成选题，支持流式输出"""
         import requests
         try:
             import importlib
@@ -375,32 +375,91 @@ class DualModeVideoGenerator:
 
 只输出JSON，不要其他文字："""
 
-            response = requests.post(
-                f'{cfg["api_base"]}/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {cfg["api_key"]}',
-                    'Content-Type': 'application/json'
-                },
-                json={
+            api_base = cfg["api_base"]
+            headers = {'Content-Type': 'application/json'}
+            is_anthropic = '/anthropic' in api_base or 'claude' in cfg["model"].lower() or 'minimax' in cfg["model"].lower()
+            use_stream = stream_callback is not None
+
+            if is_anthropic:
+                url = api_base.rstrip('/') + '/v1/messages'
+                headers['x-api-key'] = cfg["api_key"]
+                headers['anthropic-version'] = '2023-06-01'
+                payload = {
                     'model': cfg["model"],
                     'messages': [{'role': 'user', 'content': prompt}],
                     'max_tokens': 2048,
-                    'temperature': 0.8
-                },
-                timeout=30,
-                proxies={'http': None, 'https': None}
+                    'temperature': 0.8,
+                    'stream': use_stream,
+                }
+            else:
+                url = api_base.rstrip('/') + '/chat/completions'
+                headers['Authorization'] = f'Bearer {cfg["api_key"]}'
+                payload = {
+                    'model': cfg["model"],
+                    'messages': [{'role': 'user', 'content': prompt}],
+                    'max_tokens': 2048,
+                    'temperature': 0.8,
+                    'stream': use_stream,
+                }
+
+            response = requests.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=60,
+                proxies={'http': None, 'https': None},
+                stream=use_stream,
             )
 
             if response.status_code != 200:
                 _log(f"❌ LLM API 返回错误: HTTP {response.status_code} — {response.text[:200]}", 'error')
                 return None
 
-            result = response.json()
-            if 'choices' not in result or not result['choices']:
-                _log(f"❌ LLM API 返回异常: {str(result)[:200]}", 'error')
-                return None
+            # 流式读取
+            if use_stream:
+                content = ""
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+                    line = line.decode("utf-8", errors="replace")
+                    if not line.startswith("data: "):
+                        continue
+                    data_str = line[6:].strip()
+                    if data_str == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data_str)
+                        if is_anthropic:
+                            if chunk.get("type") == "content_block_delta":
+                                token = chunk.get("delta", {}).get("text", "")
+                                if token:
+                                    content += token
+                                    stream_callback(token)
+                        else:
+                            choices = chunk.get("choices", [])
+                            if choices:
+                                token = choices[0].get("delta", {}).get("content", "")
+                                if token:
+                                    content += token
+                                    stream_callback(token)
+                    except json.JSONDecodeError:
+                        continue
+            else:
+                result = response.json()
+                # 解析响应（兼容两种格式）
+                if is_anthropic and 'content' in result:
+                    content_blocks = result.get('content', [])
+                    if content_blocks and isinstance(content_blocks, list):
+                        content = content_blocks[0].get('text', '')
+                    else:
+                        _log(f"❌ Anthropic 响应格式异常: {str(result)[:200]}", 'error')
+                        return None
+                elif 'choices' in result and result['choices']:
+                    content = result['choices'][0]['message']['content']
+                else:
+                    _log(f"❌ LLM API 返回异常: {str(result)[:200]}", 'error')
+                    return None
 
-            content = result['choices'][0]['message']['content']
             _log(f"✅ LLM 返回: {content[:100]}...", 'info')
 
             json_match = re.search(r'\{[\s\S]*\}', content)

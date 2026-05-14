@@ -1394,15 +1394,15 @@
             display: flex; align-items: center; gap: 8px;
         }
         .script-field-label {
-            font-size: 12px; color: #909090; margin-bottom: 4px; font-weight: 600;
+            font-size: 14px; color: #606773; margin-bottom: 4px; font-weight: 600;
         }
         .script-textarea {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #E3E5E7;
             border-radius: 6px;
-            font-size: 13px;
-            line-height: 1.6;
+            font-size: 15px;
+            line-height: 1.7;
             font-family: inherit;
             resize: vertical;
             background: #FAFBFC;
@@ -1422,7 +1422,7 @@
         }
         .script-progress-label {
             display: flex; justify-content: space-between; align-items: center;
-            font-size: 13px; color: #606773; margin-bottom: 8px;
+            font-size: 14px; color: #606773; margin-bottom: 10px;
         }
         .script-progress-label .pct { font-weight: 700; font-size: 14px; color: var(--bili-pink); }
         .script-progress-track {
@@ -1438,6 +1438,74 @@
         .script-progress-fill.done {
             background: linear-gradient(90deg, #52C41A, #73D13D);
         }
+        /* 动态滚动进度条（不确定模式） */
+        .script-progress-fill.indeterminate {
+            width: 40% !important;
+            animation: progressSlide 1.4s ease-in-out infinite;
+        }
+        @keyframes progressSlide {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+
+        /* ========== 深度思考面板 ========== */
+        .thinking-panel {
+            margin-bottom: 16px;
+            border: 1px solid #E3E5E7;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #FAFBFC;
+        }
+        .thinking-panel-header {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px;
+            cursor: pointer;
+            user-select: none;
+            background: #F0F2F5;
+            transition: background 0.15s;
+        }
+        .thinking-panel-header:hover { background: #E8EAEF; }
+        .thinking-panel-header .icon { font-size: 16px; }
+        .thinking-panel-header .title {
+            font-size: 14px; font-weight: 600; color: #232529;
+            flex: 1;
+        }
+        .thinking-panel-header .toggle {
+            font-size: 12px; color: #909090;
+            transition: transform 0.2s;
+        }
+        .thinking-panel-header .toggle.open { transform: rotate(180deg); }
+        .thinking-panel-body {
+            display: none;
+            padding: 12px 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 13px;
+            line-height: 1.7;
+            color: #444;
+            white-space: pre-wrap;
+            word-break: break-all;
+            background: #FAFBFC;
+        }
+        .thinking-panel-body.show { display: block; }
+        .thinking-panel-body .thinking-line {
+            padding: 2px 0;
+            border-bottom: 1px dashed #eee;
+        }
+        .thinking-panel-body .thinking-line:last-child { border-bottom: none; }
+        @keyframes thinkingBlink {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .thinking-panel .thinking-loading {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 13px; color: #909090;
+            animation: thinkingBlink 1.2s ease-in-out infinite;
+        }
+        .thinking-panel .thinking-loading .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #FB7299;
+        }
 
         /* ========== 分镜预览 ========== */
         .storyboard-preview {
@@ -1450,20 +1518,20 @@
             background: #FAFBFC;
         }
         .sb-scene-item {
-            padding: 10px 12px;
+            padding: 12px 14px;
             border-bottom: 1px solid #E3E5E7;
             cursor: pointer;
             transition: all 0.15s;
-            font-size: 12px;
+            font-size: 14px;
         }
         .sb-scene-item:last-child { border-bottom: none; }
         .sb-scene-item:hover { background: #FFF0F3; }
         .sb-scene-item.active {
             background: #FFF0F3; border-left: 3px solid var(--bili-pink);
-            padding-left: 9px;
+            padding-left: 11px;
         }
-        .sb-scene-time { color: #909090; font-size: 10px; }
-        .sb-scene-title { color: #232529; font-weight: 600; margin-top: 2px; }
+        .sb-scene-time { color: #909090; font-size: 12px; }
+        .sb-scene-title { color: #232529; font-weight: 600; margin-top: 4px; font-size: 14px; }
         .sb-detail-panel {
             flex: 1; min-width: 0;
             border: 1px solid #E3E5E7; border-radius: 8px;
@@ -1471,21 +1539,21 @@
             min-height: 420px;
         }
         .sb-detail-title {
-            font-size: 16px; font-weight: 700; color: #232529; margin-bottom: 8px;
+            font-size: 18px; font-weight: 700; color: #232529; margin-bottom: 8px;
         }
         .sb-detail-bullets {
             list-style: none; padding: 0; margin: 0 0 12px 0;
         }
         .sb-detail-bullets li {
-            font-size: 13px; color: #606773; padding: 3px 0;
-            padding-left: 16px; position: relative;
+            font-size: 15px; color: #606773; padding: 4px 0;
+            padding-left: 18px; position: relative;
         }
         .sb-detail-bullets li::before {
             content: '•'; position: absolute; left: 0; color: var(--bili-pink);
         }
         .sb-detail-subtitle {
-            font-size: 13px; color: #606773; margin-bottom: 12px;
-            padding: 8px 12px; background: #F5F6F7; border-radius: 4px;
+            font-size: 14px; color: #606773; margin-bottom: 12px;
+            padding: 10px 14px; background: #F5F6F7; border-radius: 4px;
         }
         .sb-material-area {
             border: 2px dashed #E3E5E7; border-radius: 8px;
@@ -1808,6 +1876,7 @@
                 <div class="card-header">
                     <span class="card-title">素材上传</span>
                     <div style="display: flex; gap: 8px;">
+                        <button class="bili-btn bili-btn-danger" onclick="clearAllMaterials()">🗑️ 一键全部删除</button>
                         <button class="bili-btn bili-btn-secondary" onclick="openMaterialFolder()">📂 打开文件夹</button>
                         <button class="bili-btn bili-btn-secondary" onclick="refreshMaterials()">🔄 刷新</button>
                     </div>
@@ -2053,6 +2122,18 @@
                     </div>
                     <!-- 流式进度日志 -->
                     <div id="pipe-progress-log" style="background:#F6F8FA; border-radius:8px; padding:12px; margin-bottom:16px; max-height:200px; overflow-y:auto; font-size:13px; color:#606773;"></div>
+                    <!-- 深度思考面板 -->
+                    <div id="thinking-panel" class="thinking-panel" style="display:none;">
+                        <div class="thinking-panel-header" onclick="toggleThinkingPanel()">
+                            <span class="icon">🧠</span>
+                            <span class="title">AI 深度思考</span>
+                            <span id="thinking-status" class="thinking-loading" style="display:none;">
+                                <span class="dot"></span> 正在生成...
+                            </span>
+                            <span id="thinking-toggle" class="toggle">▼</span>
+                        </div>
+                        <div id="thinking-body" class="thinking-panel-body"></div>
+                    </div>
                     <div class="script-edit-section">
                         <div class="script-field-label">Hook（开头3秒抓人）</div>
                         <textarea id="pipe-hook" class="script-textarea" rows="2" oninput="topicScriptChanged()"></textarea>
@@ -2173,10 +2254,15 @@
 
         <!-- ========== 我的投稿 ========== -->
         <div id="page-works" class="page">
+            <!-- 投稿右键菜单 -->
+            <div id="work-context-menu" class="context-menu">
+                <div class="context-menu-item" onclick="deleteWorkFromMenu()">🗑️ 删除投稿</div>
+            </div>
             <div class="bili-card">
                 <div class="card-header">
                     <span class="card-title">我的投稿</span>
                     <div style="display: flex; gap: 8px;">
+                        <button class="bili-btn bili-btn-danger" onclick="deleteAllWorks()">🗑️ 一键全部删除</button>
                         <button class="bili-btn bili-btn-secondary" onclick="openOutputFolder()">📂 打开文件夹</button>
                         <button class="bili-btn bili-btn-secondary" onclick="loadWorksPage()">🔄 刷新</button>
                     </div>
@@ -3624,7 +3710,8 @@
         }
 
         function _doGenerate() {
-            if (selectedMode === 'mode_a') {
+            var mode = selectedMode || 'mode_a';
+            if (mode === 'mode_a') {
                 topicFormSubmit();
             } else {
                 if (selectedMaterials.size === 0) {
@@ -3697,6 +3784,10 @@
                                         topicPipeAddLog('⏳ ' + data.msg);
                                         topicUpdateScriptProgress(data.msg);
                                     }
+                                    continue;
+                                }
+                                if (data.type === 'thinking') {
+                                    onThinkingEvent(data);
                                     continue;
                                 }
                                 if (data.type === 'error') {
@@ -3991,15 +4082,16 @@
         }
 
         function showScriptLoading() {
-            // 进度条初始化
+            // 清除之前的隐藏定时器，防止竞争条件
+            if (window._hideScriptTimer) { clearTimeout(window._hideScriptTimer); window._hideScriptTimer = null; }
             var wrap = document.getElementById('script-progress-wrap');
             if (wrap) wrap.style.display = 'block';
             var fill = document.getElementById('script-progress-fill');
-            if (fill) { fill.style.width = '0%'; fill.classList.remove('done'); }
+            if (fill) { fill.classList.remove('done'); fill.style.width = ''; fill.classList.add('indeterminate'); }
             var msg = document.getElementById('script-progress-msg');
-            if (msg) msg.textContent = '正在准备...';
+            if (msg) msg.textContent = 'AI 正在生成脚本...';
             var pct = document.getElementById('script-progress-pct');
-            if (pct) pct.textContent = '0%';
+            if (pct) pct.textContent = '';
             // storyboard → 等待状态
             var list = document.getElementById('sb-scene-list');
             if (list) list.innerHTML = '<div style="padding:16px;color:#909090;text-align:center;">等待生成...</div>';
@@ -4016,26 +4108,83 @@
             var fill = document.getElementById('script-progress-fill');
             var label = document.getElementById('script-progress-msg');
             var pct = document.getElementById('script-progress-pct');
-            if (step !== undefined) window._scriptProgressStep = step;
-            else window._scriptProgressStep = (window._scriptProgressStep || 0) + 1;
-            var done = window._scriptProgressStep >= (window._scriptProgressTotal || 7);
-            var actualPct = done ? 100 : Math.round(window._scriptProgressStep / (window._scriptProgressTotal || 7) * 100);
-            if (fill) fill.style.width = actualPct + '%';
-            if (label && msg) label.textContent = msg;
-            if (pct) pct.textContent = actualPct + '%';
-            if (done) {
-                if (fill) fill.classList.add('done');
-                if (pct) pct.style.color = '#52C41A';
+            // 始终保持动画模式，不做百分比切换
+            if (fill && !fill.classList.contains('indeterminate') && !fill.classList.contains('done')) {
+                fill.classList.add('indeterminate');
             }
+            if (label && msg) label.textContent = msg;
+            if (pct) pct.textContent = '';
         }
 
         function hideScriptLoading() {
-            // 进度条跳至100%并保持1秒后收起
-            topicUpdateScriptProgress('完成', window._scriptProgressTotal || 7);
-            setTimeout(function() {
+            var fill = document.getElementById('script-progress-fill');
+            if (fill) { fill.classList.remove('indeterminate'); fill.classList.add('done'); fill.style.width = '100%'; }
+            var msg = document.getElementById('script-progress-msg');
+            if (msg) msg.textContent = '生成完成';
+            var pct = document.getElementById('script-progress-pct');
+            if (pct) { pct.textContent = '✓'; pct.style.color = '#52C41A'; }
+            // 隐藏进度条（延迟3秒，让用户看到完成状态）
+            if (window._hideScriptTimer) clearTimeout(window._hideScriptTimer);
+            window._hideScriptTimer = setTimeout(function() {
                 var wrap = document.getElementById('script-progress-wrap');
                 if (wrap) wrap.style.display = 'none';
-            }, 1200);
+                window._hideScriptTimer = null;
+            }, 3000);
+            // 隐藏思考状态
+            var ts = document.getElementById('thinking-status');
+            if (ts) ts.style.display = 'none';
+        }
+
+        // 深度思考面板 - 切换展开/收起
+        window._thinkingContent = '';
+        function toggleThinkingPanel() {
+            var body = document.getElementById('thinking-body');
+            var toggle = document.getElementById('thinking-toggle');
+            if (body.classList.contains('show')) {
+                body.classList.remove('show');
+                toggle.classList.remove('open');
+            } else {
+                body.classList.add('show');
+                toggle.classList.add('open');
+            }
+        }
+
+        // 深度思考面板 - 接收SSE thinking事件（流式追加）
+        function onThinkingEvent(data) {
+            var panel = document.getElementById('thinking-panel');
+            var body = document.getElementById('thinking-body');
+            var status = document.getElementById('thinking-status');
+            if (!panel || !body) return;
+
+            panel.style.display = 'block';
+            if (status) status.style.display = 'inline-flex';
+
+            var content = data.content || data.msg || '';
+            if (content) {
+                window._thinkingContent += content;
+                // 流式追加：直接更新文本，不重建DOM
+                if (!window._thinkingTextEl) {
+                    body.innerHTML = '<div class="thinking-line" id="thinking-stream-text"></div>';
+                    window._thinkingTextEl = document.getElementById('thinking-stream-text');
+                }
+                if (window._thinkingTextEl) {
+                    window._thinkingTextEl.textContent = window._thinkingContent;
+                }
+                // 自动滚动到底部
+                body.scrollTop = body.scrollHeight;
+                // 自动展开
+                if (!body.classList.contains('show')) {
+                    body.classList.add('show');
+                    var toggle = document.getElementById('thinking-toggle');
+                    if (toggle) toggle.classList.add('open');
+                }
+            }
+        }
+
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
         }
 
         function resetPipelineUI() {
@@ -4054,14 +4203,26 @@
             document.getElementById('pipe-tts-btn').disabled = false;
             document.getElementById('pipe-render-btn').disabled = false;
             hideScriptLoading();
+            // 重置深度思考面板
+            var tp = document.getElementById('thinking-panel');
+            if (tp) tp.style.display = 'none';
+            var tb = document.getElementById('thinking-body');
+            if (tb) { tb.innerHTML = ''; tb.classList.remove('show'); }
+            var tt = document.getElementById('thinking-toggle');
+            if (tt) tt.classList.remove('open');
+            var ts = document.getElementById('thinking-status');
+            if (ts) ts.style.display = 'none';
+            window._thinkingContent = '';
+            window._thinkingTextEl = null;
             setVal('pipe-hook', ''); setVal('pipe-body', ''); setVal('pipe-cta', ''); setVal('pipe-full-script', '');
             document.getElementById('sb-scene-list').innerHTML = '<div style="padding:16px;color:#909090;text-align:center;">等待生成...</div>';
             document.getElementById('sb-detail-panel').innerHTML = '<div style="color:#909090;text-align:center;padding-top:80px;">点击左侧场景查看详情</div>';
             var logEl = document.getElementById('pipe-progress-log');
             if (logEl) { logEl.innerHTML = ''; logEl.style.display = 'none'; }
             document.getElementById('script-progress-wrap').style.display = 'none';
-            document.getElementById('script-progress-fill').style.width = '0%';
-            document.getElementById('script-progress-fill').classList.remove('done');
+            var f = document.getElementById('script-progress-fill');
+            f.style.width = '0%';
+            f.classList.remove('done', 'indeterminate');
         }
 
         function showPipelineError(msg) {
@@ -4284,7 +4445,9 @@
                     ? '<img src="' + w.thumb_url + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentElement.innerHTML=\'' + icon + '\'">'
                     : icon;
                 var videoUrl = w.video_url || '';
-                html += '<div class="video-item" onclick="previewWork(\'' + videoUrl + '\',\'' + (w.title || '').replace(/'/g, "\\'") + '\')">' +
+                var titleEsc = (w.title || '未命名').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                var pathEsc = (w.path || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                html += '<div class="video-item" data-path="' + pathEsc + '" data-title="' + titleEsc + '" onclick="previewWork(\'' + videoUrl + '\',\'' + (w.title || '').replace(/'/g, "\\'") + '\')" oncontextmenu="showWorkMenu(event, \'' + pathEsc + '\', \'' + titleEsc + '\')">' +
                     '<div class="video-thumb">' + thumb + '</div>' +
                     '<div class="video-info"><div class="video-title">' + (w.title || '未命名') + '</div>' +
                     '<div class="video-meta">' + w.platform + ' · ' + w.date + '</div></div></div>';
@@ -4309,6 +4472,72 @@
             window.open('file:///D:/Offline-ShortVideo-Agent/output');
         }
 
+        // ========== 投稿右键菜单 ==========
+        var contextMenuWorkId = null;
+
+        function showWorkMenu(event, id, title) {
+            event.preventDefault();
+            event.stopPropagation();
+            contextMenuWorkId = id;
+            var menu = document.getElementById('work-context-menu');
+            if (!menu) return;
+            menu.classList.add('show');
+            menu.style.left = event.clientX + 'px';
+            menu.style.top = event.clientY + 'px';
+            var rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) {
+                menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
+            }
+            if (rect.bottom > window.innerHeight) {
+                menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
+            }
+        }
+
+        function hideWorkMenu() {
+            var menu = document.getElementById('work-context-menu');
+            if (menu) menu.classList.remove('show');
+        }
+
+        function deleteWorkFromMenu() {
+            hideWorkMenu();
+            if (!contextMenuWorkId) return;
+            // contextMenuWorkId 存的是文件路径
+            showConfirmDialog('确定删除这条投稿吗？', '🗑️', function() {
+                fetch(API + '/works/item', {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({path: contextMenuWorkId})
+                })
+                .then(function(res) { return res.json(); })
+                .then(function() {
+                    showToast('已删除', '投稿已删除', 'success');
+                    loadWorksPage();
+                })
+                .catch(function() { showToast('删除失败', '', 'error'); });
+            });
+        }
+
+        document.addEventListener('click', hideWorkMenu);
+
+        function deleteAllWorks() {
+            if (!worksData || worksData.length === 0) {
+                showToast('提示', '没有投稿可删除', 'warning');
+                return;
+            }
+            showConfirmDialog('确定删除全部 ' + worksData.length + ' 条投稿吗？此操作不可恢复！', '⚠️', function() {
+                fetch(API + '/works', { method: 'DELETE' })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    showToast('已清空', '共删除 ' + (data.deleted || 0) + ' 条投稿', 'success');
+                    worksData = [];
+                    renderWorks();
+                })
+                .catch(function() { showToast('删除失败', '', 'error'); });
+            });
+        }
+
+
+
         function closeModal(id) {
             document.getElementById(id).classList.remove('show');
             if (id === 'video-modal') {
@@ -4328,6 +4557,29 @@
         }
 
         // ========== API配置弹窗 ==========
+        var MODEL_PRESETS = {
+            'minimax-m2.7-latest': { api_base: 'https://token-plan-cn.xiaomimimo.com/anthropic', format: 'anthropic' },
+            'deepseek-chat': { api_base: 'https://api.deepseek.com/v1', format: 'openai' },
+            'gpt-4o': { api_base: 'https://api.openai.com/v1', format: 'openai' },
+            'qwen-max': { api_base: 'https://dashscope.aliyuncs.com/compatible-mode/v1', format: 'openai' },
+        };
+
+        function onApiModelChange() {
+            var sel = document.getElementById('api-model-select');
+            var custom = document.getElementById('api-model-input');
+            var base = document.getElementById('api-base-input');
+            var model = sel.value;
+            if (model === 'custom') {
+                custom.style.display = 'block';
+                custom.focus();
+                base.value = '';
+            } else {
+                custom.style.display = 'none';
+                var preset = MODEL_PRESETS[model];
+                if (preset) base.value = preset.api_base;
+            }
+        }
+
         function showApiConfigModal() {
             var modal = document.getElementById('api-config-modal');
             if (modal) {
@@ -4339,13 +4591,23 @@
                     void box.offsetWidth;
                     box.classList.add('shake');
                 }
-                // 获取当前配置并填充表单（无论是否有值都填充）
+                // 获取当前配置并填充表单
                 fetch(API + '/config')
                     .then(function(res) { return res.json(); })
                     .then(function(data) {
                         document.getElementById('api-key-input').value = data.api_key || '';
                         document.getElementById('api-base-input').value = data.api_base || '';
-                        document.getElementById('api-model-input').value = data.api_model || '';
+                        var model = data.api_model || 'minimax-m2.7-latest';
+                        var sel = document.getElementById('api-model-select');
+                        var custom = document.getElementById('api-model-input');
+                        if (MODEL_PRESETS[model]) {
+                            sel.value = model;
+                            custom.style.display = 'none';
+                        } else if (model) {
+                            sel.value = 'custom';
+                            custom.style.display = 'block';
+                            custom.value = model;
+                        }
                     })
                     .catch(function() {});
             }
@@ -4359,7 +4621,10 @@
         function saveApiConfig() {
             var apiKey = document.getElementById('api-key-input').value.trim();
             var apiBase = document.getElementById('api-base-input').value.trim();
-            var apiModel = document.getElementById('api-model-input').value.trim();
+            var sel = document.getElementById('api-model-select');
+            var apiModel = sel.value === 'custom'
+                ? document.getElementById('api-model-input').value.trim()
+                : sel.value;
 
             if (!apiKey) {
                 showToast('请填写API密钥', 'warning');
@@ -5140,13 +5405,20 @@
     <div id="api-config-modal" class="api-config-modal">
         <div class="api-config-box">
             <h3>API 配置</h3>
-            <p class="sub-title">请确认或填写 LLM API 信息，保存后将自动开始生成</p>
+            <p class="sub-title">选择模型或自定义，保存后自动开始生成</p>
+            <label>模型</label>
+            <select id="api-model-select" onchange="onApiModelChange()" style="width:100%;padding:10px 12px;border:1px solid #E3E5E7;border-radius:6px;font-size:14px;margin-bottom:12px;">
+                <option value="minimax-m2.7-latest">MiniMax M2.7</option>
+                <option value="deepseek-chat">DeepSeek V3</option>
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="qwen-max">通义千问 Max</option>
+                <option value="custom">自定义...</option>
+            </select>
+            <input type="text" id="api-model-input" placeholder="输入自定义模型名" style="display:none;width:100%;padding:10px 12px;border:1px solid #E3E5E7;border-radius:6px;font-size:14px;margin-bottom:12px;">
             <label>接口地址</label>
-            <input type="text" id="api-base-input" placeholder="https://token-plan-cn.xiaomimimo.com/v1">
+            <input type="text" id="api-base-input" placeholder="https://api.openai.com/v1">
             <label>API密钥</label>
             <input type="password" id="api-key-input" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off">
-            <label>模型名称</label>
-            <input type="text" id="api-model-input" placeholder="minimax-m2.7-latest">
             <div class="btn-row">
                 <button class="btn btn-cancel" onclick="closeApiConfigModal()">取消</button>
                 <button class="btn btn-save" onclick="saveApiConfig()">保存并生成</button>

@@ -94,28 +94,34 @@ def normalize_storyboard(script_result: dict, duration: int) -> list[dict]:
         })
 
     if not scenes:
-        chunks = split_sentences(full_script)
-        scene_count = max(3, min(8, len(chunks) or 3))
-        if not chunks:
-            chunks = [hook, body, cta]
-        chunks = [c for c in chunks if c and c.strip()]
-        while len(chunks) < scene_count:
-            chunks.append(chunks[-1] if chunks else "内容亮点介绍")
-        chunks = chunks[:scene_count]
-
+        # 按段落分组，每个场景包含2-3句话，内容更丰富
         ordered = []
         if hook:
             ordered.append(("Hook", hook))
         if body:
-            for i, b in enumerate(split_sentences(body), start=1):
-                ordered.append((f"亮点 {i}", b))
+            body_sents = split_sentences(body)
+            if body_sents:
+                # 将body句子按每2-3句分组
+                group_size = 2 if len(body_sents) <= 5 else 3
+                groups = []
+                for gi in range(0, len(body_sents), group_size):
+                    groups.append("。".join(body_sents[gi:gi+group_size]))
+                for i, g in enumerate(groups, start=1):
+                    ordered.append((f"亮点 {i}", g))
         if cta:
             ordered.append(("CTA", cta))
         if not ordered:
-            ordered = [(f"场景 {i+1}", t) for i, t in enumerate(chunks)]
+            # fallback: 从full_script分段
+            chunks = split_sentences(full_script)
+            if not chunks:
+                chunks = [hook or "精彩内容", body or "详细介绍", cta or "关注点赞"]
+            group_size = max(1, len(chunks) // 3)
+            for i in range(0, len(chunks), max(1, group_size)):
+                segment = "。".join(chunks[i:i+group_size])
+                ordered.append((f"场景 {len(ordered)+1}", segment))
 
         if len(ordered) < 3:
-            ordered.extend((f"场景 {len(ordered)+i+1}", c) for i, c in enumerate(chunks[: 3 - len(ordered)]))
+            ordered.extend((f"场景 {len(ordered)+i+1}", c) for i, c in enumerate([body or "详细内容介绍"][: 3 - len(ordered)]))
 
         base = max(2, int(duration / max(len(ordered), 1)))
         for i, (title, text) in enumerate(ordered[:8]):

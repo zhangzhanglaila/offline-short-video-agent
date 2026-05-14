@@ -114,3 +114,80 @@ def _build_work_entry(video_file: Path, platform: str) -> dict:
         'thumb_url': thumb_url,
         'video_url': video_url,
     }
+
+
+@router.delete("/api/works")
+async def api_delete_all_works():
+    """删除全部作品（文件系统中的视频文件和缩略图）。"""
+    try:
+        output_dir = Path(config.OUTPUT_DIR)
+        deleted_count = 0
+
+        if output_dir.exists():
+            # 扫描平台目录
+            for platform_dir in output_dir.iterdir():
+                if not platform_dir.is_dir() or platform_dir.name.startswith('_'):
+                    continue
+                for video_file in platform_dir.rglob('*.mp4'):
+                    try:
+                        # 删除视频文件
+                        video_file.unlink()
+                        deleted_count += 1
+                        # 删除关联文件（字幕、封面、txt等）
+                        for suffix in ['.srt', '.txt', '.jpg', '.png']:
+                            assoc_file = video_file.with_suffix(suffix)
+                            if assoc_file.exists():
+                                assoc_file.unlink()
+                        # 删除缩略图
+                        thumb_name = video_file.stem + '_thumb.jpg'
+                        thumb_path = THUMBNAILS_DIR / thumb_name
+                        if thumb_path.exists():
+                            thumb_path.unlink()
+                    except OSError:
+                        pass
+
+            # 扫描 _work 临时目录
+            work_dir = output_dir / '_work'
+            if work_dir.exists():
+                for video_file in work_dir.rglob('*.mp4'):
+                    try:
+                        video_file.unlink()
+                        deleted_count += 1
+                    except OSError:
+                        pass
+
+        return JSONResponse({'success': True, 'deleted': deleted_count})
+    except Exception as e:
+        return JSONResponse({'error': str(e)}, status_code=500)
+
+
+@router.delete("/api/works/item")
+async def api_delete_work_item(data: dict):
+    """删除单个作品（通过文件路径）。"""
+    try:
+        file_path = data.get('path', '')
+        if not file_path:
+            return JSONResponse({'error': '缺少文件路径'}, status_code=400)
+
+        video_file = Path(file_path)
+        if not video_file.exists():
+            return JSONResponse({'error': '文件不存在'}, status_code=404)
+
+        # 删除视频文件
+        video_file.unlink()
+
+        # 删除关联文件
+        for suffix in ['.srt', '.txt', '.jpg', '.png']:
+            assoc_file = video_file.with_suffix(suffix)
+            if assoc_file.exists():
+                assoc_file.unlink()
+
+        # 删除缩略图
+        thumb_name = video_file.stem + '_thumb.jpg'
+        thumb_path = THUMBNAILS_DIR / thumb_name
+        if thumb_path.exists():
+            thumb_path.unlink()
+
+        return JSONResponse({'success': True})
+    except Exception as e:
+        return JSONResponse({'error': str(e)}, status_code=500)
