@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-线条插画视频工具 — Agent 可调用
+线条插画视频工具 — Agent 可调用，LLM 全流程驱动
 
-输入一段文字，自动生成线条插画手绘视频。
-LLM 负责分析文案、选择场景、决定构图。
+输入一段文字，LLM 自动分析并生成场景布局，然后渲染成视频。
 """
 import sys
 import os
@@ -15,7 +14,7 @@ from agent.tools.tool_base import BaseTool, ToolDefinition, ToolParameter, ToolC
 
 
 class LineartVideoTool(BaseTool):
-    """线条插画视频生成工具"""
+    """线条插画视频生成工具（LLM 全流程驱动）"""
 
     @property
     def definition(self) -> ToolDefinition:
@@ -24,8 +23,8 @@ class LineartVideoTool(BaseTool):
             category=ToolCategory.VIDEO,
             description=(
                 "根据文案生成线条插画手绘视频。"
-                "每句文案会自动转换为一个场景画面（如：人物+电脑+勾选），"
-                "场景之间有流动的连接线，整体是白板手绘风格。"
+                "LLM 会分析每句文案，自动决定用什么画面来表达（如：人物+电脑+勾选），"
+                "以及如何布局（位置、大小、环境元素）。"
                 "适合知识讲解、概念解释、流程说明类视频。"
             ),
             parameters=[
@@ -66,7 +65,7 @@ class LineartVideoTool(BaseTool):
         draw_duration: float = 4.0,
         hold_duration: float = 2.0,
     ) -> ToolResult:
-        """执行生成"""
+        """执行生成（LLM 全流程）"""
         import time
         start = time.time()
 
@@ -77,14 +76,17 @@ class LineartVideoTool(BaseTool):
             if not output_path:
                 output_path = str(config.OUTPUT_DIR / "lineart_output.mp4")
 
-            # 确保输出目录存在
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+            # 获取 LLM 函数
+            llm_fn = self._get_llm_fn()
 
             result_path = generate_lineart_video(
                 script_lines=script_lines,
                 output_path=output_path,
                 draw_duration=draw_duration,
                 hold_duration=hold_duration,
+                llm_fn=llm_fn,
             )
 
             elapsed = time.time() - start
@@ -95,8 +97,9 @@ class LineartVideoTool(BaseTool):
                     "output_path": result_path,
                     "scenes_count": len(script_lines),
                     "duration": len(script_lines) * (draw_duration + hold_duration),
+                    "llm_used": llm_fn is not None,
                 },
-                message=f"已生成线条插画视频，{len(script_lines)}个场景，耗时{elapsed:.1f}秒",
+                message=f"已生成线条插画视频，{len(script_lines)}个场景，LLM={'是' if llm_fn else '否'}，耗时{elapsed:.1f}秒",
                 elapsed=elapsed,
             )
 
@@ -106,3 +109,58 @@ class LineartVideoTool(BaseTool):
                 error=str(e),
                 message=f"生成失败: {e}",
             )
+
+    def _get_llm_fn(self):
+        """获取 LLM 调用函数"""
+        try:
+            import config
+            import requests
+
+            # 优先使用 Ollama 本地模型
+            ollama_url = f"{config.OLLAMA_BASE_URL}/api/generate"
+
+            def llm_fn(prompt: str) -> str:
+                resp = requests.post(
+                    ollama_url,
+                    json={
+                        "model": config.OLLAMA_MODEL,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {"temperature": 0.3, "num_predict": 1000},
+                    },
+                    timeout=60,
+                )
+                resp.raise_for_status()
+                return resp.json().get("response", "")
+
+            # 测试是否可用
+            try:
+                llm_fn("test")
+                return llm_fn
+            except Exception:
+                pass
+
+            # 回退到云端 API
+            cloud_config = config.get_cloud_llm_config()
+            if cloud_config.get("api_key"):
+                def cloud_llm_fn(prompt: str) -> str:
+                    resp = requests.post(
+                        f"{cloud_config['api_base']}/chat/completions",
+                        headers={"Authorization": f"Bearer {cloud_config['api_key']}"},
+                        json={
+                            "model": cloud_config["model"],
+                            "messages": [{"role": "user", "content": prompt}],
+                            "temperature": 0.3,
+                            "max_tokens": 1000,
+                        },
+                        timeout=60,
+                    )
+                    resp.raise_for_status()
+                    return resp.json()["choices"][0]["message"]["content"]
+
+                return cloud_llm_fn
+
+            return None
+
+        except Exception:
+            return None

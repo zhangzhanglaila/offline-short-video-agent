@@ -27,7 +27,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.svg_lineart_library import (
     Illustration, Stroke, Weight, get_illustration,
 )
-from core.scene_planner import SceneLayout, SceneObject, plan_scene, texts_to_scenes
+from core.scene_planner import (
+    SceneLayout, SceneObject,
+    plan_scene_with_llm, texts_to_scenes_with_llm,
+    plan_scene_fallback, texts_to_scenes_fallback,
+)
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -359,18 +363,32 @@ def generate_lineart_video(
     output_path: str = "output/lineart_video.mp4",
     draw_duration: float = 4.0,
     hold_duration: float = 2.0,
+    llm_fn=None,
 ) -> str:
     """
     从文案生成线条插画手绘视频。
 
     Pipeline:
-      Script → Scene Planner → Scene Layouts → Frame Rendering → Video
+      Script → LLM Scene Planner → Scene Layouts → Frame Rendering → Video
+
+    Args:
+        script_lines: 文案列表
+        output_path: 输出路径
+        draw_duration: 绘制时长
+        hold_duration: 停留时长
+        llm_fn: LLM 调用函数 (prompt) -> response。如果为 None 则用回退方案。
     """
     print(f"\n  Script lines: {len(script_lines)}")
     for i, line in enumerate(script_lines):
         print(f"    [{i+1}] {line}")
 
-    scenes = texts_to_scenes(script_lines)
+    # 使用 LLM 或回退方案
+    if llm_fn:
+        print(f"\n  使用 LLM 规划场景...")
+        scenes = texts_to_scenes_with_llm(script_lines, llm_fn)
+    else:
+        print(f"\n  使用回退方案（关键词匹配）...")
+        scenes = texts_to_scenes_fallback(script_lines)
 
     return render_lineart_video(
         scenes, output_path,
