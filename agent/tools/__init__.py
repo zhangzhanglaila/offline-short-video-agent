@@ -14,13 +14,14 @@ from .animation_tool import AnimationGenerateTool
 from .timeline_tool import TimelineSyncTool
 from .image_fetch_tool import ImageFetchTool
 from .dual_mode_tool import DualModeGenerateTool
+from .lineart_tool import LineartVideoTool
 
 __all__ = [
     'BaseTool', 'ToolDefinition', 'ToolParameter', 'ToolResult', 'ToolCategory',
     'MaterialReadingTool', 'TopicRecommendTool', 'ScriptGenerateTool',
     'VideoEditTool', 'SubtitleGenerateTool', 'PlatformAdaptTool',
     'TTSGenerateTool', 'AnimationGenerateTool', 'TimelineSyncTool',
-    'ImageFetchTool', 'DualModeGenerateTool'
+    'ImageFetchTool', 'DualModeGenerateTool', 'LineartVideoTool',
 ]
 
 # 导出所有工具实例化函数
@@ -38,4 +39,5 @@ def get_all_tools():
         TimelineSyncTool(),
         ImageFetchTool(),
         DualModeGenerateTool(),
+        LineartVideoTool(),
     ]
