@@ -246,32 +246,67 @@ def render_scene_frame(
     """
     渲染一个场景的一帧。
 
-    1. 绘制环境元素（最先出现）
-    2. 绘制所有对象（交错出现）
-    3. 绘制标题
+    动画顺序（逐个出现）：
+    1. 第一个对象（0-25%）
+    2. 第一个箭头/连接线（25-40%）
+    3. 第二个对象（40-60%）
+    4. 第二个箭头（60-70%）
+    5. 第三个对象（70-85%）
+    6. 标题（85-100%）
     """
     img = Image.new("RGB", (canvas_w, canvas_h), COLORS["bg"])
     draw = ImageDraw.Draw(img)
 
-    # ── 环境元素（0-30% 进度）────────────────
-    env_progress = _clamp(progress / 0.3)
-    for stroke in scene.environment:
-        _draw_stroke(draw, stroke, 0, 0, 1.0, env_progress)
-
-    # ── 对象（10%-90% 进度）────────────────
     n_obj = len(scene.objects)
-    for i, obj in enumerate(scene.objects):
-        # 每个对象交错出现
-        obj_start = 0.1 + obj.delay
-        obj_duration = max(0.3, 0.8 - obj.delay)
-        obj_progress = _clamp((progress - obj_start) / obj_duration)
+    n_env = len(scene.environment)
 
-        art = get_illustration(obj.keyword)
-        _draw_illustration(draw, art, obj.x, obj.y, obj.scale, obj_progress)
+    # 计算每个元素的时间段
+    # 对象和环境（箭头）交替出现
+    total_slots = n_obj + n_env  # 对象 + 连接线
+    slot_duration = 0.85 / max(total_slots, 1)  # 留15%给标题
 
-    # ── 标题（60%-100% 进度）────────────────
-    if scene.title and progress > 0.6:
-        title_progress = _clamp((progress - 0.6) / 0.3)
+    # 分离：哪些环境是装饰线，哪些是连接箭头
+    # 连接箭头（accent色）应该在对象之间出现
+    # 装饰线（muted色）最先出现
+    deco_strokes = [s for s in scene.environment if s.color_key == "muted"]
+    flow_strokes = [s for s in scene.environment if s.color_key != "muted"]
+
+    # 阶段1：装饰线（0-10%）
+    deco_progress = _clamp(progress / 0.1)
+    for stroke in deco_strokes:
+        _draw_stroke(draw, stroke, 0, 0, 1.0, deco_progress)
+
+    # 阶段2：对象和连接线交替出现
+    current_time = 0.10
+    drawn_objects = []
+
+    for i in range(max(n_obj, len(flow_strokes))):
+        # 绘制对象
+        if i < n_obj:
+            obj = scene.objects[i]
+            obj_start = current_time
+            obj_end = current_time + slot_duration * 0.6
+            obj_progress = _clamp((progress - obj_start) / (obj_end - obj_start))
+
+            art = get_illustration(obj.keyword)
+            _draw_illustration(draw, art, obj.x, obj.y, obj.scale, obj_progress)
+            drawn_objects.append(obj)
+
+            current_time = obj_end
+
+        # 绘制连接箭头（在两个对象之间）
+        if i < len(flow_strokes):
+            arrow_start = current_time
+            arrow_end = current_time + slot_duration * 0.4
+            arrow_progress = _clamp((progress - arrow_start) / (arrow_end - arrow_start))
+
+            _draw_stroke(draw, flow_strokes[i], 0, 0, 1.0, arrow_progress)
+
+            current_time = arrow_end
+
+    # 阶段3：标题（85-100%）
+    if scene.title and progress > 0.85:
+        title_progress = _clamp((progress - 0.85) / 0.15)
         font = _get_font(32)
         visible_chars = max(1, int(len(scene.title) * title_progress))
         visible_title = scene.title[:visible_chars]
