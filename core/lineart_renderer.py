@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Line Art Renderer v3 — 视觉导演驱动的场景渲染
+Line Art Renderer v2 — 场景级线条插画手绘动画
 
 核心改进：
-1. Visual Director 决定构图（不是图标排列）
-2. 主次分明（hero 70% + support 30%）
-3. 流动连接线（不是孤立图标）
-4. 画布利用率 60-80%
-5. 视觉隐喻（工厂/旅程/生长/转变/生态）
+1. 多对象场景（不是单个图标）
+2. 贝塞尔平滑曲线
+3. 三种线宽层级
+4. 环境元素
+5. 交错动画
+
+渲染流程：
+  SceneLayout → 逐帧绘制所有对象+环境 → FFmpeg编码 → 视频
 """
 
 from __future__ import annotations
@@ -21,11 +24,10 @@ from typing import List, Tuple
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.visual_director import (
-    SceneComposition, SceneElement, FlowConnection,
-    VisualMetaphor, direct_scene, direct_scenes,
+from core.svg_lineart_library import (
+    Illustration, Stroke, Weight, get_illustration,
 )
-from core.svg_lineart_library import get_illustration, Weight
+from core.scene_planner import SceneLayout, SceneObject, plan_scene, texts_to_scenes
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -43,7 +45,6 @@ COLORS = {
     "line": (31, 31, 31),
     "accent": (255, 107, 90),
     "muted": (200, 200, 200),
-    "connector": (180, 180, 180),
 }
 
 WEIGHT_SCALE = {
@@ -85,27 +86,47 @@ def _clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 平滑 + 路径
+# Catmull-Rom 样条平滑
 # ═══════════════════════════════════════════════════════════════
 
 def _smooth(raw: List[Tuple[float, float]], segments: int = 6) -> List[Tuple[float, float]]:
+    """Catmull-Rom 样条插值，让折线变成平滑曲线"""
     if len(raw) < 3:
         return raw
+
     result = []
     for i in range(len(raw) - 1):
         p0 = raw[max(0, i - 1)]
         p1 = raw[i]
         p2 = raw[min(len(raw) - 1, i + 1)]
         p3 = raw[min(len(raw) - 1, i + 2)]
+
         for s in range(segments):
             t = s / segments
-            t2, t3 = t * t, t * t * t
-            x = 0.5 * ((2*p1[0]) + (-p0[0]+p2[0])*t + (2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2 + (-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3)
-            y = 0.5 * ((2*p1[1]) + (-p0[1]+p2[1])*t + (2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2 + (-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3)
+            t2 = t * t
+            t3 = t2 * t
+
+            x = 0.5 * (
+                (2 * p1[0]) +
+                (-p0[0] + p2[0]) * t +
+                (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+                (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3
+            )
+            y = 0.5 * (
+                (2 * p1[1]) +
+                (-p0[1] + p2[1]) * t +
+                (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+                (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3
+            )
             result.append((x, y))
+
     result.append(raw[-1])
     return result
 
+
+# ═══════════════════════════════════════════════════════════════
+# 路径长度 + 插值
+# ═══════════════════════════════════════════════════════════════
 
 def _path_length(points: List[Tuple[float, float]]) -> float:
     total = 0.0
@@ -117,14 +138,18 @@ def _path_length(points: List[Tuple[float, float]]) -> float:
 
 
 def _cut_path(points: List[Tuple[float, float]], target_len: float) -> List[Tuple[float, float]]:
+    """沿路径截取 target_len 长度"""
     if not points:
         return []
+
     result = [points[0]]
     acc = 0.0
+
     for i in range(1, len(points)):
         dx = points[i][0] - points[i-1][0]
         dy = points[i][1] - points[i-1][1]
         seg = math.sqrt(dx * dx + dy * dy)
+
         if acc + seg <= target_len:
             result.append(points[i])
             acc += seg
@@ -132,209 +157,76 @@ def _cut_path(points: List[Tuple[float, float]], target_len: float) -> List[Tupl
             remain = target_len - acc
             if seg > 0:
                 t = remain / seg
-                result.append((points[i-1][0] + dx * t, points[i-1][1] + dy * t))
+                result.append((
+                    points[i-1][0] + dx * t,
+                    points[i-1][1] + dy * t,
+                ))
             return result
+
     return result
 
 
 # ═══════════════════════════════════════════════════════════════
-# 元素绘制
+# 单条笔触绘制
 # ═══════════════════════════════════════════════════════════════
 
-def _draw_rect(
+def _draw_stroke(
     draw: ImageDraw.ImageDraw,
-    x: float, y: float, w: float, h: float,
-    label: str,
-    weight: int,
-    color: Tuple[int, int, int],
-    progress: float,
-    radius: int = 8,
-):
-    """绘制圆角矩形 + 标签，带绘制动画"""
-    if progress <= 0:
-        return
-
-    # 矩形绘制动画（从左到右）
-    rect_p = _ease_out_cubic(_clamp(progress / 0.5))
-    visible_w = w * rect_p
-
-    # 填充
-    draw.rounded_rectangle(
-        [x, y, x + visible_w, y + h],
-        radius=min(radius, visible_w / 2),
-        fill=(255, 255, 255),
-        outline=color,
-        width=weight,
-    )
-
-    # 标签（逐字出现）
-    if label and progress > 0.4:
-        text_p = _ease_out_cubic(_clamp((progress - 0.4) / 0.5))
-        font = _get_font(max(16, int(weight * 6)))
-        visible_chars = max(1, int(len(label) * text_p))
-        visible_text = label[:visible_chars]
-
-        bbox = draw.textbbox((0, 0), visible_text, font=font)
-        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        tx = x + (w - tw) / 2
-        ty = y + (h - th) / 2 - 2
-
-        draw.text((tx, ty), visible_text, fill=color, font=font)
-
-
-def _draw_circle(
-    draw: ImageDraw.ImageDraw,
-    x: float, y: float, w: float, h: float,
-    label: str,
-    weight: int,
-    color: Tuple[int, int, int],
+    stroke: Stroke,
+    ox: float, oy: float, scale: float,
     progress: float,
 ):
-    """绘制圆形 + 标签"""
-    if progress <= 0:
+    """绘制一条笔触，根据 progress 决定绘制多少"""
+    if progress <= 0 or len(stroke.points) < 2:
         return
 
-    scale = _ease_out_cubic(_clamp(progress / 0.5))
-    cx, cy = x + w / 2, y + h / 2
-    rx, ry = w / 2 * scale, h / 2 * scale
+    # 转换到画布坐标
+    canvas_pts = [(ox + x * scale, oy + y * scale) for x, y in stroke.points]
 
-    draw.ellipse(
-        [cx - rx, cy - ry, cx + rx, cy + ry],
-        fill=(255, 255, 255),
-        outline=color,
-        width=weight,
-    )
+    # 平滑
+    smooth_pts = _smooth(canvas_pts, segments=6)
 
-    if label and progress > 0.4:
-        text_p = _ease_out_cubic(_clamp((progress - 0.4) / 0.5))
-        font = _get_font(max(14, int(weight * 5)))
-        visible_chars = max(1, int(len(label) * text_p))
-        visible_text = label[:visible_chars]
-        bbox = draw.textbbox((0, 0), visible_text, font=font)
-        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        draw.text((cx - tw / 2, cy - th / 2), visible_text, fill=color, font=font)
+    # 计算总长度和目标长度
+    total = _path_length(smooth_pts)
+    draw_len = total * _ease_out_cubic(_clamp(progress))
+
+    # 截取
+    visible = _cut_path(smooth_pts, draw_len)
+    if len(visible) < 2:
+        return
+
+    # 颜色
+    color = COLORS.get(stroke.color_key, COLORS["line"])
+
+    # 线宽
+    lw = WEIGHT_SCALE.get(stroke.weight, 3)
+
+    # 绘制
+    draw.line(visible, fill=color, width=lw, joint="curve")
+
+    # 闭合
+    if stroke.closed and progress >= 0.95:
+        draw.line([visible[-1], visible[0]], fill=color, width=lw, joint="curve")
 
 
-def _draw_element(
+# ═══════════════════════════════════════════════════════════════
+# 单幅插画绘制
+# ═══════════════════════════════════════════════════════════════
+
+def _draw_illustration(
     draw: ImageDraw.ImageDraw,
-    elem: SceneElement,
-    canvas_w: int, canvas_h: int,
+    art: Illustration,
+    x: float, y: float, scale: float,
     progress: float,
 ):
-    """绘制单个场景元素"""
-    x = elem.x * canvas_w
-    y = elem.y * canvas_h
-    w = elem.w * canvas_w
-    h = elem.h * canvas_h
+    """绘制一幅插画的所有笔触"""
+    n = len(art.strokes)
+    for i, stroke in enumerate(art.strokes):
+        # 交错：每条笔触延迟
+        offset = i * 0.06
+        stroke_progress = _clamp((progress - offset) / max(0.15, 1.0 - offset * (n - 1) / n))
 
-    color = COLORS.get(elem.color_key, COLORS["line"])
-
-    if elem.shape == "rect":
-        _draw_rect(draw, x, y, w, h, elem.label, elem.weight, color, progress)
-    elif elem.shape == "circle":
-        _draw_circle(draw, x, y, w, h, elem.label, elem.weight, color, progress)
-    elif elem.shape == "text":
-        if progress > 0.2:
-            text_p = _ease_out_cubic(_clamp((progress - 0.2) / 0.6))
-            font = _get_font(max(18, elem.weight * 6))
-            visible_chars = max(1, int(len(elem.label) * text_p))
-            draw.text((x, y), elem.label[:visible_chars], fill=color, font=font)
-
-
-def _draw_connection(
-    draw: ImageDraw.ImageDraw,
-    conn: FlowConnection,
-    elements: List[SceneElement],
-    canvas_w: int, canvas_h: int,
-    progress: float,
-):
-    """绘制两个元素之间的流动连接线"""
-    if progress <= 0:
-        return
-
-    # 找到起止元素
-    from_elem = next((e for e in elements if e.name == conn.from_name), None)
-    to_elem = next((e for e in elements if e.name == conn.to_name), None)
-
-    if not from_elem or not to_elem:
-        return
-
-    # 起点：from 元素的右边缘中心
-    fx = (from_elem.x + from_elem.w) * canvas_w
-    fy = (from_elem.y + from_elem.h / 2) * canvas_h
-
-    # 终点：to 元素的左边缘中心
-    tx = to_elem.x * canvas_w
-    ty = (to_elem.y + to_elem.h / 2) * canvas_h
-
-    # 绘制箭头线
-    line_progress = _ease_out_cubic(_clamp(progress / 0.7))
-
-    # 贝塞尔控制点
-    mid_x = (fx + tx) / 2
-    if conn.style == "curved":
-        mid_y = (fy + ty) / 2 - 40
-    else:
-        mid_y = (fy + ty) / 2
-
-    # 绘制曲线（用折线近似）
-    points = []
-    steps = 20
-    for s in range(steps + 1):
-        t = s / steps
-        t2 = t * t
-        # 二次贝塞尔
-        px = (1-t)**2 * fx + 2*(1-t)*t * mid_x + t2 * tx
-        py = (1-t)**2 * fy + 2*(1-t)*t * mid_y + t2 * ty
-        points.append((px, py))
-
-    # 截取到目标长度
-    total_len = _path_length(points)
-    target_len = total_len * line_progress
-    visible = _cut_path(points, target_len)
-
-    if len(visible) >= 2:
-        color = COLORS["connector"]
-        draw.line(visible, fill=color, width=2)
-
-        # 箭头头
-        if progress > 0.7:
-            head_progress = _clamp((progress - 0.7) / 0.3)
-            end_x, end_y = visible[-1]
-            prev_x, prev_y = visible[-2]
-            angle = math.atan2(end_y - prev_y, end_x - prev_x)
-
-            head_size = 10 * head_progress
-            hx1 = end_x - head_size * math.cos(angle - 0.4)
-            hy1 = end_y - head_size * math.sin(angle - 0.4)
-            hx2 = end_x - head_size * math.cos(angle + 0.4)
-            hy2 = end_y - head_size * math.sin(angle + 0.4)
-
-            draw.line([(end_x, end_y), (hx1, hy1)], fill=color, width=2)
-            draw.line([(end_x, end_y), (hx2, hy2)], fill=color, width=2)
-
-
-def _draw_background(
-    draw: ImageDraw.ImageDraw,
-    strokes: List[Tuple[float, float, float, float]],
-    canvas_w: int, canvas_h: int,
-    progress: float,
-):
-    """绘制背景装饰线"""
-    if progress <= 0:
-        return
-
-    env_progress = _ease_out_cubic(_clamp(progress / 0.3))
-    color = COLORS["muted"]
-
-    for x1, y1, x2, y2 in strokes:
-        px1, py1 = x1 * canvas_w, y1 * canvas_h
-        px2, py2 = x2 * canvas_w, y2 * canvas_h
-
-        cur_x2 = px1 + (px2 - px1) * env_progress
-        cur_y2 = py1 + (py2 - py1) * env_progress
-
-        draw.line([(px1, py1), (cur_x2, cur_y2)], fill=color, width=1)
+        _draw_stroke(draw, stroke, x, y, scale, stroke_progress)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -342,40 +234,49 @@ def _draw_background(
 # ═══════════════════════════════════════════════════════════════
 
 def render_scene_frame(
-    scene: SceneComposition,
+    scene: SceneLayout,
     canvas_w: int = 1920,
     canvas_h: int = 1080,
     progress: float = 1.0,
 ) -> Image.Image:
-    """渲染一个场景的一帧"""
+    """
+    渲染一个场景的一帧。
+
+    1. 绘制环境元素（最先出现）
+    2. 绘制所有对象（交错出现）
+    3. 绘制标题
+    """
     img = Image.new("RGB", (canvas_w, canvas_h), COLORS["bg"])
     draw = ImageDraw.Draw(img)
 
-    # 1. 背景装饰（0-30%）
-    _draw_background(draw, scene.background_strokes, canvas_w, canvas_h, progress)
+    # ── 环境元素（0-30% 进度）────────────────
+    env_progress = _clamp(progress / 0.3)
+    for stroke in scene.environment:
+        _draw_stroke(draw, stroke, 0, 0, 1.0, env_progress)
 
-    # 2. 连接线（20-70%）— 先画，在元素下面
-    for conn in scene.connections:
-        conn_progress = _clamp((progress - 0.2) / 0.5)
-        _draw_connection(draw, conn, scene.elements, canvas_w, canvas_h, conn_progress)
+    # ── 对象（10%-90% 进度）────────────────
+    n_obj = len(scene.objects)
+    for i, obj in enumerate(scene.objects):
+        # 每个对象交错出现
+        obj_start = 0.1 + obj.delay
+        obj_duration = max(0.3, 0.8 - obj.delay)
+        obj_progress = _clamp((progress - obj_start) / obj_duration)
 
-    # 3. 元素（10-80%）— 按 draw_order 排序
-    sorted_elements = sorted(scene.elements, key=lambda e: e.draw_order)
-    for i, elem in enumerate(sorted_elements):
-        elem_start = 0.1 + i * 0.05
-        elem_progress = _clamp((progress - elem_start) / max(0.3, 0.7 - i * 0.05))
-        _draw_element(draw, elem, canvas_w, canvas_h, elem_progress)
+        art = get_illustration(obj.keyword)
+        _draw_illustration(draw, art, obj.x, obj.y, obj.scale, obj_progress)
 
-    # 4. 标题（60-100%）
+    # ── 标题（60%-100% 进度）────────────────
     if scene.title and progress > 0.6:
         title_progress = _clamp((progress - 0.6) / 0.3)
         font = _get_font(32)
         visible_chars = max(1, int(len(scene.title) * title_progress))
         visible_title = scene.title[:visible_chars]
+
         bbox = draw.textbbox((0, 0), visible_title, font=font)
         tw = bbox[2] - bbox[0]
         tx = (canvas_w - tw) / 2
-        ty = canvas_h - 60
+        ty = canvas_h - 80
+
         draw.text((tx, ty), visible_title, fill=COLORS["line"], font=font)
 
     return img
@@ -386,7 +287,7 @@ def render_scene_frame(
 # ═══════════════════════════════════════════════════════════════
 
 def render_lineart_video(
-    scenes: List[SceneComposition],
+    scenes: List[SceneLayout],
     output_path: str,
     canvas_w: int = 1920,
     canvas_h: int = 1080,
@@ -406,12 +307,13 @@ def render_lineart_video(
     total_scenes = len(scenes)
 
     print(f"\n{'='*50}")
-    print(f"  Line Art Animation v3")
+    print(f"  Line Art Animation v2")
     print(f"  Scenes: {total_scenes}")
     print(f"  Canvas: {canvas_w}x{canvas_h}")
     print(f"{'='*50}")
 
     for si, scene in enumerate(scenes):
+        # 绘制阶段
         draw_frames = int(draw_duration * fps)
         for f in range(draw_frames):
             progress = f / draw_frames
@@ -419,16 +321,17 @@ def render_lineart_video(
             img.save(str(temp_dir / f"frame_{frame_idx:05d}.png"))
             frame_idx += 1
 
+        # 停留阶段
         hold_frames = int(hold_duration * fps)
         last_img = render_scene_frame(scene, canvas_w, canvas_h, 1.0)
         for f in range(hold_frames):
             last_img.save(str(temp_dir / f"frame_{frame_idx:05d}.png"))
             frame_idx += 1
 
-        hero = next((e for e in scene.elements if e.role == "hero"), None)
-        hero_name = hero.label if hero else "?"
-        print(f"  Scene {si+1}/{total_scenes}: [{scene.metaphor}] hero={hero_name}")
+        obj_names = [o.keyword for o in scene.objects]
+        print(f"  Scene {si+1}/{total_scenes}: {', '.join(obj_names)}")
 
+    # FFmpeg 编码
     print(f"\n  Encoding ({frame_idx} frames)...")
     cmd = [
         "ffmpeg", "-y",
@@ -461,13 +364,13 @@ def generate_lineart_video(
     从文案生成线条插画手绘视频。
 
     Pipeline:
-      Script → Visual Director → Scene Composition → Frame Rendering → Video
+      Script → Scene Planner → Scene Layouts → Frame Rendering → Video
     """
     print(f"\n  Script lines: {len(script_lines)}")
     for i, line in enumerate(script_lines):
         print(f"    [{i+1}] {line}")
 
-    scenes = direct_scenes(script_lines)
+    scenes = texts_to_scenes(script_lines)
 
     return render_lineart_video(
         scenes, output_path,
@@ -481,7 +384,7 @@ def generate_lineart_video(
 # ═══════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    print("Line Art Renderer v3 — Visual Director")
+    print("Line Art Renderer v2 — Test")
     print("=" * 50)
 
     script = [
@@ -494,7 +397,7 @@ if __name__ == "__main__":
 
     output = generate_lineart_video(
         script,
-        output_path="output/test_lineart_v3.mp4",
+        output_path="output/test_lineart_v2.mp4",
         draw_duration=3.5,
         hold_duration=2.0,
     )
