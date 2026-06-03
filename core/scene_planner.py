@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-Scene Planner v3 — LLM 驱动的场景规划
+Scene Planner v4 — 箭头跟随对象位置
 
-全流程 LLM：
-1. LLM 分析文案，提取视觉元素
-2. LLM 决定场景布局（对象+位置+关系）
-3. LLM 决定环境元素
-4. 渲染器根据 LLM 输出生成视频
-
-不再使用硬编码模板。
+核心改动：
+- 环境元素根据对象实际位置动态生成
+- 箭头从一个对象指向另一个对象
+- 流动线表达真实的语义关系
 """
 
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import List, Optional, Callable
 
@@ -41,114 +39,121 @@ Rules:
 2. Place them with x,y coordinates (canvas is 1920x1080, center is 960,540)
 3. The MAIN object should be largest (scale 3.0-5.0) and centered
 4. Supporting objects should be smaller (scale 1.5-2.5) and offset
-5. Choose an environment type: flow_vertical, flow_horizontal, dots, desk, thought_bubbles
-6. Describe the visual metaphor (what story this scene tells)
+5. Define FLOW connections between objects (which flows into which)
+6. Describe the visual metaphor
 
 Output JSON:
 {
   "objects": [
-    {"keyword": "brain", "x": 700, "y": 200, "scale": 4.0},
-    {"keyword": "database", "x": 300, "y": 350, "scale": 2.2},
-    {"keyword": "monitor", "x": 1200, "y": 300, "scale": 2.5}
+    {"keyword": "database", "x": 400, "y": 300, "scale": 3.0},
+    {"keyword": "brain", "x": 900, "y": 200, "scale": 4.0},
+    {"keyword": "monitor", "x": 1400, "y": 300, "scale": 3.0}
   ],
-  "environment": "flow_vertical",
+  "flows": [
+    {"from": 0, "to": 1, "label": "data"},
+    {"from": 1, "to": 2, "label": "result"}
+  ],
   "metaphor": "data flows into brain, results appear on screen"
 }
 
-Environment types:
-- flow_vertical: vertical flow lines (top to bottom)
-- flow_horizontal: horizontal flow lines (left to right)
-- dots: scattered decorative dots
-- desk: desk line at bottom
-- thought_bubbles: thought bubble dots
-- search_rays: radial rays from center
-- none: no environment
+IMPORTANT:
+- "flows" defines the arrows between objects (from object index to object index)
+- Flows should follow the logical order of the narration
+- Do NOT add random decorative arrows
 """
 
 
 # ═══════════════════════════════════════════════════════════════
-# 环境元素生成
+# 根据对象位置生成连接线
 # ═══════════════════════════════════════════════════════════════
 
-def _make_flow_vertical(w: int, h: int) -> List[Stroke]:
-    cx = w / 2
-    strokes = [
-        Stroke(points=[(cx, 100), (cx, 300)], weight=Weight.ACCENT, color_key="accent"),
-        Stroke(points=[(cx - 15, 280), (cx, 300), (cx + 15, 280)], weight=Weight.ACCENT, color_key="accent"),
-        Stroke(points=[(cx, 500), (cx, 700)], weight=Weight.ACCENT, color_key="accent"),
-        Stroke(points=[(cx - 15, 680), (cx, 700), (cx + 15, 680)], weight=Weight.ACCENT, color_key="accent"),
-        Stroke(points=[(cx - 200, 80), (cx - 200, 800)], weight=Weight.ENVIRONMENT, color_key="muted"),
-        Stroke(points=[(cx + 200, 80), (cx + 200, 800)], weight=Weight.ENVIRONMENT, color_key="muted"),
-    ]
-    for i in range(6):
-        y = 150 + i * 100
-        strokes.append(Stroke(points=[(cx - 4, y), (cx + 4, y)], weight=Weight.ACCENT, color_key="accent"))
-    return strokes
+def _make_flow_between_objects(
+    obj1: SceneObject,
+    obj2: SceneObject,
+    art1_width: float = 100,
+    art1_height: float = 100,
+    art2_width: float = 100,
+    art2_height: float = 100,
+) -> List[Stroke]:
+    """
+    在两个对象之间生成连接箭头。
+    箭头从 obj1 的右边缘指向 obj2 的左边缘。
+    """
+    # 计算 obj1 的右边缘中心
+    x1 = obj1.x + art1_width * obj1.scale
+    y1 = obj1.y + (art1_height * obj1.scale) / 2
 
+    # 计算 obj2 的左边缘中心
+    x2 = obj2.x
+    y2 = obj2.y + (art2_height * obj2.scale) / 2
 
-def _make_flow_horizontal(w: int, h: int) -> List[Stroke]:
-    cy = h / 2 + 40
-    return [
-        Stroke(points=[(200, cy), (600, cy)], weight=Weight.ACCENT, color_key="accent"),
-        Stroke(points=[(580, cy - 12), (600, cy), (580, cy + 12)], weight=Weight.ACCENT, color_key="accent"),
-        Stroke(points=[(800, cy), (1200, cy)], weight=Weight.ACCENT, color_key="accent"),
-        Stroke(points=[(1180, cy - 12), (1200, cy), (1180, cy + 12)], weight=Weight.ACCENT, color_key="accent"),
-        Stroke(points=[(80, 60), (w - 80, 60)], weight=Weight.ENVIRONMENT, color_key="muted"),
-        Stroke(points=[(80, h - 60), (w - 80, h - 60)], weight=Weight.ENVIRONMENT, color_key="muted"),
-    ]
+    # 中间点（用于曲线）
+    mid_x = (x1 + x2) / 2
+    mid_y = (y1 + y2) / 2
 
-
-def _make_dots(w: int, h: int) -> List[Stroke]:
-    import random
     strokes = []
-    for _ in range(12):
-        x = random.randint(40, w - 40)
-        y = random.randint(40, h - 120)
-        strokes.append(Stroke(points=[(x, y), (x + 2, y)], weight=Weight.ENVIRONMENT, color_key="muted"))
+
+    # 连接线（带一点弧度）
+    strokes.append(Stroke(
+        points=[(x1, y1), (mid_x, mid_y - 20), (x2, y2)],
+        weight=Weight.ACCENT,
+        color_key="accent",
+    ))
+
+    # 箭头头部
+    angle = math.atan2(y2 - (mid_y - 20), x2 - mid_x)
+    head_size = 15
+    hx1 = x2 - head_size * math.cos(angle - 0.4)
+    hy1 = y2 - head_size * math.sin(angle - 0.4)
+    hx2 = x2 - head_size * math.cos(angle + 0.4)
+    hy2 = y2 - head_size * math.sin(angle + 0.4)
+
+    strokes.append(Stroke(
+        points=[(hx1, hy1), (x2, y2), (hx2, hy2)],
+        weight=Weight.ACCENT,
+        color_key="accent",
+    ))
+
     return strokes
 
 
-def _make_desk(w: int, h: int) -> List[Stroke]:
-    desk_y = h * 0.72
-    return [
-        Stroke(points=[(w * 0.05, desk_y), (w * 0.95, desk_y)], weight=Weight.ENVIRONMENT, color_key="line"),
-        Stroke(points=[(w * 0.08, desk_y + 8), (w * 0.92, desk_y + 8)], weight=Weight.ENVIRONMENT, color_key="muted"),
-    ]
-
-
-def _make_thought_bubbles(w: int, h: int) -> List[Stroke]:
-    cx = w * 0.75
-    return [
-        Stroke(points=[(cx, h * 0.55), (cx + 3, h * 0.55)], weight=Weight.DETAIL, color_key="line"),
-        Stroke(points=[(cx + 20, h * 0.48), (cx + 25, h * 0.48)], weight=Weight.DETAIL, color_key="line"),
-        Stroke(points=[(cx + 40, h * 0.40), (cx + 48, h * 0.40)], weight=Weight.DETAIL, color_key="line"),
-    ]
-
-
-def _make_search_rays(w: int, h: int) -> List[Stroke]:
-    import math
-    cx, cy = w / 2, h / 2 - 40
+def _make_environment_for_objects(
+    objects: List[SceneObject],
+    flows: List[dict],
+    canvas_w: int,
+    canvas_h: int,
+) -> List[Stroke]:
+    """根据对象位置和流动关系生成环境元素"""
     strokes = []
-    for angle_deg in range(0, 360, 45):
-        angle = math.radians(angle_deg)
-        r1, r2 = 200, 260
-        x1 = cx + r1 * math.cos(angle)
-        y1 = cy + r1 * math.sin(angle)
-        x2 = cx + r2 * math.cos(angle)
-        y2 = cy + r2 * math.sin(angle)
-        strokes.append(Stroke(points=[(x1, y1), (x2, y2)], weight=Weight.ENVIRONMENT, color_key="muted"))
+
+    # 根据 flows 生成连接线
+    for flow in flows:
+        from_idx = flow.get("from", 0)
+        to_idx = flow.get("to", 1)
+
+        if 0 <= from_idx < len(objects) and 0 <= to_idx < len(objects):
+            obj1 = objects[from_idx]
+            obj2 = objects[to_idx]
+
+            # 获取插画尺寸
+            art1 = get_illustration(obj1.keyword)
+            art2 = get_illustration(obj2.keyword)
+
+            flow_strokes = _make_flow_between_objects(
+                obj1, obj2,
+                art1.width, art1.height,
+                art2.width, art2.height,
+            )
+            strokes.extend(flow_strokes)
+
+    # 添加底部装饰线（轻量级）
+    strokes.append(Stroke(
+        points=[(80, canvas_h - 50), (canvas_w - 80, canvas_h - 50)],
+        weight=Weight.ENVIRONMENT,
+        color_key="muted",
+    ))
+
     return strokes
-
-
-_ENV_MAKERS = {
-    "flow_vertical": _make_flow_vertical,
-    "flow_horizontal": _make_flow_horizontal,
-    "dots": _make_dots,
-    "desk": _make_desk,
-    "thought_bubbles": _make_thought_bubbles,
-    "search_rays": _make_search_rays,
-    "none": lambda w, h: [],
-}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -157,7 +162,6 @@ _ENV_MAKERS = {
 
 def _parse_llm_response(text: str) -> Optional[dict]:
     """解析 LLM JSON 响应"""
-    # 提取 JSON
     json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
     if json_match:
         text = json_match.group(1)
@@ -182,7 +186,6 @@ def _validate_and_convert(data: dict, canvas_w: int, canvas_h: int) -> SceneLayo
     objects = []
     for obj in data.get("objects", []):
         kw = obj.get("keyword", "person")
-        # 验证关键词是否在库中
         if kw not in KEYWORD_MAP:
             kw = "person"
 
@@ -197,9 +200,16 @@ def _validate_and_convert(data: dict, canvas_w: int, canvas_h: int) -> SceneLayo
     if not objects:
         objects.append(SceneObject("person", canvas_w / 2 - 100, canvas_h / 2 - 100, 3.0, 0))
 
-    env_type = data.get("environment", "dots")
-    env_maker = _ENV_MAKERS.get(env_type, _make_dots)
-    environment = env_maker(canvas_w, canvas_h)
+    # 获取流动关系
+    flows = data.get("flows", [])
+
+    # 如果没有定义 flows，自动生成（按顺序连接）
+    if not flows and len(objects) > 1:
+        for i in range(len(objects) - 1):
+            flows.append({"from": i, "to": i + 1})
+
+    # 根据对象位置和流动关系生成环境元素
+    environment = _make_environment_for_objects(objects, flows, canvas_w, canvas_h)
 
     return SceneLayout(title="", objects=objects, environment=environment)
 
@@ -214,17 +224,7 @@ def plan_scene_with_llm(
     canvas_w: int = 1920,
     canvas_h: int = 1080,
 ) -> SceneLayout:
-    """
-    用 LLM 规划单个场景。
-
-    Args:
-        text: 一句旁白
-        llm_fn: LLM 调用函数 (prompt) -> response
-        canvas_w, canvas_h: 画布尺寸
-
-    Returns:
-        SceneLayout
-    """
+    """用 LLM 规划单个场景"""
     prompt = f"{SCENE_PLANNER_PROMPT}\n\nNarration: {text}"
 
     try:
@@ -237,12 +237,8 @@ def plan_scene_with_llm(
     except Exception as e:
         print(f"  LLM 场景规划失败: {e}")
 
-    # 回退：单对象居中
-    return SceneLayout(
-        title=text[:30],
-        objects=[SceneObject("person", canvas_w / 2 - 100, canvas_h / 2 - 100, 3.5, 0)],
-        environment=_make_dots(canvas_w, canvas_h),
-    )
+    # 回退
+    return _fallback_scene(text, canvas_w, canvas_h)
 
 
 def texts_to_scenes_with_llm(
@@ -261,17 +257,14 @@ def texts_to_scenes_with_llm(
 
 
 # ═══════════════════════════════════════════════════════════════
-# 回退方案（无 LLM 时使用）
+# 回退方案
 # ═══════════════════════════════════════════════════════════════
 
-def plan_scene_fallback(text: str, canvas_w: int = 1920, canvas_h: int = 1080) -> SceneLayout:
-    """回退方案：关键词匹配"""
-    from core.svg_lineart_library import KEYWORD_MAP
-
+def _fallback_scene(text: str, canvas_w: int, canvas_h: int) -> SceneLayout:
+    """回退方案：关键词匹配 + 自动连线"""
     text_lower = text.lower()
     cx, cy = canvas_w / 2, canvas_h / 2
 
-    # 简单关键词匹配
     found = []
     for kw in ["robot", "laptop", "book", "brain", "database", "city",
                 "monitor", "gear", "lightbulb", "person", "magnifying_glass",
@@ -282,20 +275,24 @@ def plan_scene_fallback(text: str, canvas_w: int = 1920, canvas_h: int = 1080) -
     if not found:
         found = ["person"]
 
-    # 构建对象
+    # 构建对象（水平排列）
     objects = []
-    for i, kw in enumerate(found[:3]):
-        x = cx - 150 + i * 200
+    n = len(found)
+    total_w = n * 300
+    start_x = cx - total_w / 2
+
+    for i, kw in enumerate(found):
+        x = start_x + i * 300
         y = cy - 100
         objects.append(SceneObject(kw, x, y, 3.0, i * 0.15))
 
-    return SceneLayout(
-        title=text[:30],
-        objects=objects,
-        environment=_make_dots(canvas_w, canvas_h),
-    )
+    # 自动生成连接线
+    flows = [{"from": i, "to": i + 1} for i in range(n - 1)]
+    environment = _make_environment_for_objects(objects, flows, canvas_w, canvas_h)
+
+    return SceneLayout(title=text[:30], objects=objects, environment=environment)
 
 
 def texts_to_scenes_fallback(texts: List[str], canvas_w: int = 1920, canvas_h: int = 1080) -> List[SceneLayout]:
     """回退方案"""
-    return [plan_scene_fallback(t, canvas_w, canvas_h) for t in texts]
+    return [_fallback_scene(t, canvas_w, canvas_h) for t in texts]

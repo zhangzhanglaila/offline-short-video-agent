@@ -30,7 +30,7 @@ from core.svg_lineart_library import (
 from core.scene_planner import (
     SceneLayout, SceneObject,
     plan_scene_with_llm, texts_to_scenes_with_llm,
-    plan_scene_fallback, texts_to_scenes_fallback,
+    texts_to_scenes_fallback,
 )
 
 try:
