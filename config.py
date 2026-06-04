@@ -413,6 +413,14 @@ def get_visual_style_config(style_name: str) -> dict:
     return VISUAL_STYLES.get(style_name, VISUAL_STYLES[DEFAULT_VISUAL_STYLE])
 
 
+# ═══════════════════════════════════════════════════════════════
+# 视频素材源配置 — Pexels / Pixabay 真实视频素材
+# ═══════════════════════════════════════════════════════════════
+STOCK_VIDEO_SOURCE = os.environ.get("STOCK_VIDEO_SOURCE", "pexels")  # pexels / pixabay / local
+STOCK_VIDEO_MIN_DURATION = 3       # 搜索时最短片段秒数
+STOCK_VIDEO_MAX_CLIP_DURATION = 5  # 每个片段最长秒数（超出则截取）
+PIXABAY_API_KEY = os.environ.get("PIXABAY_API_KEY", "")
+
 ECOM_CONFIG = {
     "default_style": "soft_sell",
     "default_platform": "TikTok",

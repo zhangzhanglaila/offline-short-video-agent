@@ -386,3 +386,11 @@ def fetch_images_by_keywords(keywords: str, count: int = 5) -> Tuple[List[ImageR
 def fetch_images_by_script(script: str, count_per_keyword: int = 2) -> Tuple[List[ImageResult], List[str]]:
     """根据脚本快速抓取配图"""
     return get_image_fetch_module().fetch_by_script_keywords(script, count_per_keyword)
+
+
+def fetch_videos_for_scenes(storyboard: list, audio_duration: float,
+                             orientation: str = "portrait") -> Dict[int, str]:
+    """为场景列表获取真实视频素材（委托给 stock_video_module）。
+    返回 {scene_index: local_video_path}，无素材的场景不在字典中。"""
+    from core.stock_video_module import fetch_stock_videos_for_scenes
+    return fetch_stock_videos_for_scenes(storyboard, audio_duration, orientation)

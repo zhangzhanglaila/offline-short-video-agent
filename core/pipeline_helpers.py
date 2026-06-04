@@ -340,6 +340,21 @@ def run_render_pipeline(video_id: int, table_name: str = "ecom_videos"):
         chart_frame_counts = {}  # {scene_index: frame_count} for segment subdivision
         total_scenes = len(storyboard) if storyboard else 1
 
+        # ═══ 真实视频素材获取（Pexels/Pixabay） ═══
+        scene_video_map = {}  # {scene_index: local_video_path}
+        if storyboard and config.STOCK_VIDEO_SOURCE in ("pexels", "pixabay"):
+            try:
+                from core.stock_video_module import fetch_stock_videos_for_scenes
+                _update(step='fetching_materials')
+                scene_video_map = fetch_stock_videos_for_scenes(
+                    storyboard=storyboard,
+                    audio_duration=duration,
+                    orientation=orientation,
+                )
+            except Exception as e:
+                print(f"[StockVideo] 视频素材获取失败（降级为漫画帧）: {e}")
+                scene_video_map = {}
+
         if storyboard:
             for i, scene in enumerate(storyboard):
                 title = str(scene.get("title") or f"场景 {i+1}")[:36]
@@ -445,13 +460,20 @@ def run_render_pipeline(video_id: int, table_name: str = "ecom_videos"):
                     emphasis = None
 
                 for fi in range(n_frames):
-                    segments.append({
+                    seg = {
                         'start': time_base + fi * sub_dur,
                         'end': time_base + (fi + 1) * sub_dur,
                         'text': sb.get('subtitle', sb.get('text', '')),
                         'image_index': image_offset + fi,
                         'emphasis': emphasis if fi == n_frames - 1 else None,
-                    })
+                        'media_type': 'image',
+                        'video_path': '',
+                    }
+                    # 有真实视频素材的场景（仅非图表帧场景使用视频）
+                    if i in scene_video_map and not has_chart and fi == 0:
+                        seg['media_type'] = 'video'
+                        seg['video_path'] = scene_video_map[i]
+                    segments.append(seg)
                 time_base += scene_dur
                 image_offset += n_frames
         else:

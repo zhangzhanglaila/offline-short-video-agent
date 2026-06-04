@@ -151,39 +151,46 @@ class AnimationModule:
         # ── 1. 每个片段生成独立视频 ──
         video_clips = []
         for i, seg in enumerate(segments):
-            image_idx = seg.get("image_index", i % len(images))
-            if image_idx >= len(images):
-                image_idx = i % len(images)
-
-            image_path = images[image_idx]
             start = seg.get("start", 0)
             end = seg.get("end", 3)
             duration = end - start
             emphasis = seg.get("emphasis")
+            media_type = seg.get("media_type", "image")
+            video_src = seg.get("video_path", "")
 
             clip_path = str(temp_dir / f"clip_{i:03d}.mp4")
 
-            if animation_style == "manga_frame":
-                self.create_manga_frame_clip(image_path, clip_path, duration=duration, emphasis=emphasis)
-            elif animation_style == "contain":
-                self._create_contain_clip(image_path, clip_path, duration=duration)
-            elif animation_style == "ken_burns":
-                zoom_in = random.choice([True, False])
-                self.create_ken_burns_clip(
-                    image_path, clip_path, duration=duration,
-                    zoom_in=zoom_in,
-                    zoom_range=(1.0, random.uniform(1.2, 1.5))
-                )
-            elif animation_style == "pan_zoom":
-                effects = ["zoom_in", "zoom_out", "pan_left", "pan_right", "pan_up", "pan_down"]
-                self.create_pan_zoom_clip(image_path, clip_path, duration=duration, effect=random.choice(effects))
+            if media_type == "video" and video_src and Path(video_src).exists():
+                # 视频素材：裁剪 + 缩放到目标分辨率
+                self._prepare_video_clip(video_src, clip_path, duration)
             else:
-                self._create_simple_clip(image_path, clip_path, duration=duration)
+                # 图片素材：现有逻辑
+                image_idx = seg.get("image_index", i % len(images))
+                if image_idx >= len(images):
+                    image_idx = i % len(images)
+                image_path = images[image_idx]
+
+                if animation_style == "manga_frame":
+                    self.create_manga_frame_clip(image_path, clip_path, duration=duration, emphasis=emphasis)
+                elif animation_style == "contain":
+                    self._create_contain_clip(image_path, clip_path, duration=duration)
+                elif animation_style == "ken_burns":
+                    zoom_in = random.choice([True, False])
+                    self.create_ken_burns_clip(
+                        image_path, clip_path, duration=duration,
+                        zoom_in=zoom_in,
+                        zoom_range=(1.0, random.uniform(1.2, 1.5))
+                    )
+                elif animation_style == "pan_zoom":
+                    effects = ["zoom_in", "zoom_out", "pan_left", "pan_right", "pan_up", "pan_down"]
+                    self.create_pan_zoom_clip(image_path, clip_path, duration=duration, effect=random.choice(effects))
+                else:
+                    self._create_simple_clip(image_path, clip_path, duration=duration)
 
             if Path(clip_path).exists() and Path(clip_path).stat().st_size > 0:
                 video_clips.append((clip_path, duration, start))
             else:
-                print(f"[Animation] WARNING: clip_{i:03d}.mp4 生成失败或为空 (image={image_path}, emphasis={emphasis})")
+                print(f"[Animation] WARNING: clip_{i:03d}.mp4 生成失败或为空 (media_type={media_type})")
 
         if not video_clips:
             print(f"[Animation] ERROR: 所有视频片段生成失败，共 {len(segments)} 个片段")
@@ -425,6 +432,56 @@ class AnimationModule:
             "-r", str(self.output_fps),
             "-c:v", "libx264", "-preset", "fast",
             "-crf", str(self.output_crf),
+            output_path
+        ]
+        return self._run_ffmpeg(cmd)
+
+    def _prepare_video_clip(self, source_video: str, output_path: str,
+                            duration: float) -> bool:
+        """将真实视频素材裁剪+缩放到统一格式，与图片片段兼容用于 xfade 合并。
+
+        处理逻辑:
+        1. 从源视频中随机选取起始点（避免总是取开头）
+        2. 截取指定时长
+        3. scale+crop 到输出分辨率（保持比例，居中裁剪）
+        4. 统一编码参数（libx264, crf, yuv420p）
+        """
+        W, H = self.output_width, self.output_height
+
+        # 获取源视频时长，用于随机起始点
+        offset = 0.0
+        try:
+            import subprocess, json
+            probe = subprocess.run(
+                ["ffprobe", "-v", "quiet", "-print_format", "json",
+                 "-show_format", source_video],
+                capture_output=True, timeout=5,
+            )
+            if probe.returncode == 0:
+                probe_out = probe.stdout.decode("utf-8", errors="replace") if isinstance(probe.stdout, bytes) else probe.stdout
+                src_duration = float(json.loads(probe_out).get("format", {}).get("duration", 0))
+                # 随机起始点，确保有足够时长可截取
+                max_offset = max(0, src_duration - duration - 0.5)
+                if max_offset > 0:
+                    offset = random.uniform(0, max_offset)
+        except Exception:
+            pass
+
+        # scale+crop 统一分辨率，-ss/-t 截取片段
+        vf = (
+            f"scale={W}:{H}:force_original_aspect_ratio=increase,"
+            f"crop={W}:{H},setsar=1,fps={self.output_fps}"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-ss", f"{offset:.2f}",
+            "-i", source_video,
+            "-t", str(duration),
+            "-vf", vf,
+            "-pix_fmt", "yuv420p",
+            "-c:v", "libx264", "-preset", "fast",
+            "-crf", str(self.output_crf),
+            "-an",  # 去掉音频（最终用TTS+BGM）
             output_path
         ]
         return self._run_ffmpeg(cmd)
