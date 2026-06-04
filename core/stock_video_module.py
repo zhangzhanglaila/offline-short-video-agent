@@ -304,7 +304,7 @@ class StockVideoModule:
                     # 实际可用时长 = min(素材时长, max_clip)
                     clip_dur = min(item.duration, max_clip)
                     total_downloaded_duration += clip_dur
-                    print(f"[StockVideo] 场景 {i} ✓ {item.provider} {item.duration:.0f}s → {local_path}")
+                    print(f"[StockVideo] 场景 {i} OK {item.provider} {item.duration:.0f}s -> {local_path}")
                     break
 
             # 搜索间隔，避免频率限制
