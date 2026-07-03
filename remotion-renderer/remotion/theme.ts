@@ -77,27 +77,27 @@ export interface VideoTheme {
 export const darkTheme: VideoTheme = {
 	bg: "#071018",
 	bgGradient:
-		"radial-gradient(circle at 50% 18%, rgba(98,217,255,0.16), transparent 30%), linear-gradient(180deg, #071018 0%, #070b10 58%, #091018 100%)",
-	bgCard: "rgba(155,183,255,0.12)",
+		"linear-gradient(135deg, rgba(33,150,243,0.18) 0%, transparent 34%), linear-gradient(35deg, rgba(255,111,97,0.14) 0%, transparent 30%), linear-gradient(180deg, #071018 0%, #0b111a 54%, #111827 100%)",
+	bgCard: "rgba(13,24,38,0.74)",
 
 	textPrimary: "#f8fbff",
 	textSecondary: "rgba(221,235,255,0.68)",
 	textMuted: "rgba(222,235,255,0.62)",
 
-	accent: "#62d9ff",
-	accentGlow: "rgba(98,217,255,0.35)",
-	accentFill: "rgba(98,217,255,0.16)",
+	accent: "#4cc9f0",
+	accentGlow: "rgba(76,201,240,0.34)",
+	accentFill: "rgba(76,201,240,0.16)",
 
-	nodeBorder: "#9bb7ff",
-	nodeFill: "rgba(155,183,255,0.12)",
+	nodeBorder: "#90b4ff",
+	nodeFill: "rgba(17,30,48,0.78)",
 	nodeText: "#eef6ff",
 	nodeRoleText: "rgba(238,246,255,0.58)",
-	heroBorder: "#62d9ff",
-	heroFill: "rgba(98,217,255,0.16)",
+	heroBorder: "#ffb86b",
+	heroFill: "rgba(255,184,107,0.17)",
 	heroText: "#f8fbff",
 
-	edgeStroke: "#9bb7ff",
-	edgeGhost: "rgba(130,155,190,0.24)",
+	edgeStroke: "#8bd3ff",
+	edgeGhost: "rgba(159,182,212,0.22)",
 	edgeLabel: "#f8fbff",
 	edgeLabelStroke: "#070b10",
 
@@ -109,27 +109,27 @@ export const darkTheme: VideoTheme = {
 	debugText: "#0f0",
 
 	cardBorders: [
-		"rgba(98,217,255,0.45)",
-		"rgba(138,180,255,0.40)",
-		"rgba(98,255,200,0.38)",
-		"rgba(255,180,98,0.38)",
+		"rgba(76,201,240,0.45)",
+		"rgba(255,184,107,0.42)",
+		"rgba(126,231,135,0.38)",
+		"rgba(255,111,145,0.38)",
 	],
 	cardGradients: [
-		"linear-gradient(135deg, rgba(98,217,255,0.18), rgba(56,168,255,0.08))",
-		"linear-gradient(135deg, rgba(138,180,255,0.16), rgba(108,148,255,0.07))",
-		"linear-gradient(135deg, rgba(98,255,200,0.14), rgba(56,224,180,0.06))",
-		"linear-gradient(135deg, rgba(255,180,98,0.14), rgba(255,148,56,0.06))",
+		"linear-gradient(135deg, rgba(76,201,240,0.20), rgba(35,86,145,0.10))",
+		"linear-gradient(135deg, rgba(255,184,107,0.18), rgba(255,111,97,0.08))",
+		"linear-gradient(135deg, rgba(126,231,135,0.16), rgba(35,134,99,0.08))",
+		"linear-gradient(135deg, rgba(255,111,145,0.16), rgba(123,92,255,0.08))",
 	],
 	cardText: "#eef6ff",
 
-	hookAccentLine: "linear-gradient(90deg, transparent, rgba(98,217,255,0.7), transparent)",
+	hookAccentLine: "linear-gradient(90deg, transparent, rgba(76,201,240,0.72), rgba(255,184,107,0.72), transparent)",
 };
 
 export const lightTheme: VideoTheme = {
 	bg: "#f8f9fa",
 	bgGradient:
-		"radial-gradient(circle at 50% 18%, rgba(37,99,235,0.08), transparent 30%), linear-gradient(180deg, #f8f9fa 0%, #e9ecef 58%, #f1f3f5 100%)",
-	bgCard: "rgba(37,99,235,0.06)",
+		"linear-gradient(135deg, rgba(37,99,235,0.11) 0%, transparent 34%), linear-gradient(35deg, rgba(245,158,11,0.12) 0%, transparent 30%), linear-gradient(180deg, #f8fafc 0%, #eef2f7 56%, #f8fafc 100%)",
+	bgCard: "rgba(255,255,255,0.72)",
 
 	textPrimary: "#1a1a2e",
 	textSecondary: "#4a4a6a",

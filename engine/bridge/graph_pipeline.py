@@ -309,12 +309,12 @@ def _normalize_scene_dsl(dsl: dict[str, Any], text: str) -> dict[str, Any]:
 
 def _role_color(role: str) -> dict[str, str]:
     palette = {
-        "source": {"stroke": "#62d9ff", "fill": "rgba(98,217,255,0.14)"},
-        "processor": {"stroke": "#7cf29a", "fill": "rgba(124,242,154,0.13)"},
-        "storage": {"stroke": "#ffd166", "fill": "rgba(255,209,102,0.14)"},
-        "result": {"stroke": "#ff8f70", "fill": "rgba(255,143,112,0.14)"},
+        "source": {"stroke": "#4cc9f0", "fill": "rgba(76,201,240,0.15)"},
+        "processor": {"stroke": "#7ee787", "fill": "rgba(126,231,135,0.13)"},
+        "storage": {"stroke": "#ffb86b", "fill": "rgba(255,184,107,0.15)"},
+        "result": {"stroke": "#ff6f91", "fill": "rgba(255,111,145,0.14)"},
     }
-    return palette.get(role, {"stroke": "#9bb7ff", "fill": "rgba(155,183,255,0.12)"})
+    return palette.get(role, {"stroke": "#90b4ff", "fill": "rgba(144,180,255,0.12)"})
 
 
 def apply_graph_layout(
@@ -327,22 +327,30 @@ def apply_graph_layout(
 
     count = len(nodes)
     center_x = width / 2
-    top = 360
-    usable_h = 760
+    top = 430
+    usable_h = 720
 
     if count <= 4:
-        positions = [(center_x, top + i * (usable_h / max(1, count - 1))) for i in range(count)]
+        offsets = [-170, 170, -120, 120]
+        positions = [
+            (
+                center_x + (offsets[i] if count > 2 else 0),
+                top + i * (usable_h / max(1, count - 1)),
+            )
+            for i in range(count)
+        ]
     else:
         positions = []
         for index in range(count):
             layer = index
             y = top + layer * (usable_h / max(1, count - 1))
-            spread = 250 if count >= 5 else 190
-            x = center_x + (math.sin(index * 1.7) * spread)
+            x = center_x + ((-1) ** index) * (170 + (index % 3) * 52)
+            x += math.sin(index * 1.7) * 38
             if index == 0:
-                x = center_x - 240
+                x = center_x - 245
             elif index == count - 1:
-                x = center_x + 240
+                x = center_x + 245
+            x = max(170, min(width - 170, x))
             positions.append((x, y))
 
     for index, node in enumerate(nodes):
@@ -350,10 +358,10 @@ def apply_graph_layout(
         colors = _role_color(str(node.get("role", "")))
         node.update(
             {
-                "x": round(x - 125),
-                "y": round(y - 50),
-                "width": 250,
-                "height": 100,
+                "x": round(x - 139),
+                "y": round(y - 52),
+                "width": 278,
+                "height": 104,
                 "color": colors["stroke"],
                 "fill": colors["fill"],
             }
@@ -370,12 +378,12 @@ def apply_graph_layout(
             round(target["y"] + target["height"] / 2),
         ]
         edge["color"] = {
-            "request": "#62d9ff",
-            "lookup": "#7cf29a",
-            "store": "#ffd166",
-            "return": "#ff8f70",
-            "control": "#c7d2fe",
-        }.get(str(edge.get("kind")), "#9bb7ff")
+            "request": "#4cc9f0",
+            "lookup": "#7ee787",
+            "store": "#ffb86b",
+            "return": "#ff6f91",
+            "control": "#b8c7ff",
+        }.get(str(edge.get("kind")), "#90b4ff")
 
     return {
         **dsl,
@@ -1056,7 +1064,7 @@ def build_graph_video_layout(
     voice: str = DEFAULT_TTS_VOICE,
     rate: int = 0,
     use_llm_director: bool = False,
-    theme: str = "light",
+    theme: str = "dark",
 ) -> dict[str, Any]:
     total_frames = max(1, round(total_ms / 1000 * FPS))
     dsl = generate_scene_dsl(text)
@@ -1461,7 +1469,7 @@ def render_scene_ir(scene_ir: dict, scene_id: str, output_dir: str = "") -> str:
     width = scene_ir.get("width", 1080)
     height = scene_ir.get("height", 1920)
     fps = scene_ir.get("fps", 30)
-    theme = scene_ir.get("theme", "light")
+    theme = scene_ir.get("theme", "dark")
     scene_type = scene_ir.get("scene_type", "graph")
     duration = scene_ir.get("duration_in_frames", 100)
 

@@ -339,13 +339,9 @@ export const ShotDensityStack: React.FC<ShotDensityStackProps> = ({
 	const brightness = 0.92 + variationValue * 0.16;
 	const contrast = 1.02 + secondaryValue * 0.1;
 	const saturate = 1.04 + variationValue * 0.18;
-	const overlayOpacity = (hasObjects ? 0.08 : 0.14) + variationValue * 0.1;
-	const grainOpacity = (hasObjects ? 0.04 : 0.08) + secondaryValue * 0.05;
-	const noiseShiftX = ((variationStep * 17) + seed) % 120;
-	const noiseShiftY = ((variationStep * 11) + seed) % 96;
-	const sweepTravel = ((localFrame * 10) + seed) % (width * 2);
-	const sweepAngle = (seed % 24) - 12;
-	const bgHue = seed % 360;
+	const overlayOpacity = (hasObjects ? 0.10 : 0.18) + variationValue * 0.08;
+	const sweepTravel = ((localFrame * 8) + seed) % (width * 2);
+	const sweepAngle = (seed % 16) - 8;
 	const objectStates = hasObjects
 		? resolveInteractionStates({
 			shot,
@@ -367,12 +363,7 @@ export const ShotDensityStack: React.FC<ShotDensityStackProps> = ({
 		>
 			<AbsoluteFill
 				style={{
-					background: "#ffffff",
-				}}
-			/>
-			<AbsoluteFill
-				style={{
-					background: "#ffffff",
+					background: "linear-gradient(180deg, #08111c 0%, #121827 58%, #070b10 100%)",
 				}}
 			/>
 
@@ -412,16 +403,23 @@ export const ShotDensityStack: React.FC<ShotDensityStackProps> = ({
 						filter: `brightness(${brightness}) contrast(${contrast}) saturate(${saturate})`,
 					}}
 				>
+					<Img
+						src={shot.src}
+						style={{
+							position: "absolute",
+							inset: 0,
+							width: "100%",
+							height: "100%",
+							objectFit: "cover",
+							filter: "blur(34px) brightness(0.72) saturate(1.1)",
+							transform: "scale(1.12)",
+						}}
+					/>
 					<div
 						style={{
 							position: "absolute",
-							right: 0,
-							top: "50%",
-							transform: "translateY(-50%)",
-							width: 216,
-							height: 768,
+							inset: 0,
 							overflow: "hidden",
-							borderRadius: 0,
 						}}
 					>
 						<Img
@@ -437,6 +435,20 @@ export const ShotDensityStack: React.FC<ShotDensityStackProps> = ({
 			) : null}
 
 			{/* 纯白背景，不添加任何深色覆盖层 */}
+			<AbsoluteFill
+				style={{
+					background: `linear-gradient(${96 + sweepAngle}deg, transparent 18%, rgba(255,255,255,0.18) 48%, transparent 78%)`,
+					transform: `translateX(${sweepTravel - width}px)`,
+					opacity: overlayOpacity * 0.45,
+					mixBlendMode: "soft-light",
+				}}
+			/>
+			<AbsoluteFill
+				style={{
+					background: "linear-gradient(180deg, rgba(255,255,255,0.04), transparent 28%, rgba(0,0,0,0.34)), radial-gradient(ellipse at center, transparent 46%, rgba(0,0,0,0.46) 100%)",
+					pointerEvents: "none",
+				}}
+			/>
 		</div>
 	);
 };

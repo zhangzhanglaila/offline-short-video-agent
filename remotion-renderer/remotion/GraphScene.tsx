@@ -1,6 +1,5 @@
 import React, {useMemo} from "react";
 import {
-	AbsoluteFill,
 	Easing,
 	interpolate,
 	useCurrentFrame,
@@ -8,6 +7,7 @@ import {
 import {FONT_FAMILY} from "./constants";
 import {getTheme} from "./theme";
 import type {VideoTheme} from "./theme";
+import {CaptionPlate, ConceptIllustration, SceneBackdrop, fitFontSize, readableShadow} from "./visualDesign";
 import type {GraphSceneData, GraphShot, GraphStep, GraphTimelineEvent} from "./types";
 import {
 	DataPulse,
@@ -308,34 +308,27 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 		extrapolateLeft: "clamp",
 		extrapolateRight: "clamp",
 	});
+	const titleFontSize = fitFontSize(graph.title, isSplit ? 42 : 54, isSplit ? 18 : 16);
 
 	const cameraTransform = [animState.cameraTransform, shotCamera]
 		.filter((t) => t && t !== "none")
 		.join(" ");
 
 	return (
-		<AbsoluteFill
-			style={{
-				width,
-				height,
-				overflow: "hidden",
-				background:
-					"radial-gradient(circle at 50% 18%, rgba(98,217,255,0.16), transparent 30%), linear-gradient(180deg, #071018 0%, #070b10 58%, #091018 100%)",
-				fontFamily: FONT_FAMILY,
-			}}
-		>
+		<SceneBackdrop theme={theme} frame={frame} width={width} height={height}>
 				<div
 					style={{
 						position: "absolute",
-						left: 0,
-						right: 0,
+						left: 84,
+						right: 84,
 						top: titleY,
 						opacity: titleOpacity,
 						textAlign: "center",
 						color: theme.textPrimary,
-						fontSize: isSplit ? 42 : 54,
+						fontSize: titleFontSize,
 						fontWeight: 820,
-						textShadow: `0 0 28px ${theme.accentGlow}`,
+						lineHeight: 1.08,
+						textShadow: readableShadow(theme, 0.8),
 						zIndex: 10,
 					}}
 				>
@@ -347,11 +340,11 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 							position: "absolute",
 							left: 120,
 							right: 120,
-							top: 150,
+							top: titleY + 72,
 							opacity: titleOpacity * 0.78,
 							textAlign: "center",
 							color: theme.textSecondary,
-							fontSize: 24,
+							fontSize: fitFontSize(graph.summary, 24, 48),
 							lineHeight: 1.35,
 							zIndex: 10,
 						}}
@@ -360,13 +353,18 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 					</div>
 				) : null}
 				{activeBeat && "text" in activeBeat && activeBeat.text ? (
-					<div
+					<CaptionPlate
+						theme={theme}
+						text={activeBeat.text}
 						style={{
-							position: "absolute",
-							left: 140,
-							right: 140,
-							top: 232,
-							opacity: interpolate(beatProgress, [0, 0.12, 0.86, 1], [0, 1, 1, 0], {
+							left: 118,
+							right: 118,
+							top: 230,
+							bottom: "auto",
+							minHeight: 68,
+							padding: "18px 28px",
+							fontSize: fitFontSize(activeBeat.text, 28, 42),
+							opacity: interpolate(beatProgress, [0, 0.12, 0.86, 1], [0, 0.95, 0.95, 0], {
 								extrapolateLeft: "clamp",
 								extrapolateRight: "clamp",
 							}),
@@ -375,18 +373,22 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 								extrapolateLeft: "clamp",
 								extrapolateRight: "clamp",
 							})}px)`,
-							color: theme.textPrimary,
-							fontSize: 28,
-							fontWeight: 680,
-							textAlign: "center",
-							lineHeight: 1.35,
-							zIndex: 10,
-							textShadow: `0 2px 18px ${theme.edgeLabelStroke}88`,
 						}}
-					>
-						{activeBeat.text}
-					</div>
+					/>
 				) : null}
+				<ConceptIllustration
+					label={graph.title}
+					theme={theme}
+					frame={frame}
+					variant="graph"
+					motif="flow"
+					style={{
+						right: 32,
+						bottom: 226,
+						opacity: 0.72,
+						transform: `translateY(${Math.sin(frame * 0.025) * 10}px) scale(1.04)`,
+					}}
+				/>
 				<svg
 					width={width}
 					height={height}
@@ -489,6 +491,6 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 						) : null}
 					</div>
 				) : null}
-				</AbsoluteFill>
+				</SceneBackdrop>
 			);
 		};

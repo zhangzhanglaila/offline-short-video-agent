@@ -2054,6 +2054,16 @@ const TextLayer: React.FC<{ element: TextElement; frame: number }> = ({ element,
         ? "translateX(-100%)"
         : "";
   const combinedTransform = [horizontalTransform, transform].filter(Boolean).join(" ").trim();
+  const isCaption = element.id.includes("subtitle_") || element.id.includes("_caption_") || element.id.includes("caption_");
+  const captionChrome: React.CSSProperties = isCaption ? {
+    background: "linear-gradient(180deg, rgba(8,16,28,0.78), rgba(8,16,28,0.64))",
+    border: "1px solid rgba(255,255,255,0.16)",
+    borderRadius: 8,
+    padding: "18px 28px",
+    boxSizing: "border-box",
+    boxShadow: "0 18px 48px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.16)",
+    backdropFilter: "blur(10px)",
+  } : {};
 
   // ── 逐词高亮渲染 ─────────────────────────────────────────
   // 只在 wordCues 存在时才启用词级渲染
@@ -2085,6 +2095,7 @@ const TextLayer: React.FC<{ element: TextElement; frame: number }> = ({ element,
             zIndex: element.zIndex,
             whiteSpace: "normal",
             wordBreak: "break-word",
+            ...captionChrome,
           }}
         >
           {/* 整句渲染，当前词高亮 */}
@@ -2116,6 +2127,7 @@ const TextLayer: React.FC<{ element: TextElement; frame: number }> = ({ element,
         zIndex: element.zIndex,
         whiteSpace: "normal",
         wordBreak: "break-word",
+        ...captionChrome,
       }}
     >
       {element.text}
