@@ -446,6 +446,48 @@ class Agent:
 
     def _handle_video_request(self, message: str, task_id: str = None, stream: bool = False) -> Any:
         """处理视频生成请求"""
+        concept_keywords = (
+            "原理",
+            "底层",
+            "解释",
+            "讲解",
+            "概念",
+            "是什么",
+            "Redis",
+            "redis",
+        )
+        if any(keyword in message for keyword in concept_keywords):
+            try:
+                if AGENT_CONFIG.get('log_to_ui'):
+                    push_agent_log(task_id, "Agent concept-video tool selected", 'info', self.agent_id)
+            except Exception:
+                pass
+
+            try:
+                result = self.retry.with_retry(
+                    self.executor.execute_tool
+                )("generate_concept_video", {
+                    "topic": message,
+                    "duration_ms": 12000,
+                    "enable_audio": True,
+                    "use_llm_director": False,
+                    "agent_id": self.agent_id,
+                })
+            except Exception as e:
+                return self._stream_or_return(f"Agent concept video generation failed: {str(e)}", stream)
+
+            if result.success:
+                payload = result.result or {}
+                response = (
+                    "Agent 自动生成视频成功：\n\n"
+                    f"输出视频: {payload.get('output_path')}\n"
+                    f"布局文件: {payload.get('layout_path')}\n"
+                    "来源标记: provenance.source=agent_tool"
+                )
+                return self._stream_or_return(response, stream)
+
+            return self._stream_or_return(f"Agent concept video generation failed: {result.error}", stream)
+
         try:
             if AGENT_CONFIG.get('log_to_ui'):
                 push_agent_log(task_id, "读取素材...", 'info', self.agent_id)
@@ -636,10 +678,8 @@ class Agent:
     def _stream_or_return(self, response: str, stream: bool):
         """根据stream参数返回或生成"""
         if stream:
-            # 流式返回
-            yield response
-        else:
-            return {"success": True, "response": response}
+            return iter([response])
+        return {"success": True, "response": response}
 
     def get_session_info(self, session_id: str) -> Optional[Dict]:
         """获取会话信息"""

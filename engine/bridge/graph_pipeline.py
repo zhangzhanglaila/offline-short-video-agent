@@ -14,6 +14,7 @@ import math
 import re
 import subprocess
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -1065,6 +1066,8 @@ def build_graph_video_layout(
     rate: int = 0,
     use_llm_director: bool = False,
     theme: str = "dark",
+    provenance_source: str = "cli",
+    provenance_agent_id: str = "",
 ) -> dict[str, Any]:
     total_frames = max(1, round(total_ms / 1000 * FPS))
     dsl = generate_scene_dsl(text)
@@ -1371,6 +1374,7 @@ def build_graph_video_layout(
     for scene in scenes:
         scene.pop("audioTracks", None)
 
+    generation_id = uuid.uuid4().hex
     return {
         "width": width,
         "height": height,
@@ -1386,6 +1390,18 @@ def build_graph_video_layout(
         "scenes": scenes,
         "audioTracks": audio_tracks,
         "explainerScript": explainer_script,
+        "provenance": {
+            "source": provenance_source,
+            "agentId": provenance_agent_id,
+            "generationId": generation_id,
+            "topic": text,
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+            "pipeline": "engine.bridge.graph_pipeline.build_graph_video_layout",
+            "renderer": "remotion-renderer/render-agent-semantic.mjs",
+            "llmSceneDsl": "attempted_with_fallback",
+            "llmDirector": "enabled" if use_llm_director else "disabled",
+            "audio": "enabled" if enable_audio else "disabled",
+        },
     }
 
 
@@ -1395,8 +1411,8 @@ def render_layout_json(layout_path: str, video_out: str) -> str:
         [
             "node",
             "render-agent-semantic.mjs",
-            f"..\\{layout_path}",
-            f"..\\{video_out}",
+            _remotion_cli_path(layout_path),
+            _remotion_cli_path(video_out),
         ],
         cwd="remotion-renderer",
         check=True,
@@ -1405,6 +1421,14 @@ def render_layout_json(layout_path: str, video_out: str) -> str:
     if result.returncode != 0:
         raise RuntimeError("Remotion graph render failed")
     return video_out
+
+
+def _remotion_cli_path(path_value: str) -> str:
+    """Path argument for commands executed from remotion-renderer/."""
+    path_obj = Path(path_value)
+    if path_obj.is_absolute():
+        return str(path_obj)
+    return f"..\\{path_value}"
 
 
 def render_graph_video(
@@ -1416,6 +1440,8 @@ def render_graph_video(
     voice: str = DEFAULT_TTS_VOICE,
     rate: int = 0,
     use_llm_director: bool = False,
+    provenance_source: str = "cli",
+    provenance_agent_id: str = "",
 ) -> tuple[str, str]:
     layout = build_graph_video_layout(
         text,
@@ -1424,6 +1450,8 @@ def render_graph_video(
         voice=voice,
         rate=rate,
         use_llm_director=use_llm_director,
+        provenance_source=provenance_source,
+        provenance_agent_id=provenance_agent_id,
     )
     with open(layout_out, "w", encoding="utf-8") as file:
         json.dump(layout, file, ensure_ascii=False, indent=2)
@@ -1432,8 +1460,8 @@ def render_graph_video(
         [
             "node",
             "render-agent-semantic.mjs",
-            f"..\\{layout_out}",
-            f"..\\{video_out}",
+            _remotion_cli_path(layout_out),
+            _remotion_cli_path(video_out),
         ],
         cwd="remotion-renderer",
         check=True,
@@ -1531,8 +1559,8 @@ def render_scene_ir(scene_ir: dict, scene_id: str, output_dir: str = "") -> str:
         [
             "node",
             "render-agent-semantic.mjs",
-            f"..\\{layout_path}",
-            f"..\\{video_path}",
+            _remotion_cli_path(str(layout_path)),
+            _remotion_cli_path(str(video_path)),
             f"--scene-id={scene_id}",
         ],
         cwd="remotion-renderer",

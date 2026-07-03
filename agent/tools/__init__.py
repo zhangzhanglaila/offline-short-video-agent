@@ -15,6 +15,7 @@ from .timeline_tool import TimelineSyncTool
 from .image_fetch_tool import ImageFetchTool
 from .dual_mode_tool import DualModeGenerateTool
 from .lineart_tool import LineartVideoTool
+from .concept_video_tool import ConceptVideoTool
 
 __all__ = [
     'BaseTool', 'ToolDefinition', 'ToolParameter', 'ToolResult', 'ToolCategory',
@@ -22,6 +23,7 @@ __all__ = [
     'VideoEditTool', 'SubtitleGenerateTool', 'PlatformAdaptTool',
     'TTSGenerateTool', 'AnimationGenerateTool', 'TimelineSyncTool',
     'ImageFetchTool', 'DualModeGenerateTool', 'LineartVideoTool',
+    'ConceptVideoTool',
 ]
 
 # 导出所有工具实例化函数
@@ -40,4 +42,5 @@ def get_all_tools():
         ImageFetchTool(),
         DualModeGenerateTool(),
         LineartVideoTool(),
+        ConceptVideoTool(),
     ]

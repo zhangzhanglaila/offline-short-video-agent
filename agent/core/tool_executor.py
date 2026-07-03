@@ -16,10 +16,10 @@ class ToolExecutor:
     INTENT_ROUTES = {
         "topic_request": ["get_hot_topics"],
         "script_request": ["get_hot_topics", "generate_script"],
-        "video_request": ["get_local_materials", "render_video"],
+        "video_request": ["generate_concept_video", "get_local_materials", "render_video"],
         "subtitle_request": ["generate_subtitle"],
         "platform_request": ["adapt_platform_content"],
-        "full_workflow": ["get_hot_topics", "generate_script", "get_local_materials", "render_video", "generate_subtitle", "adapt_platform_content"]
+        "full_workflow": ["get_hot_topics", "generate_script", "generate_concept_video", "get_local_materials", "render_video", "generate_subtitle", "adapt_platform_content"]
     }
 
     # 意图分类Prompt
