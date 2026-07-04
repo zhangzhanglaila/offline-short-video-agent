@@ -455,12 +455,12 @@ def _build_shot_objects(
     glow_enabled = bool(meta.get('glow', False))
     shake_enabled = bool(meta.get('shake', False))
 
-    # 全帧contain布局参数
-    subject_width = 540
-    subject_height = 720
-    subject_from_x = 270   # (1080 - 540) / 2 = 270，水平居中
-    subject_to_x = 270
-    subject_y = 600        # (1920 - 720) / 2 = 600，垂直居中
+    # Keep searched images as a compact supporting card, not a full-screen plate.
+    subject_width = 320
+    subject_height = 390
+    subject_from_x = width - subject_width - 58
+    subject_to_x = subject_from_x - (34 if intent in {'approach', 'impact'} else 14)
+    subject_y = 420
     fg_from_x, fg_to_x = {
         'approach': (790, 610),
         'reveal': (700, 940),
@@ -480,16 +480,8 @@ def _build_shot_objects(
     if shake_enabled:
         light_to_x -= 140
 
-    bg_to_scale = {
-        'approach': 1.10,
-        'reveal': 1.12,
-        'impact': 1.14,
-        'release': 1.06,
-        'linger': 1.04,
-        'steady': 1.08,
-    }.get(intent, 1.08)
-    subject_to_scale = 1.02 + energy * (0.05 if emotion != 'calm' else 0.02)
-    subject_end_y = subject_y + (22 if shake_enabled else -8 if intent == 'reveal' else 0)
+    subject_to_scale = 1.0 + energy * (0.025 if emotion != 'calm' else 0.012)
+    subject_end_y = subject_y + (16 if shake_enabled else -6 if intent == 'reveal' else 0)
     foreground_opacity = 0.20 + energy * 0.12 + (0.05 if glow_enabled else 0.0)
     light_opacity = 0.18 + energy * 0.18
     aura_opacity = 0.10 + energy * 0.18
@@ -505,8 +497,8 @@ def _build_shot_objects(
             'width': subject_width,
             'height': subject_height,
             'opacity': 0.98,
-            'borderRadius': 0,
-            'objectFit': 'cover',
+            'borderRadius': 24,
+            'objectFit': 'contain',
             'animation': {
                 'type': 'move',
                 'from': [subject_from_x, subject_y],

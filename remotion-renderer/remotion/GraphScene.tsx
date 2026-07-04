@@ -383,10 +383,10 @@ export const GraphScene: React.FC<{graph: GraphSceneData; width: number; height:
 					variant="graph"
 					motif="flow"
 					style={{
-						right: 32,
-						bottom: 226,
-						opacity: 0.72,
-						transform: `translateY(${Math.sin(frame * 0.025) * 10}px) scale(1.04)`,
+						right: 42,
+						top: 430,
+						opacity: 0.34,
+						transform: `translateY(${Math.sin(frame * 0.025) * 6}px)`,
 					}}
 				/>
 				<svg

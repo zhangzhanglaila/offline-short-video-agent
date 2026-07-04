@@ -276,6 +276,19 @@ const ObjectLayer: React.FC<{
 				mixBlendMode: object.blendMode ?? "normal",
 				borderRadius: object.borderRadius ?? 0,
 				filter: state.blur > 0 ? `blur(${state.blur}px)` : "none",
+				background:
+					object.type === "image" && object.objectFit === "contain"
+						? "linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.04))"
+						: undefined,
+				border:
+					object.type === "image" && object.objectFit === "contain"
+						? "1px solid rgba(255,255,255,0.18)"
+						: undefined,
+				boxShadow:
+					object.type === "image" && object.objectFit === "contain"
+						? "0 22px 58px rgba(0,0,0,0.32)"
+						: undefined,
+				padding: object.type === "image" && object.objectFit === "contain" ? 12 : 0,
 			}}
 		>
 			{object.type === "image" && object.src ? (
@@ -285,7 +298,10 @@ const ObjectLayer: React.FC<{
 						width: "100%",
 						height: "100%",
 						objectFit: object.objectFit ?? "cover",
-						borderRadius: object.borderRadius ?? 0,
+						borderRadius:
+							object.objectFit === "contain"
+								? Math.max((object.borderRadius ?? 24) - 10, 10)
+								: object.borderRadius ?? 0,
 					}}
 				/>
 			) : null}
@@ -403,16 +419,42 @@ export const ShotDensityStack: React.FC<ShotDensityStackProps> = ({
 						filter: `brightness(${brightness}) contrast(${contrast}) saturate(${saturate})`,
 					}}
 				>
-					<Img
-						src={shot.src}
+					<div
 						style={{
 							position: "absolute",
-							inset: 0,
-							width: "100%",
-							height: "100%",
-							objectFit: "cover",
-							filter: "blur(34px) brightness(0.72) saturate(1.1)",
-							transform: "scale(1.12)",
+							right: 64,
+							top: 360,
+							width: Math.min(width * 0.36, 390),
+							height: Math.min(height * 0.24, 460),
+							borderRadius: 28,
+							background: "linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.04))",
+							border: "1px solid rgba(255,255,255,0.18)",
+							boxShadow: "0 24px 64px rgba(0,0,0,0.34)",
+							padding: 12,
+							overflow: "hidden",
+						}}
+					>
+						<Img
+							src={shot.src}
+							style={{
+								width: "100%",
+								height: "100%",
+								objectFit: "contain",
+								borderRadius: 18,
+							}}
+						/>
+					</div>
+					<div
+						style={{
+							position: "absolute",
+							right: 42,
+							top: 336,
+							width: Math.min(width * 0.22, 240),
+							height: Math.min(height * 0.14, 260),
+							borderRadius: 999,
+							background: "radial-gradient(circle, rgba(255,255,255,0.22), transparent 68%)",
+							mixBlendMode: "screen",
+							opacity: 0.26,
 						}}
 					/>
 					<div
@@ -422,12 +464,15 @@ export const ShotDensityStack: React.FC<ShotDensityStackProps> = ({
 							overflow: "hidden",
 						}}
 					>
-						<Img
-							src={shot.src}
+						<div
 							style={{
-								width: "100%",
-								height: "100%",
-								objectFit: "cover",
+								position: "absolute",
+								left: 72,
+								top: 520,
+								width: 260,
+								height: 3,
+								borderRadius: 999,
+								background: "rgba(255,255,255,0.18)",
 							}}
 						/>
 					</div>

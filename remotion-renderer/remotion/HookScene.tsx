@@ -58,8 +58,9 @@ export const HookScene: React.FC<HookSceneProps> = ({text, durationInFrames, the
 					variant="hero"
 					motif="data"
 					style={{
-						right: 0,
-						top: 110,
+						right: 28,
+						top: 162,
+						opacity: 0.88,
 					}}
 				/>
 				<div
@@ -67,7 +68,7 @@ export const HookScene: React.FC<HookSceneProps> = ({text, durationInFrames, the
 						position: "absolute",
 						left: 0,
 						top: 168,
-						width: 560,
+						width: 640,
 						zIndex: 6,
 						color: theme.textPrimary,
 						fontSize: Math.min(fontSize, 62),

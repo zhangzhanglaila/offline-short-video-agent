@@ -1511,22 +1511,25 @@ export function generateVideoLayoutFromScript(
 
     // ---- 版式0：封面沉浸式（图片全屏 + 居中大字）----
     if (layoutType === "full-image") {
-      const imgH = 500;
-      const imgY = stepStartY + i * stepGap;
+      const imgW = 320;
+      const imgH = 360;
+      const imgX = WIDTH - imgW - 54;
+      const imgY = stepStartY + i * stepGap + 56;
 
       elements.push({
         id: `s${i+1}-img`, type: "image",
         src: stepImageUrls[i],
-        x: 30, y: imgY, width: WIDTH - 60, height: imgH,
-        borderRadius: 16,
+        x: imgX, y: imgY, width: imgW, height: imgH,
+        borderRadius: 24,
+        objectFit: "contain",
         start: showFrom, duration: 170, zIndex: sz,
         animation: { enter: "zoom-in", duration: 18 },
       });
       elements.push({
         id: `s${i+1}-overlay`, type: "shape", shape: "rect",
-        x: 30, y: imgY, width: WIDTH - 60, height: imgH,
-        color: "transparent", fillColor: "rgba(10,14,20,0.55)",
-        borderRadius: 16,
+        x: imgX, y: imgY, width: imgW, height: imgH,
+        color: "transparent", fillColor: "rgba(255,255,255,0.05)",
+        borderRadius: 24,
         start: showFrom, duration: 170, zIndex: sz + 1,
         animation: { enter: "fade", duration: 12 },
       });
@@ -1549,8 +1552,8 @@ export function generateVideoLayoutFromScript(
       elements.push({
         id: `s${i+1}-title`, type: "text",
         text: step.title,
-        x: 60, y: imgY + 180,
-        fontSize: 42, color: "#FFFFFF", fontWeight: 800, textAlign: "center", maxWidth: WIDTH - 120,
+        x: 60, y: imgY + 92,
+        fontSize: 42, color: "#FFFFFF", fontWeight: 800, textAlign: "left", maxWidth: WIDTH - imgW - 150,
         start: showFrom + 8, duration: 162, zIndex: sz + 2,
         wordCues: getWordCues(i + 1),
         animation: { enter: "bounce-in", duration: 16 },
@@ -1559,8 +1562,8 @@ export function generateVideoLayoutFromScript(
       elements.push({
         id: `s${i+1}-desc`, type: "text",
         text: step.desc,
-        x: 60, y: imgY + 310,
-        fontSize: 22, color: "#CCCCCC", fontWeight: 400, textAlign: "center", maxWidth: WIDTH - 120,
+        x: 60, y: imgY + 218,
+        fontSize: 22, color: "#CCCCCC", fontWeight: 400, textAlign: "left", maxWidth: WIDTH - imgW - 150,
         start: showFrom + 20, duration: 150, zIndex: sz + 2,
         animation: { enter: "fade", duration: 14 },
       });
@@ -1568,7 +1571,7 @@ export function generateVideoLayoutFromScript(
       elements.push({
         id: `s${i+1}-emoji`, type: "sticker",
         emoji: step.icon,
-        x: WIDTH - 120, y: imgY + 20, size: 52,
+        x: imgX + imgW - 72, y: imgY + 20, size: 52,
         start: showFrom + 12, duration: 158, zIndex: sz + 3,
         animation: { enter: "bounce-in", duration: 14 },
       });
@@ -1645,30 +1648,33 @@ export function generateVideoLayoutFromScript(
 
     // ---- 版式2：电影感（深遮罩 + 底部小字）----
     if (layoutType === "cinematic") {
-      const imgY = stepStartY + i * stepGap;
-      const imgH = 450;
+      const imgW = 330;
+      const imgH = 360;
+      const imgX = WIDTH - imgW - 58;
+      const imgY = stepStartY + i * stepGap + 50;
 
       elements.push({
         id: `s${i+1}-img`, type: "image",
         src: stepImageUrls[i],
-        x: 0, y: imgY, width: WIDTH, height: imgH,
-        borderRadius: 0,
+        x: imgX, y: imgY, width: imgW, height: imgH,
+        borderRadius: 24,
+        objectFit: "contain",
         start: showFrom, duration: 170, zIndex: sz,
         animation: { enter: "zoom-in", duration: 20 },
       });
       // 深遮罩
       elements.push({
         id: `s${i+1}-overlay`, type: "shape", shape: "rect",
-        x: 0, y: imgY, width: WIDTH, height: imgH,
-        color: "transparent", fillColor: "rgba(10,14,20,0.72)",
-        borderRadius: 0,
+        x: imgX, y: imgY, width: imgW, height: imgH,
+        color: "transparent", fillColor: "rgba(10,14,20,0.22)",
+        borderRadius: 24,
         start: showFrom, duration: 170, zIndex: sz + 1,
         animation: { enter: "fade", duration: 12 },
       });
       // 编号（小，底部左侧）
       elements.push({
         id: `s${i+1}-n`, type: "shape", shape: "circle",
-        x: 50, y: imgY + imgH - 80, width: 44, height: 44,
+        x: 56, y: imgY + 72, width: 44, height: 44,
         color: primary, fillColor: `${primary}25`,
         start: showFrom + 8, duration: 162, zIndex: sz + 2,
         animation: { enter: "fade", duration: 12 },
@@ -1676,7 +1682,7 @@ export function generateVideoLayoutFromScript(
       elements.push({
         id: `s${i+1}-num`, type: "text",
         text: String(i + 1),
-        x: 50, y: imgY + imgH - 74,
+        x: 56, y: imgY + 78,
         fontSize: 20, color: primary, fontWeight: 900, textAlign: "center",
         start: showFrom + 10, duration: 160, zIndex: sz + 3,
       });
@@ -1684,8 +1690,8 @@ export function generateVideoLayoutFromScript(
       elements.push({
         id: `s${i+1}-title`, type: "text",
         text: step.title,
-        x: 110, y: imgY + imgH - 90,
-        fontSize: 36, color: "#FFFFFF", fontWeight: 800, textAlign: "left", maxWidth: WIDTH - 220,
+        x: 118, y: imgY + 58,
+        fontSize: 36, color: "#FFFFFF", fontWeight: 800, textAlign: "left", maxWidth: WIDTH - imgW - 190,
         start: showFrom + 10, duration: 160, zIndex: sz + 2,
         wordCues: getWordCues(i + 1),
         animation: { enter: "slide-up", duration: 16 },
@@ -1694,8 +1700,8 @@ export function generateVideoLayoutFromScript(
       elements.push({
         id: `s${i+1}-desc`, type: "text",
         text: step.desc,
-        x: 110, y: imgY + imgH - 45,
-        fontSize: 17, color: "#AAAAAA", fontWeight: 400, textAlign: "left", maxWidth: WIDTH - 220,
+        x: 118, y: imgY + 150,
+        fontSize: 17, color: "#AAAAAA", fontWeight: 400, textAlign: "left", maxWidth: WIDTH - imgW - 190,
         start: showFrom + 22, duration: 148, zIndex: sz + 2,
         animation: { enter: "fade", duration: 12 },
       });
@@ -1703,7 +1709,7 @@ export function generateVideoLayoutFromScript(
       elements.push({
         id: `s${i+1}-emoji`, type: "sticker",
         emoji: step.icon,
-        x: WIDTH - 100, y: imgY + 15, size: 48,
+        x: imgX + imgW - 68, y: imgY + 18, size: 48,
         start: showFrom + 14, duration: 156, zIndex: sz + 3,
         animation: { enter: "bounce-in", duration: 14 },
       });

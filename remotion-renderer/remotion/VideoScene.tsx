@@ -2137,22 +2137,39 @@ const TextLayer: React.FC<{ element: TextElement; frame: number }> = ({ element,
 
 const ImageLayerEl: React.FC<{ element: ImageElement }> = ({ element }) => {
   const { opacity, transform, filter, isVisible } = useElementAnimation(element.start, element.duration, element.animation);
+  const { width: canvasWidth, height: canvasHeight } = useVideoConfig();
   if (!isVisible) return null;
+
+  const isOversized =
+    element.width >= canvasWidth * 0.74 ||
+    element.height >= canvasHeight * 0.42;
+  const displayWidth = isOversized ? Math.min(element.width, canvasWidth * 0.36) : element.width;
+  const displayHeight = isOversized ? Math.min(element.height, canvasHeight * 0.24) : element.height;
+  const displayX = isOversized
+    ? Math.min(Math.max(element.x, canvasWidth - displayWidth - 52), canvasWidth - displayWidth - 36)
+    : element.x;
+  const displayY = isOversized
+    ? Math.min(Math.max(element.y, 132), canvasHeight - displayHeight - 360)
+    : element.y;
+  const fit = element.objectFit ?? (isOversized ? "contain" : "cover");
 
   return (
     <div
       style={{
         position: "absolute",
-        left: element.x,
-        top: element.y,
-        width: element.width,
-        height: element.height,
-        borderRadius: element.borderRadius ?? 12,
+        left: displayX,
+        top: displayY,
+        width: displayWidth,
+        height: displayHeight,
+        borderRadius: element.borderRadius ?? (isOversized ? 22 : 12),
         overflow: "hidden",
         opacity,
         transform,
         filter,
-        boxShadow: `0 8px 32px rgba(0,0,0,0.5)`,
+        background: "linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.04))",
+        border: isOversized ? "1px solid rgba(255,255,255,0.18)" : undefined,
+        padding: isOversized ? 10 : 0,
+        boxShadow: isOversized ? `0 18px 46px rgba(0,0,0,0.34)` : `0 8px 32px rgba(0,0,0,0.5)`,
         zIndex: element.zIndex,
       }}
     >
@@ -2161,7 +2178,8 @@ const ImageLayerEl: React.FC<{ element: ImageElement }> = ({ element }) => {
         style={{
           width: "100%",
           height: "100%",
-          objectFit: (element.objectFit as "cover") ?? "cover",
+          objectFit: fit,
+          borderRadius: isOversized ? Math.max((element.borderRadius ?? 22) - 8, 10) : 0,
         }}
       />
     </div>

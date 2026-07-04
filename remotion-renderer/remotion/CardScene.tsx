@@ -40,11 +40,11 @@ export const CardScene: React.FC<CardSceneProps> = ({title, items, durationInFra
 				variant="cards"
 				motif="insight"
 				style={{
-					left: 78,
-					top: 330,
-					opacity: 0.34,
+					left: 74,
+					top: 366,
+					opacity: 0.22,
 					zIndex: 1,
-					transform: `translateY(${Math.sin(frame * 0.026) * 8}px) rotate(-5deg)`,
+					transform: `translateY(${Math.sin(frame * 0.026) * 6}px) rotate(-5deg)`,
 				}}
 			/>
 			<ConceptIllustration
@@ -54,11 +54,11 @@ export const CardScene: React.FC<CardSceneProps> = ({title, items, durationInFra
 				variant="cards"
 				motif="data"
 				style={{
-					right: 68,
-					bottom: 360,
-					opacity: 0.26,
+					right: 74,
+					bottom: 396,
+					opacity: 0.2,
 					zIndex: 1,
-					transform: `translateY(${Math.cos(frame * 0.023) * 8}px) rotate(6deg) scale(0.82)`,
+					transform: `translateY(${Math.cos(frame * 0.023) * 6}px) rotate(6deg)`,
 				}}
 			/>
 			<div

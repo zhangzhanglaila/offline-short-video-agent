@@ -129,7 +129,7 @@ export const ConceptIllustration: React.FC<{
 	const accentB = theme.heroBorder;
 	const accentC = theme.cardBorders[(seed + 2) % theme.cardBorders.length] ?? theme.accent;
 	const compact = variant !== "hero";
-	const size = compact ? 360 : 470;
+	const size = variant === "hero" ? 270 : variant === "graph" ? 180 : 210;
 	const coreY = compact ? 158 : 210;
 	const resolvedMotif =
 		motif ?? (variant === "graph" ? "flow" : variant === "cards" ? "insight" : "data");
