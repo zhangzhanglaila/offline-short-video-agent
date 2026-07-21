@@ -277,7 +277,8 @@
       "Bash(rm config/__init__.py)",
       "Bash(rmdir config *)",
       "Bash(mkdir -p styles)",
-      "Bash(mv config/styles/* styles/)"
+      "Bash(mv config/styles/* styles/)",
+      "Bash(PYTHONIOENCODING=utf-8 python -c ' *)"
     ]
   }
 }
