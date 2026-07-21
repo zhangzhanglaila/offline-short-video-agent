@@ -4,6 +4,7 @@ from .base_agent import BaseAgent, get_logger
 from .message_bus import MessageBus, get_message_bus, reset_message_bus
 from .content_analysis_agent import ContentAnalysisAgent
 from .material_fetch_agent import MaterialFetchAgent
+from .video_compose_agent import VideoComposeAgent
 
 __all__ = [
     "BaseAgent",
@@ -13,4 +14,5 @@ __all__ = [
     "reset_message_bus",
     "ContentAnalysisAgent",
     "MaterialFetchAgent",
+    "VideoComposeAgent",
 ]
