@@ -155,16 +155,15 @@ TRENDING_TAGS = [
 ]
 
 # ═══════════════════════════════════════════════════════════════
-# 视频视觉风格预设 — 从 config/styles/ 加载
+# 视频视觉风格预设 — 从 styles/ 加载
 # ═══════════════════════════════════════════════════════════════
 try:
-    from config.styles import get_visual_styles_config, get_style, get_style_legacy
+    from styles import get_visual_styles_config
     VISUAL_STYLES = get_visual_styles_config()
-    # 验证至少有基础风格
     if not VISUAL_STYLES:
         raise ImportError("Style loader returned empty config")
 except Exception as e:
-    print(f"[Config] Failed to load styles from config/styles/: {e}, using fallback")
+    print(f"[Config] Failed to load styles from styles/: {e}, using fallback")
     # 降级到内置风格
     VISUAL_STYLES = {
     "manga": {
@@ -431,7 +430,7 @@ def get_visual_style_config(style_name: str = None) -> dict:
 
     # 优先使用新风格系统
     try:
-        from config.styles import get_style_legacy
+        from styles import get_style_legacy
         config = get_style_legacy(style_name)
         if config:
             return config
@@ -455,7 +454,7 @@ def get_style_info(style_id: str = None) -> dict:
         style_id = DEFAULT_VISUAL_STYLE
 
     try:
-        from config.styles import get_style
+        from styles import get_style
         return get_style(style_id) or {}
     except Exception:
         # 降级返回基础信息
@@ -469,7 +468,7 @@ def list_available_styles() -> list:
         [{id, name, name_cn, category, description}] 列表
     """
     try:
-        from config.styles import list_styles
+        from styles import list_styles
         return list_styles()
     except Exception:
         # 降级返回 VISUAL_STYLES 的键

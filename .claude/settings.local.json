@@ -273,7 +273,11 @@
       "Bash(git show *)",
       "Read(//tmp/**)",
       "Bash(ffmpeg *)",
-      "Bash(start *)"
+      "Bash(start *)",
+      "Bash(rm config/__init__.py)",
+      "Bash(rmdir config *)",
+      "Bash(mkdir -p styles)",
+      "Bash(mv config/styles/* styles/)"
     ]
   }
 }
