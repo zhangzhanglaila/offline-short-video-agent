@@ -149,6 +149,76 @@ class SceneImageRenderer:
         except Exception:
             return False
 
+    # ---------- 分层渲染(D1: 背景与字幕分离) ----------
+
+    def render_gradient_bg(self, output_path: str) -> bool:
+        """渲染纯渐变背景(内容场景无素材时的运镜背景)。
+
+        Args:
+            output_path: 输出路径
+
+        Returns:
+            True如果成功
+        """
+        try:
+            img = self._gradient_background()
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            img.convert("RGB").save(output_path)
+            return True
+        except Exception:
+            return False
+
+    def render_subtitle_overlay(self, text: str, output_path: str) -> bool:
+        """渲染透明字幕覆盖层(轻量lower-third，叠加在运镜背景上)。
+
+        相比旧版整块30%暗条，改为更轻盈的底部渐变，
+        让素材画面露出更多(≥90%可视)。
+
+        Args:
+            text: 字幕文字
+            output_path: 输出PNG路径(带透明通道)
+
+        Returns:
+            True如果成功
+        """
+        try:
+            w, h = self.size
+            overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+
+            # 底部轻量渐变条(约22%高，最大透明度更低)
+            bar_h = int(h * 0.22)
+            bar_top = h - bar_h
+            odraw = ImageDraw.Draw(overlay)
+            max_alpha = 165  # 比旧版220更轻
+            for y in range(bar_h):
+                alpha = int(max_alpha * (y / bar_h) ** 1.3)
+                odraw.rectangle([(0, bar_top + y), (w, bar_top + y + 1)],
+                                fill=(0, 0, 0, alpha))
+
+            # 字幕文字(白色描边，靠下居中)
+            font_size = int(w * 0.058)
+            font = self._font(font_size)
+            lines = self._wrap_text(text, font, int(w * 0.86), odraw)
+            line_height = int(font_size * 1.35)
+            total_h = line_height * len(lines)
+            y = h - int(bar_h * 0.5) - total_h // 2
+
+            for line in lines:
+                bbox = odraw.textbbox((0, 0), line, font=font)
+                line_w = bbox[2] - bbox[0]
+                x = (w - line_w) // 2
+                self._draw_text_with_outline(
+                    odraw, (x, y), line, font,
+                    fill=(255, 255, 255), outline=(0, 0, 0),
+                )
+                y += line_height
+
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            overlay.save(output_path)
+            return True
+        except Exception:
+            return False
+
     # ---------- 文字卡（标题/结尾） ----------
 
     def _render_text_card(self, text: str, scene_type: str) -> Image.Image:

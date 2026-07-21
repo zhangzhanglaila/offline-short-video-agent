@@ -61,15 +61,17 @@ class FFmpegComposer:
 
     def compose(
         self,
-        scenes: List[Tuple[str, float]],
+        scenes: list,
         output_path: str,
         transition_duration: float = 0.0,
         audio_path: Optional[str] = None,
     ) -> bool:
-        """将场景图序列合成为视频。
+        """将场景序列合成为视频。
 
         Args:
-            scenes: [(图片路径, 时长秒), ...]
+            scenes: 场景列表，元素可为：
+                - (图片路径, 时长秒) 元组：静态片段(向后兼容)
+                - SceneClipSpec：支持运镜和覆盖层
             output_path: 输出视频路径
             transition_duration: 转场时长（0为硬切）
             audio_path: 可选背景音频路径
@@ -82,18 +84,27 @@ class FFmpegComposer:
         if not scenes:
             return False
 
+        # 归一化为SceneClipSpec
+        specs = [self._normalize_spec(s) for s in scenes]
+
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         work_dir = output_path.parent / f".compose_tmp_{output_path.stem}"
         work_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            # 1. 每个场景图渲染为片段
+            # 1. 每个场景渲染为片段
             clips: List[Tuple[str, float]] = []
-            for i, (image_path, duration) in enumerate(scenes):
+            for i, spec in enumerate(specs):
                 clip_path = str(work_dir / f"clip_{i:03d}.mp4")
-                if self._render_clip(image_path, duration, clip_path):
-                    clips.append((clip_path, duration))
+                ok = self._render_scene_clip(spec, clip_path)
+                # 运镜/覆盖失败 → 降级为静态片段
+                if not ok and (spec.has_motion or spec.has_overlay):
+                    ok = self._render_clip(
+                        spec.background_path, spec.duration, clip_path
+                    )
+                if ok:
+                    clips.append((clip_path, spec.duration))
 
             if not clips:
                 return False
@@ -124,6 +135,72 @@ class FFmpegComposer:
             shutil.rmtree(work_dir, ignore_errors=True)
 
     # ---------- 片段渲染 ----------
+
+    def _normalize_spec(self, item):
+        """将场景项归一化为SceneClipSpec。
+
+        Args:
+            item: (path, duration)元组 或 SceneClipSpec
+
+        Returns:
+            SceneClipSpec
+        """
+        from core.compose.motion.clip_spec import SceneClipSpec
+        if isinstance(item, SceneClipSpec):
+            return item
+        # 元组 (path, duration)
+        path, duration = item
+        return SceneClipSpec(background_path=path, duration=duration)
+
+    def _render_scene_clip(self, spec, output: str) -> bool:
+        """按规格渲染场景片段(支持运镜+覆盖层)。
+
+        Args:
+            spec: SceneClipSpec
+            output: 输出路径
+
+        Returns:
+            True如果成功
+        """
+        if not Path(spec.background_path).exists():
+            return False
+
+        w, h = self.size
+        has_overlay = spec.has_overlay and Path(spec.overlay_path or "").exists()
+
+        # 背景滤镜：运镜 或 静态cover-fit
+        if spec.has_motion:
+            bg_filter = spec.ken_burns.build_filter()
+        else:
+            bg_filter = (
+                f"scale={w}:{h}:force_original_aspect_ratio=increase,"
+                f"crop={w}:{h},fps={self.fps}"
+            )
+
+        cmd = [self.ffmpeg_path, "-y", "-loop", "1",
+               "-t", f"{spec.duration:.3f}", "-i", spec.background_path]
+
+        if has_overlay:
+            # 背景(运镜) + 静态覆盖层
+            cmd.extend(["-i", spec.overlay_path])
+            filter_complex = (
+                f"[0:v]{bg_filter}[bg];"
+                f"[bg][1:v]overlay=0:0:format=auto,"
+                f"format=yuv420p[out]"
+            )
+            cmd.extend([
+                "-filter_complex", filter_complex,
+                "-map", "[out]",
+            ])
+        else:
+            cmd.extend(["-vf", f"{bg_filter},format=yuv420p"])
+
+        cmd.extend([
+            "-t", f"{spec.duration:.3f}",
+            "-c:v", "libx264", "-preset", "medium",
+            "-pix_fmt", "yuv420p", output,
+        ])
+        return self._run(cmd)
 
     def _render_clip(self, image_path: str, duration: float, output: str) -> bool:
         """将单张图渲染为指定时长的视频片段。

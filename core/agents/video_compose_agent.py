@@ -26,6 +26,8 @@ from core.models import (
 )
 from core.compose.scene_image_renderer import SceneImageRenderer
 from core.compose.ffmpeg_composer import FFmpegComposer
+from core.compose.motion.ken_burns import make_ken_burns
+from core.compose.motion.clip_spec import SceneClipSpec
 
 
 DEFAULT_SIZE = (1080, 1920)
@@ -55,6 +57,7 @@ class VideoComposeAgent(BaseAgent):
         transition_duration: float = DEFAULT_TRANSITION,
         output_dir: str = DEFAULT_OUTPUT_DIR,
         composer: Any = None,
+        enable_motion: bool = True,
     ):
         """初始化视频合成Agent。
 
@@ -73,6 +76,7 @@ class VideoComposeAgent(BaseAgent):
         self.transition_duration = transition_duration
         self.output_dir = output_dir
         self._composer = composer
+        self.enable_motion = enable_motion
 
     @property
     def composer(self) -> FFmpegComposer:
@@ -104,33 +108,26 @@ class VideoComposeAgent(BaseAgent):
             style = self._load_style(content.style)
             renderer = SceneImageRenderer(style=style, size=self.size)
 
-            # 3. 渲染每个场景为画面图
+            # 3. 为每个场景构建片段规格(D1: 分层+运镜)
             work_dir = Path(output_path).parent / f".scenes_{Path(output_path).stem}"
             work_dir.mkdir(parents=True, exist_ok=True)
 
-            scene_images: List[Tuple[str, float]] = []
+            scene_specs = []
             rendered = 0
-            for scene in content.scenes:
-                img_path = str(work_dir / f"scene_{scene.scene_id:03d}.png")
-                material_path = self._pick_material(scene, material_map)
-                ok = renderer.render_scene(
-                    scene_type=scene.scene_type,
-                    text=scene.text,
-                    output_path=img_path,
-                    material_path=material_path,
-                )
-                if ok:
-                    scene_images.append((img_path, scene.duration))
+            for idx, scene in enumerate(content.scenes):
+                spec = self._build_scene_spec(scene, idx, material_map, renderer, work_dir)
+                if spec is not None:
+                    scene_specs.append(spec)
                     rendered += 1
                 else:
                     self.logger.warning(f"场景 {scene.scene_id} 渲染失败")
 
-            if not scene_images:
+            if not scene_specs:
                 raise RuntimeError("无任何场景成功渲染")
 
             # 4. FFmpeg合成
             composed = self.composer.compose(
-                scenes=scene_images,
+                scenes=scene_specs,
                 output_path=output_path,
                 transition_duration=self.transition_duration,
             )
@@ -242,6 +239,64 @@ class VideoComposeAgent(BaseAgent):
                 if Path(asset.local_path).exists():
                     return asset.local_path
         return None
+
+    # ---------- 场景片段构建(D1) ----------
+
+    def _build_scene_spec(self, scene, idx, material_map, renderer, work_dir):
+        """为场景构建片段规格(分层+运镜)。
+
+        - 内容场景: 素材(或渐变)背景 + Ken Burns运镜 + 轻量字幕覆盖层
+        - 标题/结尾卡: 静态文字卡，无运镜
+
+        Args:
+            scene: 场景
+            idx: 场景索引(用于运镜变体)
+            material_map: 素材映射
+            renderer: 场景图渲染器
+            work_dir: 工作目录
+
+        Returns:
+            SceneClipSpec，失败返回None
+        """
+        sid = scene.scene_id
+
+        # 文字卡(标题/结尾): 静态整屏文字，无运镜
+        if scene.is_text_only():
+            card_path = str(work_dir / f"scene_{sid:03d}_card.png")
+            ok = renderer.render_scene(
+                scene_type=scene.scene_type, text=scene.text,
+                output_path=card_path, material_path=None,
+            )
+            if not ok:
+                return None
+            return SceneClipSpec(background_path=card_path, duration=scene.duration)
+
+        # 内容场景: 背景 + 运镜 + 字幕覆盖层
+        material_path = self._pick_material(scene, material_map)
+        if material_path:
+            background_path = material_path  # 原图直接给运镜(内部cover-fit)
+        else:
+            # 无素材 → 渐变背景
+            background_path = str(work_dir / f"scene_{sid:03d}_bg.png")
+            if not renderer.render_gradient_bg(background_path):
+                return None
+
+        # 字幕覆盖层(透明，轻量lower-third)
+        overlay_path = str(work_dir / f"scene_{sid:03d}_sub.png")
+        if not renderer.render_subtitle_overlay(scene.text, overlay_path):
+            overlay_path = None
+
+        # 运镜规格(可关闭)
+        kb = None
+        if self.enable_motion:
+            kb = make_ken_burns(idx, self.size, self.fps, scene.duration)
+
+        return SceneClipSpec(
+            background_path=background_path,
+            duration=scene.duration,
+            ken_burns=kb,
+            overlay_path=overlay_path,
+        )
 
     # ---------- 风格加载 ----------
 
