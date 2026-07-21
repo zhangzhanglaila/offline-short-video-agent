@@ -58,3 +58,11 @@ core/diagram_anagram_module.py
 *.jpg
 !assets/thumbnails/*.jpg
 !assets/thumbnails/*.png
+
+# 数据库文件（本地数据）
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# 演示脚本（临时）
+demo_*.py
