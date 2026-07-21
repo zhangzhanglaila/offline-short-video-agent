@@ -65,6 +65,7 @@ class CoordinatorAgent(BaseAgent):
         content_agent: Any = None,
         material_agent: Any = None,
         compose_agent: Any = None,
+        output_path: Optional[str] = None,
     ):
         """初始化主控Agent。
 
@@ -75,12 +76,14 @@ class CoordinatorAgent(BaseAgent):
             content_agent: 内容分析Agent。None时惰性创建默认。
             material_agent: 素材检索Agent。None时惰性创建默认。
             compose_agent: 视频合成Agent。None时惰性创建默认。
+            output_path: 可选的指定视频输出路径。None时由合成Agent按标题命名。
         """
         super().__init__(agent_id, name)
         self.bus = bus or MessageBus()
         self._content_agent = content_agent
         self._material_agent = material_agent
         self._compose_agent = compose_agent
+        self.output_path = output_path
 
     # ---------- 惰性加载子Agent ----------
 
@@ -265,6 +268,7 @@ class CoordinatorAgent(BaseAgent):
             payload={
                 "content": content.to_dict(),
                 "materials": materials.to_dict(),
+                **({"output_path": self.output_path} if self.output_path else {}),
             },
         )
         reply = await self._dispatch("compose_video", task)
