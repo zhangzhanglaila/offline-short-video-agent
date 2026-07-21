@@ -116,12 +116,14 @@ class VideoComposeAgent(BaseAgent):
             work_dir.mkdir(parents=True, exist_ok=True)
 
             scene_specs = []
+            rendered_types = []  # 与scene_specs对齐的场景类型(供转场选择)
             rendered = 0
             self._content_counter = 0  # 每次生成重置内容场景计数(徽章序号)
             for idx, scene in enumerate(content.scenes):
                 spec = self._build_scene_spec(scene, idx, material_map, renderer, work_dir)
                 if spec is not None:
                     scene_specs.append(spec)
+                    rendered_types.append(scene.scene_type)
                     rendered += 1
                 else:
                     self.logger.warning(f"场景 {scene.scene_id} 渲染失败")
@@ -129,11 +131,16 @@ class VideoComposeAgent(BaseAgent):
             if not scene_specs:
                 raise RuntimeError("无任何场景成功渲染")
 
-            # 4. FFmpeg合成
+            # 4. 计算各边界转场(D4: 按场景类型智能选择，与已渲染场景对齐)
+            from core.compose.motion.transitions import build_transitions
+            transitions = build_transitions(rendered_types) if self.enable_motion else None
+
+            # 5. FFmpeg合成
             composed = self.composer.compose(
                 scenes=scene_specs,
                 output_path=output_path,
                 transition_duration=self.transition_duration,
+                transitions=transitions,
             )
 
             duration = time.time() - start_time

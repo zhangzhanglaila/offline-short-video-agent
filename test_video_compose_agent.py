@@ -47,7 +47,7 @@ class FakeComposer:
         self.available = True
         self.compose_calls = []
 
-    def compose(self, scenes, output_path, transition_duration=0.0, audio_path=None):
+    def compose(self, scenes, output_path, transition_duration=0.0, audio_path=None, transitions=None):
         self.compose_calls.append({
             "scene_count": len(scenes),
             "output_path": output_path,

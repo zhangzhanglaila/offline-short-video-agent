@@ -65,6 +65,7 @@ class FFmpegComposer:
         output_path: str,
         transition_duration: float = 0.0,
         audio_path: Optional[str] = None,
+        transitions: Optional[List[str]] = None,
     ) -> bool:
         """将场景序列合成为视频。
 
@@ -75,6 +76,8 @@ class FFmpegComposer:
             output_path: 输出视频路径
             transition_duration: 转场时长（0为硬切）
             audio_path: 可选背景音频路径
+            transitions: 各边界的xfade转场名称列表(长度=场景数-1)。
+                         None时全部用fade。(D4)
 
         Returns:
             True如果合成成功
@@ -114,7 +117,9 @@ class FFmpegComposer:
             use_xfade = transition_duration > 0 and len(clips) >= 2
             ok = False
             if use_xfade:
-                ok = self._concat_with_xfade(clips, silent_video, transition_duration)
+                ok = self._concat_with_xfade(
+                    clips, silent_video, transition_duration, transitions,
+                )
             if not ok:
                 # 回退硬切
                 ok = self._concat_hard_cut(clips, silent_video)
@@ -294,14 +299,16 @@ class FFmpegComposer:
     # ---------- 拼接：交叉淡入 ----------
 
     def _concat_with_xfade(
-        self, clips: List[Tuple[str, float]], output: str, transition: float
+        self, clips: List[Tuple[str, float]], output: str, transition: float,
+        transitions: Optional[List[str]] = None,
     ) -> bool:
-        """使用xfade交叉淡入拼接。
+        """使用xfade拼接，支持每边界不同转场类型。
 
         Args:
             clips: [(片段路径, 时长), ...]
             output: 输出路径
             transition: 转场时长
+            transitions: 各边界转场名称列表(长度=片段数-1)。None时全用fade。
 
         Returns:
             True如果成功（任何片段过短则失败，交由回退处理）
@@ -314,7 +321,7 @@ class FFmpegComposer:
         for clip_path, _ in clips:
             inputs.extend(["-i", clip_path])
 
-        # 构建xfade滤镜链
+        # 构建xfade滤镜链(每边界可用不同转场)
         filters: List[str] = []
         prev_label = "0:v"
         cumulative = 0.0
@@ -323,9 +330,14 @@ class FFmpegComposer:
             cumulative += prev_duration
             offset = cumulative - transition * i
             out_label = f"v{i}" if i < len(clips) - 1 else "vout"
+            # 选择该边界的转场类型
+            if transitions and (i - 1) < len(transitions):
+                trans = transitions[i - 1]
+            else:
+                trans = "fade"
             filters.append(
                 f"[{prev_label}][{i}:v]"
-                f"xfade=transition=fade:duration={transition:.3f}:"
+                f"xfade=transition={trans}:duration={transition:.3f}:"
                 f"offset={offset:.3f}[{out_label}]"
             )
             prev_label = out_label
