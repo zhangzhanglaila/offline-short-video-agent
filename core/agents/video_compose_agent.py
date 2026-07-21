@@ -59,6 +59,9 @@ class VideoComposeAgent(BaseAgent):
         composer: Any = None,
         enable_motion: bool = True,
         enable_elements: bool = True,
+        enable_bgm: bool = True,
+        bgm_path: Optional[str] = None,
+        bgm_volume: float = 0.28,
     ):
         """初始化视频合成Agent。
 
@@ -80,6 +83,10 @@ class VideoComposeAgent(BaseAgent):
         self.enable_motion = enable_motion
         self.enable_elements = enable_elements
         self._content_counter = 0
+        # D6: 背景音乐
+        self.enable_bgm = enable_bgm
+        self._bgm_path = bgm_path
+        self.bgm_volume = bgm_volume
 
     @property
     def composer(self) -> FFmpegComposer:
@@ -135,12 +142,17 @@ class VideoComposeAgent(BaseAgent):
             from core.compose.motion.transitions import build_transitions
             transitions = build_transitions(rendered_types) if self.enable_motion else None
 
-            # 5. FFmpeg合成
+            # 5. 选择背景音乐(D6)
+            bgm_path = self._select_bgm(content.category)
+
+            # 6. FFmpeg合成
             composed = self.composer.compose(
                 scenes=scene_specs,
                 output_path=output_path,
                 transition_duration=self.transition_duration,
                 transitions=transitions,
+                bgm_path=bgm_path,
+                bgm_volume=self.bgm_volume,
             )
 
             duration = time.time() - start_time
@@ -342,6 +354,31 @@ class VideoComposeAgent(BaseAgent):
             overlays=overlays,
             background_is_video=is_video_bg,
         )
+
+    # ---------- 背景音乐选择(D6) ----------
+
+    def _select_bgm(self, category: str) -> Optional[str]:
+        """选择背景音乐。
+
+        Args:
+            category: 视频分类
+
+        Returns:
+            BGM路径；未启用或无可用BGM返回None
+        """
+        if not self.enable_bgm:
+            return None
+        if self._bgm_path and Path(self._bgm_path).exists():
+            return self._bgm_path
+        try:
+            from core.compose.motion.bgm import find_bgm
+            bgm = find_bgm(category)
+            if bgm:
+                self.logger.info(f"背景音乐: {Path(bgm).name}")
+            return bgm
+        except Exception as e:
+            self.logger.debug(f"选择BGM失败: {e}")
+            return None
 
     # ---------- 风格加载 ----------
 

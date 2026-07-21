@@ -95,7 +95,7 @@ class TestCLIEndToEnd:
             class FakeComposer:
                 available = True
                 def compose(self, scenes, output_path, transition_duration=0.0,
-                            audio_path=None, transitions=None):
+                            audio_path=None, transitions=None, bgm_path=None, bgm_volume=0.3):
                     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
                     Path(output_path).write_bytes(b"fake")
                     return True

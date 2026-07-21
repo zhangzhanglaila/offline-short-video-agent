@@ -66,6 +66,8 @@ class FFmpegComposer:
         transition_duration: float = 0.0,
         audio_path: Optional[str] = None,
         transitions: Optional[List[str]] = None,
+        bgm_path: Optional[str] = None,
+        bgm_volume: float = 0.3,
     ) -> bool:
         """将场景序列合成为视频。
 
@@ -75,9 +77,11 @@ class FFmpegComposer:
                 - SceneClipSpec：支持运镜和覆盖层
             output_path: 输出视频路径
             transition_duration: 转场时长（0为硬切）
-            audio_path: 可选背景音频路径
+            audio_path: 可选背景音频路径(直接混入，不循环)
             transitions: 各边界的xfade转场名称列表(长度=场景数-1)。
                          None时全部用fade。(D4)
+            bgm_path: 可选背景音乐路径(循环+降音量+尾部淡出)。(D6)
+            bgm_volume: BGM音量(0-1)
 
         Returns:
             True如果合成成功
@@ -126,8 +130,13 @@ class FFmpegComposer:
             if not ok:
                 return False
 
-            # 3. 混音频（可选）
-            if audio_path and Path(audio_path).exists():
+            # 3. 音频（优先BGM循环混音，其次直接混音，否则无声）
+            if bgm_path and Path(bgm_path).exists():
+                ok = self._add_bgm(silent_video, bgm_path, str(output_path),
+                                    bgm_volume)
+                if not ok:
+                    shutil.copy(silent_video, output_path)
+            elif audio_path and Path(audio_path).exists():
                 ok = self._mux_audio(silent_video, audio_path, str(output_path))
                 if not ok:
                     shutil.copy(silent_video, output_path)
@@ -385,6 +394,40 @@ class FFmpegComposer:
             "-c:v", "copy",
             "-c:a", "aac",
             "-shortest",
+            output,
+        ]
+        return self._run(cmd)
+
+    def _add_bgm(
+        self, video_path: str, bgm_path: str, output: str, volume: float = 0.3,
+    ) -> bool:
+        """将背景音乐循环混入视频(降音量+尾部淡出)。
+
+        Args:
+            video_path: 无声视频路径
+            bgm_path: 背景音乐路径
+            output: 输出路径
+            volume: BGM音量(0-1)
+
+        Returns:
+            True如果成功
+        """
+        dur = self.probe_duration(video_path)
+        if not dur or dur <= 0:
+            return False
+
+        # 尾部2秒淡出(时长足够时)
+        fade_start = max(0.0, dur - 2.0)
+        afilter = f"volume={volume:.2f},afade=t=out:st={fade_start:.2f}:d=2"
+
+        cmd = [
+            self.ffmpeg_path, "-y",
+            "-i", video_path,
+            "-stream_loop", "-1", "-i", bgm_path,  # 循环BGM
+            "-filter_complex", f"[1:a]{afilter}[a]",
+            "-map", "0:v", "-map", "[a]",
+            "-c:v", "copy", "-c:a", "aac",
+            "-t", f"{dur:.3f}",  # 视频时长为准
             output,
         ]
         return self._run(cmd)
