@@ -217,5 +217,5 @@ renderer.render_frame(..., enable_animations=True/False)
 
 ---
 
-*生成时间: 2025-01-21*
+*生成时间: 2026-07-21*
 *Phase: 1.4 - 动效集成与视频输出*

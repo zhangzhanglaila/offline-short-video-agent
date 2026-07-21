@@ -281,5 +281,5 @@ fetcher.add_to_library(materials)
 
 ---
 
-*生成时间: 2025-01-21*
+*生成时间: 2026-07-21*
 *Phase: 2.2 - 素材源API集成*
