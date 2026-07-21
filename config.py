@@ -155,9 +155,18 @@ TRENDING_TAGS = [
 ]
 
 # ═══════════════════════════════════════════════════════════════
-# 视频视觉风格预设 — 控制 MangaFrameRenderer 的全部视觉元素
+# 视频视觉风格预设 — 从 config/styles/ 加载
 # ═══════════════════════════════════════════════════════════════
-VISUAL_STYLES = {
+try:
+    from config.styles import get_visual_styles_config, get_style, get_style_legacy
+    VISUAL_STYLES = get_visual_styles_config()
+    # 验证至少有基础风格
+    if not VISUAL_STYLES:
+        raise ImportError("Style loader returned empty config")
+except Exception as e:
+    print(f"[Config] Failed to load styles from config/styles/: {e}, using fallback")
+    # 降级到内置风格
+    VISUAL_STYLES = {
     "manga": {
         "name_cn": "日式漫画",
         "paper_color": "#FFF8F0",
@@ -405,12 +414,66 @@ VISUAL_STYLES = {
     },
 }
 
-DEFAULT_VISUAL_STYLE = "manga"
+DEFAULT_VISUAL_STYLE = "minimal"  # 改为极简风格作为默认
 
 
-def get_visual_style_config(style_name: str) -> dict:
-    """返回指定名称的视觉风格预设，无效名称退回 manga。"""
-    return VISUAL_STYLES.get(style_name, VISUAL_STYLES[DEFAULT_VISUAL_STYLE])
+def get_visual_style_config(style_name: str = None) -> dict:
+    """返回指定名称的视觉风格预设，无效名称退回默认风格。
+
+    Args:
+        style_name: 风格名称 (minimal/vibrant/cinematic/tech/manga)，None 则使用默认
+
+    Returns:
+        风格配置字典
+    """
+    if not style_name:
+        style_name = DEFAULT_VISUAL_STYLE
+
+    # 优先使用新风格系统
+    try:
+        from config.styles import get_style_legacy
+        config = get_style_legacy(style_name)
+        if config:
+            return config
+    except Exception:
+        pass
+
+    # 降级到 VISUAL_STYLES
+    return VISUAL_STYLES.get(style_name, VISUAL_STYLES.get(DEFAULT_VISUAL_STYLE, {}))
+
+
+def get_style_info(style_id: str = None) -> dict:
+    """获取风格的详细信息（包括元数据）。
+
+    Args:
+        style_id: 风格ID，None 则返回默认风格
+
+    Returns:
+        {id, name, name_cn, category, description, ...config}
+    """
+    if not style_id:
+        style_id = DEFAULT_VISUAL_STYLE
+
+    try:
+        from config.styles import get_style
+        return get_style(style_id) or {}
+    except Exception:
+        # 降级返回基础信息
+        return {"id": style_id, "name_cn": style_id}
+
+
+def list_available_styles() -> list:
+    """列出所有可用的视觉风格。
+
+    Returns:
+        [{id, name, name_cn, category, description}] 列表
+    """
+    try:
+        from config.styles import list_styles
+        return list_styles()
+    except Exception:
+        # 降级返回 VISUAL_STYLES 的键
+        return [{"id": k, "name_cn": k} for k in VISUAL_STYLES.keys()]
 
 
 # ═══════════════════════════════════════════════════════════════
