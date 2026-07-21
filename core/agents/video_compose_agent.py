@@ -237,7 +237,7 @@ class VideoComposeAgent(BaseAgent):
             material_map: 素材映射
 
         Returns:
-            素材本地路径；纯文字场景或无素材返回None
+            素材资产(MaterialAsset)；纯文字场景或无素材返回None
         """
         # 纯文字场景不需要素材
         if scene.is_text_only():
@@ -248,7 +248,7 @@ class VideoComposeAgent(BaseAgent):
             # 优先用有本地文件的真实素材
             if not asset.is_placeholder and asset.local_path:
                 if Path(asset.local_path).exists():
-                    return asset.local_path
+                    return asset
         return None
 
     # ---------- 场景片段构建(D1) ----------
@@ -299,17 +299,23 @@ class VideoComposeAgent(BaseAgent):
                 return None
             return SceneClipSpec(background_path=card_path, duration=scene.duration)
 
-        # 内容场景: 背景 + 运镜 + 字幕覆盖层(上滑淡入)
-        material_path = self._pick_material(scene, material_map)
-        if material_path:
-            background_path = material_path  # 原图直接给运镜(内部cover-fit)
+        # 内容场景: 背景 + 运镜/视频 + 字幕覆盖层(上滑淡入)
+        asset = self._pick_material(scene, material_map)
+        is_video_bg = False
+        if asset and getattr(asset, "media_type", "image") == "video":
+            # D5: 视频背景(本身动态，不用Ken Burns)
+            background_path = asset.local_path
+            is_video_bg = True
+        elif asset:
+            background_path = asset.local_path  # 静图直接给运镜(内部cover-fit)
         else:
             background_path = str(work_dir / f"scene_{sid:03d}_bg.png")
             if not renderer.render_gradient_bg(background_path):
                 return None
 
         kb = None
-        if self.enable_motion:
+        if self.enable_motion and not is_video_bg:
+            # 视频背景不叠加Ken Burns
             kb = make_ken_burns(idx, self.size, self.fps, scene.duration)
 
         overlays = []
@@ -334,6 +340,7 @@ class VideoComposeAgent(BaseAgent):
             ken_burns=kb,
             overlay_path=overlay_path,
             overlays=overlays,
+            background_is_video=is_video_bg,
         )
 
     # ---------- 风格加载 ----------

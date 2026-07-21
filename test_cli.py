@@ -104,7 +104,7 @@ class TestCLIEndToEnd:
             coordinator = CoordinatorAgent(
                 bus=MessageBus(),
                 content_agent=ContentAnalysisAgent(llm_client=False),
-                material_agent=MaterialFetchAgent(api_manager=False),
+                material_agent=MaterialFetchAgent(api_manager=False, video_module=False),
                 compose_agent=VideoComposeAgent(
                     size=(540, 960), composer=FakeComposer(),
                     output_dir=str(TEST_DIR),

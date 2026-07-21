@@ -94,6 +94,8 @@ class MaterialFetchAgent(BaseAgent):
         cache_dir: str = DEFAULT_CACHE_DIR,
         materials_per_scene: int = DEFAULT_MATERIALS_PER_SCENE,
         enable_download: bool = True,
+        prefer_video: bool = True,
+        video_module: Any = None,
     ):
         """初始化素材检索Agent。
 
@@ -114,6 +116,10 @@ class MaterialFetchAgent(BaseAgent):
         self.cache_dir = cache_dir
         self.materials_per_scene = max(1, materials_per_scene)
         self.enable_download = enable_download
+        # D5: 视频素材
+        self.prefer_video = prefer_video
+        self._video_module = video_module
+        self._video_disabled = video_module is False
 
     # ---------- 惰性加载API管理器 ----------
 
@@ -257,12 +263,18 @@ class MaterialFetchAgent(BaseAgent):
         Returns:
             素材资产列表（至少1个，检索失败时为占位符）
         """
+        queries = self._build_queries(scene)
+
+        # D5: 优先尝试视频素材(本身动态)
+        if self.prefer_video and self.enable_download:
+            video_asset = self._fetch_video_for_scene(scene, queries)
+            if video_asset is not None:
+                return [video_asset]
+
+        # 图片素材
         manager = self.api_manager
         if manager is None:
             return [self._make_placeholder(scene)]
-
-        # 构建检索查询
-        queries = self._build_queries(scene)
 
         assets: List[MaterialAsset] = []
         for api_name, api_result in self._search(manager, queries):
@@ -278,6 +290,71 @@ class MaterialFetchAgent(BaseAgent):
             assets.append(self._make_placeholder(scene))
 
         return assets
+
+    # ---------- 视频素材检索(D5) ----------
+
+    @property
+    def video_module(self):
+        """惰性构建视频素材模块。"""
+        if self._video_disabled:
+            return None
+        if self._video_module is None:
+            try:
+                from core.stock_video_module import StockVideoModule
+                self._video_module = StockVideoModule(orientation="portrait")
+            except Exception as e:
+                self.logger.warning(f"无法加载视频素材模块: {e}")
+                self._video_disabled = True
+                return None
+        return self._video_module
+
+    def _fetch_video_for_scene(
+        self, scene: Scene, queries: List[str]
+    ) -> Optional[MaterialAsset]:
+        """尝试为场景检索并下载视频素材。
+
+        Args:
+            scene: 场景
+            queries: 检索查询列表
+
+        Returns:
+            视频MaterialAsset，无则None
+        """
+        module = self.video_module
+        if module is None:
+            return None
+
+        for query in queries:
+            try:
+                results = module.search_pexels(query, min_duration=3)
+                if not results:
+                    results = module.search_pixabay(query, min_duration=3)
+            except Exception as e:
+                self.logger.debug(f"视频搜索 '{query}' 失败: {e}")
+                continue
+
+            for item in results[:3]:
+                try:
+                    local_path = module.download_video(item.url)
+                except Exception:
+                    local_path = ""
+                if local_path:
+                    self.logger.info(f"场景 {scene.scene_id} 视频素材: {item.provider}")
+                    return MaterialAsset(
+                        asset_id=f"video_{scene.scene_id}",
+                        scene_id=scene.scene_id,
+                        source=item.provider,
+                        media_type="video",
+                        url=item.url,
+                        download_url=item.url,
+                        local_path=local_path,
+                        width=getattr(item, "width", 0),
+                        height=getattr(item, "height", 0),
+                        quality_score=0.9,
+                        keywords=scene.keywords,
+                        is_placeholder=False,
+                    )
+        return None
 
     def _build_queries(self, scene: Scene) -> List[str]:
         """构建场景的检索查询列表（按优先级）。

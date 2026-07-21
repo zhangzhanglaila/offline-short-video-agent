@@ -187,17 +187,27 @@ class FFmpegComposer:
                 animation=AnimationSpec(anim_type=ANIM_NONE),
             ))
 
-        # 背景滤镜：运镜 或 静态cover-fit
-        if spec.has_motion:
-            bg_filter = spec.ken_burns.build_filter()
-        else:
+        # 背景滤镜与输入方式
+        if spec.background_is_video:
+            # D5: 视频背景 → loop + cover-fit (无zoompan，视频本身在动)
             bg_filter = (
                 f"scale={w}:{h}:force_original_aspect_ratio=increase,"
-                f"crop={w}:{h},fps={self.fps}"
+                f"crop={w}:{h},fps={self.fps},setsar=1"
             )
-
-        cmd = [self.ffmpeg_path, "-y", "-loop", "1",
-               "-t", f"{spec.duration:.3f}", "-i", spec.background_path]
+            # -stream_loop -1 循环视频以填满场景时长
+            cmd = [self.ffmpeg_path, "-y", "-stream_loop", "-1",
+                   "-t", f"{spec.duration:.3f}", "-i", spec.background_path]
+        else:
+            # 静图背景：运镜 或 静态cover-fit
+            if spec.has_motion:
+                bg_filter = spec.ken_burns.build_filter()
+            else:
+                bg_filter = (
+                    f"scale={w}:{h}:force_original_aspect_ratio=increase,"
+                    f"crop={w}:{h},fps={self.fps}"
+                )
+            cmd = [self.ffmpeg_path, "-y", "-loop", "1",
+                   "-t", f"{spec.duration:.3f}", "-i", spec.background_path]
 
         if layers:
             # 背景 + 多覆盖层链式合成

@@ -221,8 +221,9 @@ class TestComposeOrchestration:
 
             assert agent._pick_material(title_scene, materials) is None
             picked = agent._pick_material(content_scene, materials)
+            # _pick_material现返回MaterialAsset(D5)
             assert picked is not None
-            assert Path(picked).exists()
+            assert Path(picked.local_path).exists()
             print("✅ 素材选择逻辑正常")
 
         asyncio.run(_test())

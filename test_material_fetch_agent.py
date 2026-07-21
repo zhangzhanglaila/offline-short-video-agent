@@ -168,7 +168,7 @@ class TestPlaceholderFallback:
     def test_no_api_all_placeholder(self):
         """测试禁用API时全部占位符。"""
         async def _test():
-            agent = MaterialFetchAgent(api_manager=False)
+            agent = MaterialFetchAgent(api_manager=False, video_module=False)
             msg = _make_content_message()
             result = await agent.execute(msg)
 
@@ -191,7 +191,7 @@ class TestPlaceholderFallback:
                 Scene(1, SceneType.TITLE_CARD.value, "标题", 3.0),
                 Scene(2, SceneType.CONCLUSION.value, "结尾", 3.0),
             ]
-            agent = MaterialFetchAgent(api_manager=False)
+            agent = MaterialFetchAgent(api_manager=False, video_module=False)
             msg = _make_content_message(scenes=scenes)
             result = await agent.execute(msg)
 
@@ -213,7 +213,7 @@ class TestFakeAPIPath:
         async def _test():
             fake_api = FakeAPIManager()
             agent = MaterialFetchAgent(
-                api_manager=fake_api,
+                api_manager=fake_api, video_module=False,
                 downloader=_fake_downloader_success,
             )
             msg = _make_content_message()
@@ -241,7 +241,7 @@ class TestFakeAPIPath:
         async def _test():
             fake_api = FakeAPIManager()
             agent = MaterialFetchAgent(
-                api_manager=fake_api,
+                api_manager=fake_api, video_module=False,
                 downloader=_fake_downloader_success,
             )
             msg = _make_content_message()
@@ -258,7 +258,7 @@ class TestFakeAPIPath:
         async def _test():
             fake_api = FakeAPIManager()
             agent = MaterialFetchAgent(
-                api_manager=fake_api,
+                api_manager=fake_api, video_module=False,
                 downloader=_fake_downloader_fail,  # 全部下载失败
             )
             msg = _make_content_message()
@@ -279,7 +279,7 @@ class TestFakeAPIPath:
             # 所有查询都返回空
             fake_api = FakeAPIManager(results=[])
             agent = MaterialFetchAgent(
-                api_manager=fake_api,
+                api_manager=fake_api, video_module=False,
                 downloader=_fake_downloader_success,
             )
             msg = _make_content_message()
@@ -300,7 +300,7 @@ class TestFakeAPIPath:
                                                 width=4096, height=2304))]
             fake_api = FakeAPIManager(results=hi_res)
             agent = MaterialFetchAgent(
-                api_manager=fake_api,
+                api_manager=fake_api, video_module=False,
                 downloader=_fake_downloader_success,
             )
             scenes = [
@@ -328,7 +328,7 @@ class TestErrorHandling:
     def test_invalid_content(self):
         """测试无效内容结构。"""
         async def _test():
-            agent = MaterialFetchAgent(api_manager=False)
+            agent = MaterialFetchAgent(api_manager=False, video_module=False)
             # 空场景的无效内容
             bad_content = {
                 "title": "", "category": "教育讲解",
