@@ -25,9 +25,9 @@ output/
 !assets/素材池_待剪辑/.gitkeep
 !assets/thumbnails/.gitkeep
 
-# 本地模型和下载
-models/
-downloads/
+# 本地模型和下载 (仅根目录，避免误伤 core/models/ 等源码目录)
+/models/
+/downloads/
 *.bin
 *.whl
 *.mp3
