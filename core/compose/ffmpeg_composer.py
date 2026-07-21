@@ -50,7 +50,8 @@ class FFmpegComposer:
         try:
             result = subprocess.run(
                 [self.ffmpeg_path, "-version"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True, text=True,
+                encoding="utf-8", errors="ignore", timeout=5,
             )
             return result.returncode == 0
         except Exception:
@@ -279,7 +280,8 @@ class FFmpegComposer:
         """
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=timeout,
+                cmd, capture_output=True, text=True,
+                encoding="utf-8", errors="ignore", timeout=timeout,
             )
             return result.returncode == 0
         except Exception:
@@ -302,7 +304,8 @@ class FFmpegComposer:
                     "-of", "default=noprint_wrappers=1:nokey=1",
                     video_path,
                 ],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True,
+                encoding="utf-8", errors="ignore", timeout=10,
             )
             if result.returncode == 0:
                 return float(result.stdout.strip())
