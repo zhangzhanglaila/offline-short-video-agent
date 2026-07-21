@@ -58,6 +58,7 @@ class VideoComposeAgent(BaseAgent):
         output_dir: str = DEFAULT_OUTPUT_DIR,
         composer: Any = None,
         enable_motion: bool = True,
+        enable_elements: bool = True,
     ):
         """初始化视频合成Agent。
 
@@ -77,6 +78,8 @@ class VideoComposeAgent(BaseAgent):
         self.output_dir = output_dir
         self._composer = composer
         self.enable_motion = enable_motion
+        self.enable_elements = enable_elements
+        self._content_counter = 0
 
     @property
     def composer(self) -> FFmpegComposer:
@@ -114,6 +117,7 @@ class VideoComposeAgent(BaseAgent):
 
             scene_specs = []
             rendered = 0
+            self._content_counter = 0  # 每次生成重置内容场景计数(徽章序号)
             for idx, scene in enumerate(content.scenes):
                 spec = self._build_scene_spec(scene, idx, material_map, renderer, work_dir)
                 if spec is not None:
@@ -301,17 +305,20 @@ class VideoComposeAgent(BaseAgent):
         if self.enable_motion:
             kb = make_ken_burns(idx, self.size, self.fps, scene.duration)
 
-        # 字幕覆盖层
-        sub_path = str(work_dir / f"scene_{sid:03d}_sub.png")
         overlays = []
         overlay_path = None
-        if renderer.render_subtitle_overlay(scene.text, sub_path):
-            if self.enable_motion:
-                # 字幕从下方滑入+淡入，稍晚于画面出现
-                anim = AnimationSpec(anim_type=ANIM_SLIDE_UP,
-                                     start=0.35, duration=0.55)
-                overlays = [OverlayLayer(sub_path, anim)]
-            else:
+        if self.enable_motion:
+            # D3: 多元素编排(序号徽章→关键词标签→字幕，错开出现)
+            from core.compose.motion.scene_composer import build_content_overlays
+            self._content_counter += 1
+            overlays = build_content_overlays(
+                scene, self._content_counter, renderer, work_dir,
+                with_badge=self.enable_elements,
+            )
+        else:
+            # 关闭动画: 静态字幕
+            sub_path = str(work_dir / f"scene_{sid:03d}_sub.png")
+            if renderer.render_subtitle_overlay(scene.text, sub_path):
                 overlay_path = sub_path
 
         return SceneClipSpec(

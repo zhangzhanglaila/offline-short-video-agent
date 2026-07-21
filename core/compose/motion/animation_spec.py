@@ -14,6 +14,8 @@ ANIM_NONE = "none"              # 无动画(静态)
 ANIM_FADE_IN = "fade_in"        # 淡入
 ANIM_SLIDE_UP = "slide_up"      # 从下方滑入(带淡入)
 ANIM_SLIDE_DOWN = "slide_down"  # 从上方滑入(带淡入)
+ANIM_SLIDE_LEFT = "slide_left"  # 从左侧滑入(带淡入)
+ANIM_SLIDE_RIGHT = "slide_right"  # 从右侧滑入(带淡入)
 ANIM_ZOOM_IN = "zoom_in"        # 放大淡入
 
 

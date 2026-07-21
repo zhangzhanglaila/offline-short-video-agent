@@ -187,13 +187,14 @@ class TestMultiOverlay:
 
 class TestAgentOverlays:
     def test_content_scene_has_slide_subtitle(self):
-        """内容场景应生成上滑字幕覆盖层。"""
+        """内容场景应生成运镜背景+上滑字幕(D3后含多元素，字幕为最后一层)。"""
         _setup()
         from core.agents.video_compose_agent import VideoComposeAgent
         from core.models import Scene, SceneType, SceneMaterialMap
         from styles import get_style
 
         agent = VideoComposeAgent(size=(540, 960), enable_motion=True)
+        agent._content_counter = 0
         renderer = SceneImageRenderer(style=get_style("minimal"), size=(540, 960))
         scene = Scene(2, SceneType.CONTENT.value, "讲解文字", 5.0, ["kw"])
 
@@ -201,11 +202,12 @@ class TestAgentOverlays:
             scene, 1, SceneMaterialMap(), renderer, TEST_DIR
         )
         assert spec is not None
-        # 无素材→渐变背景 + 运镜 + 上滑字幕
+        # 无素材→渐变背景 + 运镜 + 多元素覆盖层
         assert spec.has_motion
-        assert len(spec.overlays) == 1
-        assert spec.overlays[0].animation.anim_type == ANIM_SLIDE_UP
-        print("✅ 内容场景上滑字幕")
+        assert len(spec.overlays) >= 1
+        # 字幕为最后一层，上滑
+        assert spec.overlays[-1].animation.anim_type == ANIM_SLIDE_UP
+        print(f"✅ 内容场景{len(spec.overlays)}元素，字幕上滑")
 
     def test_card_has_fade_title(self):
         """标题卡应生成淡入标题覆盖层。"""

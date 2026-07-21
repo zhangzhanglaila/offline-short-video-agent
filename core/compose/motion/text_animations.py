@@ -14,12 +14,14 @@ from typing import Tuple
 
 from core.compose.motion.animation_spec import (
     AnimationSpec,
-    ANIM_NONE, ANIM_FADE_IN, ANIM_SLIDE_UP, ANIM_SLIDE_DOWN, ANIM_ZOOM_IN,
+    ANIM_NONE, ANIM_FADE_IN, ANIM_SLIDE_UP, ANIM_SLIDE_DOWN,
+    ANIM_SLIDE_LEFT, ANIM_SLIDE_RIGHT, ANIM_ZOOM_IN,
 )
 
 
-# 默认滑动距离(占画面高度比例)
+# 默认滑动距离(占画面高度/宽度比例)
 _DEFAULT_SLIDE_RATIO = 0.045
+_DEFAULT_HSLIDE_RATIO = 0.06
 
 
 def build_overlay_filter(
@@ -53,22 +55,32 @@ def build_overlay_filter(
 
     start = anim.start
     dur = max(0.05, anim.duration)
+    p = f"clip((t-{start:.3f})/{dur:.3f}\\,0\\,1)"
 
-    # 滑动类型：淡入 + 位置动画
+    # 垂直滑动：淡入 + Y位置动画
     if anim.anim_type in (ANIM_SLIDE_UP, ANIM_SLIDE_DOWN):
         slide = int(anim.params.get("slide_px", h * _DEFAULT_SLIDE_RATIO))
         if anim.anim_type == ANIM_SLIDE_DOWN:
             slide = -slide  # 从上方滑入
-
-        # 进度 p ∈[0,1]，ease-out: offset = slide*(1-p)^2
-        # p = (t-start)/dur, 限制在[0,1]
-        p = f"clip((t-{start:.3f})/{dur:.3f}\\,0\\,1)"
+        # ease-out: offset = slide*(1-p)^2
         y_expr = f"{slide}*(1-{p})*(1-{p})"
-
         return (
             f"[{input_idx}:v]format=rgba,"
             f"fade=t=in:st={start:.3f}:d={dur:.3f}:alpha=1[{ov}];"
             f"[{prev_label}][{ov}]overlay=x=0:y='{y_expr}':"
+            f"eof_action=pass[{out_label}]"
+        )
+
+    # 水平滑动：淡入 + X位置动画
+    if anim.anim_type in (ANIM_SLIDE_LEFT, ANIM_SLIDE_RIGHT):
+        slide = int(anim.params.get("slide_px", w * _DEFAULT_HSLIDE_RATIO))
+        if anim.anim_type == ANIM_SLIDE_LEFT:
+            slide = -slide  # 从左侧滑入(起点在左，x为负偏移)
+        x_expr = f"{slide}*(1-{p})*(1-{p})"
+        return (
+            f"[{input_idx}:v]format=rgba,"
+            f"fade=t=in:st={start:.3f}:d={dur:.3f}:alpha=1[{ov}];"
+            f"[{prev_label}][{ov}]overlay=x='{x_expr}':y=0:"
             f"eof_action=pass[{out_label}]"
         )
 

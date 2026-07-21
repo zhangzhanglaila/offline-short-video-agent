@@ -284,6 +284,90 @@ class SceneImageRenderer:
         except Exception:
             return False
 
+    def render_badge_overlay(self, number: int, output_path: str) -> bool:
+        """渲染透明序号徽章层(内容场景左上角圆形序号)。
+
+        Args:
+            number: 序号
+            output_path: 输出PNG路径
+
+        Returns:
+            True如果成功
+        """
+        try:
+            w, h = self.size
+            colors = self.style.get("colors", {})
+            accent = _hex_to_rgb(colors.get("accent", "#3B82F6"))
+
+            img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+
+            r = int(w * 0.065)
+            cx, cy = int(w * 0.13), int(h * 0.11)
+            draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=accent + (255,))
+
+            font = self._font(int(r * 1.1))
+            txt = str(number)
+            bbox = draw.textbbox((0, 0), txt, font=font)
+            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            draw.text((cx - tw / 2 - bbox[0], cy - th / 2 - bbox[1]),
+                      txt, font=font, fill=(255, 255, 255, 255))
+
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            img.save(output_path)
+            return True
+        except Exception:
+            return False
+
+    def render_keyword_chip_overlay(self, text: str, output_path: str) -> bool:
+        """渲染透明关键词标签层(徽章右侧的胶囊标签)。
+
+        Args:
+            text: 关键词
+            output_path: 输出PNG路径
+
+        Returns:
+            True如果成功
+        """
+        try:
+            w, h = self.size
+            colors = self.style.get("colors", {})
+            accent = _hex_to_rgb(colors.get("accent", "#3B82F6"))
+
+            img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+
+            font_size = int(w * 0.05)
+            font = self._font(font_size)
+            label = text[:10]
+            bbox = draw.textbbox((0, 0), label, font=font)
+            tw = bbox[2] - bbox[0]
+
+            # 胶囊位置：徽章右侧，与徽章垂直居中
+            pad_x = int(w * 0.035)
+            chip_h = int(h * 0.05)
+            chip_left = int(w * 0.22)
+            cy = int(h * 0.11)
+            chip_top = cy - chip_h // 2
+            chip_right = chip_left + tw + pad_x * 2
+
+            # 半透明胶囊底
+            radius = chip_h // 2
+            draw.rounded_rectangle(
+                [chip_left, chip_top, chip_right, chip_top + chip_h],
+                radius=radius, fill=accent + (210,),
+            )
+            # 文字
+            ty = chip_top + (chip_h - (bbox[3] - bbox[1])) // 2 - bbox[1]
+            draw.text((chip_left + pad_x - bbox[0], ty), label,
+                      font=font, fill=(255, 255, 255, 255))
+
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            img.save(output_path)
+            return True
+        except Exception:
+            return False
+
     def render_subtitle_overlay(self, text: str, output_path: str) -> bool:
         """渲染透明字幕覆盖层(轻量lower-third，叠加在运镜背景上)。
 
