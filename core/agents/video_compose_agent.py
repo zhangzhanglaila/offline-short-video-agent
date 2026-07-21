@@ -258,44 +258,68 @@ class VideoComposeAgent(BaseAgent):
         Returns:
             SceneClipSpec，失败返回None
         """
+        from core.compose.motion.animation_spec import (
+            OverlayLayer, AnimationSpec,
+            ANIM_FADE_IN, ANIM_SLIDE_UP, ANIM_NONE,
+        )
+
         sid = scene.scene_id
 
-        # 文字卡(标题/结尾): 静态整屏文字，无运镜
+        # 文字卡(标题/结尾): 纯色背景 + 标题文字层(淡入动画)
         if scene.is_text_only():
+            if self.enable_motion:
+                bg_path = str(work_dir / f"scene_{sid:03d}_solidbg.png")
+                title_path = str(work_dir / f"scene_{sid:03d}_title.png")
+                if (renderer.render_solid_bg(bg_path)
+                        and renderer.render_title_overlay(
+                            scene.text, title_path, scene.scene_type)):
+                    anim = AnimationSpec(anim_type=ANIM_FADE_IN,
+                                         start=0.1, duration=0.6)
+                    return SceneClipSpec(
+                        background_path=bg_path, duration=scene.duration,
+                        overlays=[OverlayLayer(title_path, anim)],
+                    )
+            # 降级：静态整屏文字卡
             card_path = str(work_dir / f"scene_{sid:03d}_card.png")
-            ok = renderer.render_scene(
+            if not renderer.render_scene(
                 scene_type=scene.scene_type, text=scene.text,
                 output_path=card_path, material_path=None,
-            )
-            if not ok:
+            ):
                 return None
             return SceneClipSpec(background_path=card_path, duration=scene.duration)
 
-        # 内容场景: 背景 + 运镜 + 字幕覆盖层
+        # 内容场景: 背景 + 运镜 + 字幕覆盖层(上滑淡入)
         material_path = self._pick_material(scene, material_map)
         if material_path:
             background_path = material_path  # 原图直接给运镜(内部cover-fit)
         else:
-            # 无素材 → 渐变背景
             background_path = str(work_dir / f"scene_{sid:03d}_bg.png")
             if not renderer.render_gradient_bg(background_path):
                 return None
 
-        # 字幕覆盖层(透明，轻量lower-third)
-        overlay_path = str(work_dir / f"scene_{sid:03d}_sub.png")
-        if not renderer.render_subtitle_overlay(scene.text, overlay_path):
-            overlay_path = None
-
-        # 运镜规格(可关闭)
         kb = None
         if self.enable_motion:
             kb = make_ken_burns(idx, self.size, self.fps, scene.duration)
+
+        # 字幕覆盖层
+        sub_path = str(work_dir / f"scene_{sid:03d}_sub.png")
+        overlays = []
+        overlay_path = None
+        if renderer.render_subtitle_overlay(scene.text, sub_path):
+            if self.enable_motion:
+                # 字幕从下方滑入+淡入，稍晚于画面出现
+                anim = AnimationSpec(anim_type=ANIM_SLIDE_UP,
+                                     start=0.35, duration=0.55)
+                overlays = [OverlayLayer(sub_path, anim)]
+            else:
+                overlay_path = sub_path
 
         return SceneClipSpec(
             background_path=background_path,
             duration=scene.duration,
             ken_burns=kb,
             overlay_path=overlay_path,
+            overlays=overlays,
         )
 
     # ---------- 风格加载 ----------

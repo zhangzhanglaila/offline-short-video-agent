@@ -153,7 +153,7 @@ class FFmpegComposer:
         return SceneClipSpec(background_path=path, duration=duration)
 
     def _render_scene_clip(self, spec, output: str) -> bool:
-        """按规格渲染场景片段(支持运镜+覆盖层)。
+        """按规格渲染场景片段(支持运镜+多动画覆盖层)。
 
         Args:
             spec: SceneClipSpec
@@ -165,8 +165,22 @@ class FFmpegComposer:
         if not Path(spec.background_path).exists():
             return False
 
+        from core.compose.motion.text_animations import build_overlay_filter
+        from core.compose.motion.animation_spec import AnimationSpec, ANIM_NONE
+
         w, h = self.size
-        has_overlay = spec.has_overlay and Path(spec.overlay_path or "").exists()
+
+        # 收集覆盖层：优先动画列表overlays，否则回退静态overlay_path
+        layers = []
+        for lyr in spec.overlays:
+            if lyr.image_path and Path(lyr.image_path).exists():
+                layers.append(lyr)
+        if not layers and spec.overlay_path and Path(spec.overlay_path).exists():
+            from core.compose.motion.animation_spec import OverlayLayer
+            layers.append(OverlayLayer(
+                image_path=spec.overlay_path,
+                animation=AnimationSpec(anim_type=ANIM_NONE),
+            ))
 
         # 背景滤镜：运镜 或 静态cover-fit
         if spec.has_motion:
@@ -180,14 +194,24 @@ class FFmpegComposer:
         cmd = [self.ffmpeg_path, "-y", "-loop", "1",
                "-t", f"{spec.duration:.3f}", "-i", spec.background_path]
 
-        if has_overlay:
-            # 背景(运镜) + 静态覆盖层
-            cmd.extend(["-i", spec.overlay_path])
-            filter_complex = (
-                f"[0:v]{bg_filter}[bg];"
-                f"[bg][1:v]overlay=0:0:format=auto,"
-                f"format=yuv420p[out]"
-            )
+        if layers:
+            # 背景 + 多覆盖层链式合成
+            for lyr in layers:
+                cmd.extend(["-loop", "1", "-t", f"{spec.duration:.3f}",
+                            "-i", lyr.image_path])
+
+            parts = [f"[0:v]{bg_filter}[bg]"]
+            prev = "bg"
+            for i, lyr in enumerate(layers):
+                input_idx = i + 1
+                out_label = f"ov{i}" if i < len(layers) - 1 else "vout"
+                parts.append(build_overlay_filter(
+                    input_idx, prev, out_label, lyr.animation, self.size,
+                ))
+                prev = out_label
+            # 末尾统一format
+            filter_complex = ";".join(parts) + ";[vout]format=yuv420p[out]"
+
             cmd.extend([
                 "-filter_complex", filter_complex,
                 "-map", "[out]",

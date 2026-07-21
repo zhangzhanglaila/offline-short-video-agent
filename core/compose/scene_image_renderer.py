@@ -149,6 +149,51 @@ class SceneImageRenderer:
         except Exception:
             return False
 
+    # ---------- 背景填充(支持纯色与渐变风格) ----------
+
+    def _make_bg_image(self) -> Image.Image:
+        """按风格背景规格生成背景图(纯色或渐变)。
+
+        某些风格(如vibrant)的background是渐变字典而非颜色字符串，
+        此处统一处理，避免_hex_to_rgb对字典崩溃。
+
+        Returns:
+            背景PIL图像
+        """
+        bg = self.style.get("colors", {}).get("background", "#FFFFFF")
+
+        # 渐变背景: {"type":"gradient","value":[color,...], "angle":..}
+        if isinstance(bg, dict):
+            values = bg.get("value") or ["#FFFFFF"]
+            c_top = _hex_to_rgb(values[0])
+            c_bot = _hex_to_rgb(values[-1])
+            return self._vertical_gradient(c_top, c_bot)
+
+        # 纯色
+        color = _hex_to_rgb(bg) if isinstance(bg, str) else (255, 255, 255)
+        return Image.new("RGB", self.size, color)
+
+    def _vertical_gradient(self, c_top, c_bot) -> Image.Image:
+        """生成竖直渐变图像。
+
+        Args:
+            c_top: 顶部颜色RGB
+            c_bot: 底部颜色RGB
+
+        Returns:
+            渐变图像
+        """
+        w, h = self.size
+        base = Image.new("RGB", (1, h))
+        for y in range(h):
+            r = y / max(1, h - 1)
+            base.putpixel((0, y), (
+                int(c_top[0] * (1 - r) + c_bot[0] * r),
+                int(c_top[1] * (1 - r) + c_bot[1] * r),
+                int(c_top[2] * (1 - r) + c_bot[2] * r),
+            ))
+        return base.resize(self.size)
+
     # ---------- 分层渲染(D1: 背景与字幕分离) ----------
 
     def render_gradient_bg(self, output_path: str) -> bool:
@@ -164,6 +209,77 @@ class SceneImageRenderer:
             img = self._gradient_background()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             img.convert("RGB").save(output_path)
+            return True
+        except Exception:
+            return False
+
+    def render_title_overlay(
+        self, text: str, output_path: str, scene_type: str = "title_card"
+    ) -> bool:
+        """渲染透明标题文字层(用于文字卡的入场动画)。
+
+        与_render_text_card相同的文字布局，但背景透明，
+        便于叠加在纯色背景上做淡入/缩放动画。
+
+        Args:
+            text: 标题文字
+            output_path: 输出PNG路径(带透明通道)
+            scene_type: 场景类型(决定字号/装饰)
+
+        Returns:
+            True如果成功
+        """
+        try:
+            colors = self.style.get("colors", {})
+            primary = _hex_to_rgb(colors.get("primary", "#1A1A1A"))
+            accent = _hex_to_rgb(colors.get("accent", "#3B82F6"))
+
+            w, h = self.size
+            img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+
+            font_size = int(w * 0.11) if scene_type == "title_card" else int(w * 0.09)
+            font = self._font(font_size)
+
+            lines = self._wrap_text(text, font, int(w * 0.82), draw)
+            line_height = int(font_size * 1.35)
+            total_h = line_height * len(lines)
+            y = (h - total_h) // 2
+
+            for line in lines:
+                bbox = draw.textbbox((0, 0), line, font=font)
+                line_w = bbox[2] - bbox[0]
+                x = (w - line_w) // 2
+                draw.text((x, y), line, font=font, fill=primary + (255,))
+                y += line_height
+
+            if scene_type == "title_card":
+                line_y = (h + total_h) // 2 + int(h * 0.03)
+                line_w = int(w * 0.2)
+                draw.rectangle(
+                    [(w - line_w) // 2, line_y, (w + line_w) // 2, line_y + 8],
+                    fill=accent + (255,),
+                )
+
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            img.save(output_path)
+            return True
+        except Exception:
+            return False
+
+    def render_solid_bg(self, output_path: str) -> bool:
+        """渲染纯风格背景色(文字卡的静态背景)。
+
+        Args:
+            output_path: 输出路径
+
+        Returns:
+            True如果成功
+        """
+        try:
+            img = self._make_bg_image()
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            img.save(output_path)
             return True
         except Exception:
             return False
@@ -232,11 +348,10 @@ class SceneImageRenderer:
             PIL图像
         """
         colors = self.style.get("colors", {})
-        bg = _hex_to_rgb(colors.get("background", "#FFFFFF"))
         primary = _hex_to_rgb(colors.get("primary", "#1A1A1A"))
         accent = _hex_to_rgb(colors.get("accent", "#3B82F6"))
 
-        img = Image.new("RGB", self.size, bg)
+        img = self._make_bg_image()
         draw = ImageDraw.Draw(img)
 
         w, h = self.size
