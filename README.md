@@ -1,13 +1,15 @@
 # Offline-ShortVideo-Agent
 
-> 一个人就是一支短视频工厂 · A one-person short-video factory
-> 零 API 成本 · 100% 离线运行 · 全自动爆款流水线
+Multi-agent, fully offline short-video compiler: turns one keyword into a script, retrieves real materials, applies Ken Burns motion, burns subtitles, mixes BGM, and outputs ready-to-post Douyin / RedNote / Bilibili packages — zero API cost.
+
+面向短视频创作、以多 Agent 协作为核心的全离线自动生成器：输入一个关键词，自动完成 AI 脚本、真实素材检索、Ken Burns 运镜、字幕烧录、背景音乐与多平台发布包 —— 零 API 成本。
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Windows](https://img.shields.io/badge/Windows-Supported-green.svg)](https://github.com/zhangzhanglaila/Offline-ShortVideo-Agent)
+[![Windows](https://img.shields.io/badge/Windows-Supported-green.svg)](https://github.com/zhangzhanglaila/offline-short-video-agent)
+[![FFmpeg](https://img.shields.io/badge/FFmpeg-required-orange.svg)](https://ffmpeg.org/)
 
-**语言 / Language:** [简体中文](#简体中文) · [English](#english)
+**Language / 语言:** [简体中文](#简体中文) | [English](#english)
 
 ---
 
@@ -591,5 +593,31 @@ Issues and PRs are welcome. New animation styles, platform adapters and fallback
 ### License
 
 Released under the [MIT License](https://opensource.org/licenses/MIT).
+
+[⬆ 返回顶部 / Back to top](#offline-shortvideo-agent)
+
+---
+
+## Repository / 仓库信息
+
+[![Stars](https://img.shields.io/github/stars/zhangzhanglaila/offline-short-video-agent?style=flat)](https://github.com/zhangzhanglaila/offline-short-video-agent/stargazers)
+[![Forks](https://img.shields.io/github/forks/zhangzhanglaila/offline-short-video-agent?style=flat)](https://github.com/zhangzhanglaila/offline-short-video-agent/network/members)
+[![Issues](https://img.shields.io/github/issues/zhangzhanglaila/offline-short-video-agent?style=flat)](https://github.com/zhangzhanglaila/offline-short-video-agent/issues)
+[![Last commit](https://img.shields.io/github/last-commit/zhangzhanglaila/offline-short-video-agent?style=flat)](https://github.com/zhangzhanglaila/offline-short-video-agent/commits/main)
+[![Repo size](https://img.shields.io/github/repo-size/zhangzhanglaila/offline-short-video-agent?style=flat)](https://github.com/zhangzhanglaila/offline-short-video-agent)
+
+| 项目 / Item | 值 / Value |
+|-------------|-----------|
+| Repository | [zhangzhanglaila/offline-short-video-agent](https://github.com/zhangzhanglaila/offline-short-video-agent) |
+| License | [MIT](https://opensource.org/licenses/MIT) |
+| Language | Python 3.10+ |
+| Platform | Windows / macOS / Linux |
+| Version | 2.1-dev |
+| Status | Agent (Phase 0–5) + Dynamic (D1–D6) complete |
+
+**Topics:** `short-video` · `video-generation` · `multi-agent` · `ffmpeg` · `ken-burns` · `text-to-video` · `offline` · `douyin` · `automation` · `python`
+
+> 在 GitHub 仓库页右上角 **About → ⚙ → Topics** 中填入以上标签,可让仓库被更精准地检索。
+> Add the topics above via the repo's **About → ⚙ → Topics** panel to improve discoverability.
 
 [⬆ 返回顶部 / Back to top](#offline-shortvideo-agent)
