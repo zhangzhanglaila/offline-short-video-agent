@@ -287,6 +287,7 @@ class ContentAnalysisAgent(BaseAgent):
         ))
 
         # 2. 内容场景
+        scene_template = (request.metadata or {}).get("template")
         for i, segment in enumerate(content_segments):
             scenes.append(Scene(
                 scene_id=i + 2,
@@ -295,6 +296,7 @@ class ContentAnalysisAgent(BaseAgent):
                 duration=round(per_scene, 1),
                 keywords=self._extract_keywords(segment),
                 narration=segment,
+                template=scene_template,
             ))
 
         # 3. 结尾卡
