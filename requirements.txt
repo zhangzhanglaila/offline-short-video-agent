@@ -24,7 +24,7 @@ python-dotenv>=1.0.0
 # FFmpeg 必须单独安装: https://ffmpeg.org/download.html
 
 # ========== 可选依赖 ==========
-# playwright>=1.40.0  # 爬虫功能 (可选)
+playwright>=1.40.0  # E1: HTML template rendering; run 'python -m playwright install chromium' once
 # gtts>=2.3.0          # Google TTS (备用)
 
 # ========== Agent编排 (Phase 2 新增) ==========

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from .browser import BrowserManager
-from .exceptions import TemplateNotFoundError, TemplateRenderError
+from .exceptions import TemplateError
 from .html_generator import HTMLFrameGenerator
 from .registry import TemplateRegistry
 
@@ -44,7 +44,7 @@ class TemplateRenderer:
         """
         try:
             return await self.render(template_name, context, output_path)
-        except (TemplateNotFoundError, TemplateRenderError) as e:
+        except TemplateError as e:
             if fallback_func is None:
                 raise
             if output_path is None:

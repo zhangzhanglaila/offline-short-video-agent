@@ -14,6 +14,8 @@ from typing import List, Optional, Tuple, Dict, Any
 
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
+from services.template import TemplateRenderer
+
 
 # 中文字体候选路径（按优先级）
 _CJK_FONT_CANDIDATES = [
@@ -645,3 +647,25 @@ class SceneImageRenderer:
             if current:
                 result.append(current)
         return result or [""]
+
+
+async def render_template_frame(
+    template_name: str,
+    context: Dict[str, Any],
+    output_path: str,
+):
+    """Render an HTML template frame for the video generation pipeline.
+
+    Args:
+        template_name: Registered template name.
+        context: Values passed to the template.
+        output_path: Destination PNG path.
+
+    Returns:
+        The path returned by :class:`TemplateRenderer`.
+    """
+    renderer = TemplateRenderer()
+    try:
+        return await renderer.render(template_name, context, Path(output_path))
+    finally:
+        await renderer.close()
