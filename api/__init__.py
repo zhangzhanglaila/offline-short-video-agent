@@ -14,6 +14,7 @@ from . import thinking_api
 from . import timeline_api
 from . import ecom_api
 from . import template_api
+from . import ai_image_api
 
 __all__ = [
     'agent_api',
@@ -28,4 +29,5 @@ __all__ = [
     'timeline_api',
     'ecom_api',
     'template_api',
+    'ai_image_api',
 ]
