@@ -113,6 +113,8 @@ class VideoComposeAgent(BaseAgent):
         try:
             # 1. 解析输入
             content, material_map, output_path = self._parse_input(message)
+            self._current_title = content.title
+            self._current_style = content.style
 
             # 2. 加载风格
             style = self._load_style(content.style)
@@ -127,7 +129,9 @@ class VideoComposeAgent(BaseAgent):
             rendered = 0
             self._content_counter = 0  # 每次生成重置内容场景计数(徽章序号)
             for idx, scene in enumerate(content.scenes):
-                spec = self._build_scene_spec(scene, idx, material_map, renderer, work_dir)
+                spec = await self._build_scene_spec_async(
+                    scene, idx, material_map, work_dir
+                )
                 if spec is not None:
                     scene_specs.append(spec)
                     rendered_types.append(scene.scene_type)
@@ -255,7 +259,7 @@ class VideoComposeAgent(BaseAgent):
         if scene.is_text_only():
             return None
 
-        assets = material_map.get(scene.scene_id)
+        assets = material_map.get(scene.scene_id) or []
         for asset in assets:
             # 优先用有本地文件的真实素材
             if not asset.is_placeholder and asset.local_path:
@@ -354,6 +358,80 @@ class VideoComposeAgent(BaseAgent):
             overlays=overlays,
             background_is_video=is_video_bg,
         )
+
+    async def _build_scene_spec_async(
+        self, scene, idx, material_map, work_dir
+    ) -> "SceneClipSpec | None":
+        """异步版本的 _build_scene_spec，支持模板渲染路径。
+
+        当 scene.template 非空且场景不是纯文字时，使用 HTML 模板生成场景背景图，
+        否则回退到原有 _build_scene_spec 逻辑。
+        """
+        from core.compose.scene_image_renderer import (
+            SceneImageRenderer,
+            render_template_frame,
+        )
+
+        sid = scene.scene_id
+
+        # === 模板路径（仅内容场景） ===
+        if scene.template and not scene.is_text_only():
+            bg_path = str(work_dir / f"scene_{sid:03d}_template.png")
+
+            # 构造模板上下文
+            asset = self._pick_material(scene, material_map)
+            image_var = asset.local_path if asset else None
+
+            context_title = getattr(self, "_current_title", "视频")
+            style = getattr(self, "_current_style", "minimal")
+
+            ctx = {
+                "title": context_title,
+                "image": image_var or "",
+                "text": scene.text,
+                "author": "AI Assistant",
+                "describe": context_title,
+                "brand": "Offline-ShortVideo-Agent",
+            }
+
+            # 降级函数：写 gradient bg
+            renderer = SceneImageRenderer(style=style, size=self.size)
+
+            async def gradient_fallback(out_path):
+                renderer.render_gradient_bg(out_path)
+                return out_path
+
+            try:
+                await render_template_frame(
+                    template_name=scene.template,
+                    context=ctx,
+                    output_path=bg_path,
+                    fallback_func=gradient_fallback,
+                )
+            except Exception as e:
+                self.logger.warning(f"Template path failed: {e}")
+                return None
+
+            # 模板已自含视觉，不要 Ken Burns
+            overlays = []
+            if self.enable_motion:
+                from core.compose.motion.scene_composer import build_content_overlays
+                self._content_counter += 1
+                overlays = build_content_overlays(
+                    scene, self._content_counter, renderer, work_dir,
+                    with_badge=self.enable_elements,
+                )
+
+            return SceneClipSpec(
+                background_path=bg_path,
+                duration=scene.duration,
+                overlays=overlays,
+            )
+
+        # 非模板路径 → 走原方法
+        style = getattr(self, "_current_style", None)
+        renderer = SceneImageRenderer(style=style, size=self.size)
+        return self._build_scene_spec(scene, idx, material_map, renderer, work_dir)
 
     # ---------- 背景音乐选择(D6) ----------
 

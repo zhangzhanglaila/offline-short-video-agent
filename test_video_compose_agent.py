@@ -13,6 +13,7 @@ import os
 import asyncio
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from core.models import (
@@ -363,3 +364,44 @@ class TestRealFFmpeg:
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v", "-s"])
+
+
+@pytest.mark.asyncio
+async def test_build_scene_spec_async_with_template(tmp_path):
+    """scene.template 非空时调用 render_template_frame"""
+    from core.models.content import Scene, ContentStructure
+    from core.agents.video_compose_agent import VideoComposeAgent
+    from PIL import Image
+    import core.compose.scene_image_renderer as sir
+
+    # Mock render_template_frame to avoid actually launching Chromium
+    calls = []
+    original = sir.render_template_frame
+
+    async def mock(template_name, context, output_path, fallback_func=None):
+        calls.append({"template": template_name, "context": context, "output": output_path})
+        Image.new("RGB", (1080, 1920), "#abcdef").save(output_path)
+        return output_path
+
+    sir.render_template_frame = mock
+    try:
+        scene = Scene(
+            scene_id=1,
+            scene_type="content",
+            text="讲解Python异步",
+            duration=5.0,
+            template="image_default",
+            keywords=["python"],
+        )
+        agent = VideoComposeAgent(size=(1080, 1920))
+        agent._current_title = "Python异步编程"
+        spec = await agent._build_scene_spec_async(scene, 0, {}, tmp_path)
+
+        assert spec is not None, "Template path should produce a spec"
+        assert len(calls) == 1, f"Expected 1 call, got {len(calls)}"
+        assert calls[0]["template"] == "image_default"
+        assert calls[0]["context"]["title"] == "Python异步编程"
+        assert calls[0]["context"]["text"] == "讲解Python异步"
+        assert Path(spec.background_path).exists()
+    finally:
+        sir.render_template_frame = original
