@@ -401,6 +401,8 @@ class VideoComposeAgent(BaseAgent):
                 renderer.render_gradient_bg(out_path)
                 return out_path
 
+            from services.template import TemplateError
+
             try:
                 await render_template_frame(
                     template_name=scene.template,
@@ -408,7 +410,7 @@ class VideoComposeAgent(BaseAgent):
                     output_path=bg_path,
                     fallback_func=gradient_fallback,
                 )
-            except Exception as e:
+            except TemplateError as e:
                 self.logger.warning(f"Template path failed: {e}")
                 return None
 

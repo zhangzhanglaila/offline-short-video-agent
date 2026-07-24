@@ -165,6 +165,7 @@ class ContentAnalysisAgent(BaseAgent):
             style=payload.get("style", ""),
             duration=int(payload.get("duration", 30)),
             request_id=payload.get("request_id", f"req_{message.msg_id}"),
+            metadata=payload.get("metadata", {}) or {},
         )
 
     # ---------- 分析（LLM优先） ----------
