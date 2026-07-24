@@ -151,8 +151,7 @@ async def run(params: dict, output_path: str = None, size=(1080, 1920)) -> int:
     )
 
     # 透传模板选择（CLI --template）：通过 metadata 流向下游 Agent。
-    # 注：当前 ContentAnalysisAgent 尚未读取该字段；该字段由后续任务
-    # 在 content_analysis_agent 中识别并应用到 Scene.template。
+    # ContentAnalysisAgent 在 _parse_request 中读取 metadata，并将其应用到 Scene.template。
     template_name = params.get("template")
     if template_name:
         request.metadata["template"] = template_name

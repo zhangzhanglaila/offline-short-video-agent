@@ -360,8 +360,12 @@ class VideoComposeAgent(BaseAgent):
         )
 
     async def _build_scene_spec_async(
-        self, scene, idx, material_map, work_dir
-    ) -> "SceneClipSpec | None":
+        self,
+        scene: "Scene",
+        idx: int,
+        material_map: dict,
+        work_dir: "Path",
+    ) -> Optional["SceneClipSpec"]:
         """异步版本的 _build_scene_spec，支持模板渲染路径。
 
         当 scene.template 非空且场景不是纯文字时，使用 HTML 模板生成场景背景图，
@@ -383,7 +387,6 @@ class VideoComposeAgent(BaseAgent):
             image_var = asset.local_path if asset else None
 
             context_title = getattr(self, "_current_title", "视频")
-            style = getattr(self, "_current_style", "minimal")
 
             ctx = {
                 "title": context_title,
@@ -394,8 +397,9 @@ class VideoComposeAgent(BaseAgent):
                 "brand": "Offline-ShortVideo-Agent",
             }
 
-            # 降级函数：写 gradient bg
-            renderer = SceneImageRenderer(style=style, size=self.size)
+            # 降级函数：写 gradient bg（用已加载的 style dict）
+            loaded_style = self._load_style(self._current_style) if hasattr(self, "_current_style") else None
+            renderer = SceneImageRenderer(style=loaded_style, size=self.size)
 
             async def gradient_fallback(out_path):
                 renderer.render_gradient_bg(out_path)
