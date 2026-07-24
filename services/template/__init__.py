@@ -1,3 +1,21 @@
 """模板渲染服务模块"""
 
-# 模块导入在 Task 8 统一处理（避免早期 import 未实现模块）
+from .renderer import TemplateRenderer
+from .registry import TemplateRegistry
+from .models import TemplateInfo
+from .exceptions import (
+    TemplateError,
+    TemplateNotFoundError,
+    TemplateRenderError,
+    BrowserNotAvailableError,
+)
+
+__all__ = [
+    "TemplateRenderer",
+    "TemplateRegistry",
+    "TemplateInfo",
+    "TemplateError",
+    "TemplateNotFoundError",
+    "TemplateRenderError",
+    "BrowserNotAvailableError",
+]
