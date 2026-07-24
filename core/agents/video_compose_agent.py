@@ -87,6 +87,8 @@ class VideoComposeAgent(BaseAgent):
         self.enable_bgm = enable_bgm
         self._bgm_path = bgm_path
         self.bgm_volume = bgm_volume
+        # E1W3.1: 模板渲染器（惰性加载，execute 结束时清理）
+        self._template_renderer = None
 
     @property
     def composer(self) -> FFmpegComposer:
@@ -94,6 +96,23 @@ class VideoComposeAgent(BaseAgent):
         if self._composer is None:
             self._composer = FFmpegComposer(size=self.size, fps=self.fps)
         return self._composer
+
+    @property
+    def template_renderer(self):
+        """惰性加载模板渲染器（E1W3.1）。"""
+        if self._template_renderer is None:
+            from services.template import TemplateRenderer
+            self._template_renderer = TemplateRenderer()
+        return self._template_renderer
+
+    async def _cleanup_template_renderer(self):
+        """清理模板渲染器资源（E1W3.1）。"""
+        if self._template_renderer is not None:
+            try:
+                await self._template_renderer.close()
+            except Exception as e:
+                self.logger.warning(f"TemplateRenderer cleanup failed: {e}")
+            self._template_renderer = None
 
     # ---------- 主执行入口 ----------
 
@@ -113,12 +132,9 @@ class VideoComposeAgent(BaseAgent):
         try:
             # 1. 解析输入
             content, material_map, output_path = self._parse_input(message)
-            self._current_title = content.title
-            self._current_style = content.style
 
             # 2. 加载风格
             style = self._load_style(content.style)
-            renderer = SceneImageRenderer(style=style, size=self.size)
 
             # 3. 为每个场景构建片段规格(D1: 分层+运镜)
             work_dir = Path(output_path).parent / f".scenes_{Path(output_path).stem}"
@@ -130,7 +146,10 @@ class VideoComposeAgent(BaseAgent):
             self._content_counter = 0  # 每次生成重置内容场景计数(徽章序号)
             for idx, scene in enumerate(content.scenes):
                 spec = await self._build_scene_spec_async(
-                    scene, idx, material_map, work_dir
+                    scene, idx, material_map, work_dir,
+                    title=content.title,
+                    style_dict=style,
+                    template_renderer=self.template_renderer,
                 )
                 if spec is not None:
                     scene_specs.append(spec)
@@ -187,6 +206,9 @@ class VideoComposeAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"视频合成失败: {e}", exc_info=True)
             return await self.handle_error(e, message)
+        finally:
+            # E1W3.1: 清理模板渲染器资源
+            await self._cleanup_template_renderer()
 
     async def handle_error(self, error: Exception, message: Message) -> Message:
         """处理错误。"""
@@ -365,6 +387,9 @@ class VideoComposeAgent(BaseAgent):
         idx: int,
         material_map: dict,
         work_dir: "Path",
+        title: str,
+        style_dict: dict,
+        template_renderer=None,
     ) -> Optional["SceneClipSpec"]:
         """异步版本的 _build_scene_spec，支持模板渲染路径。
 
@@ -386,20 +411,17 @@ class VideoComposeAgent(BaseAgent):
             asset = self._pick_material(scene, material_map)
             image_var = asset.local_path if asset else None
 
-            context_title = getattr(self, "_current_title", "视频")
-
             ctx = {
-                "title": context_title,
+                "title": title,
                 "image": image_var or "",
                 "text": scene.text,
                 "author": "AI Assistant",
-                "describe": context_title,
+                "describe": title,
                 "brand": "Offline-ShortVideo-Agent",
             }
 
             # 降级函数：写 gradient bg（用已加载的 style dict）
-            loaded_style = self._load_style(self._current_style) if hasattr(self, "_current_style") else None
-            renderer = SceneImageRenderer(style=loaded_style, size=self.size)
+            renderer = SceneImageRenderer(style=style_dict, size=self.size)
 
             async def gradient_fallback(out_path):
                 renderer.render_gradient_bg(out_path)
@@ -413,6 +435,7 @@ class VideoComposeAgent(BaseAgent):
                     context=ctx,
                     output_path=bg_path,
                     fallback_func=gradient_fallback,
+                    renderer=template_renderer,
                 )
             except TemplateError as e:
                 self.logger.warning(f"Template path failed: {e}")
@@ -435,8 +458,7 @@ class VideoComposeAgent(BaseAgent):
             )
 
         # 非模板路径 → 走原方法
-        style = self._load_style(self._current_style) if hasattr(self, "_current_style") else None
-        renderer = SceneImageRenderer(style=style, size=self.size)
+        renderer = SceneImageRenderer(style=style_dict, size=self.size)
         return self._build_scene_spec(scene, idx, material_map, renderer, work_dir)
 
     # ---------- 背景音乐选择(D6) ----------

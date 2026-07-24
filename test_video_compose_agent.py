@@ -378,7 +378,7 @@ async def test_build_scene_spec_async_with_template(tmp_path):
     calls = []
     original = sir.render_template_frame
 
-    async def mock(template_name, context, output_path, fallback_func=None):
+    async def mock(template_name, context, output_path, fallback_func=None, renderer=None):
         calls.append({"template": template_name, "context": context, "output": output_path})
         Image.new("RGB", (1080, 1920), "#abcdef").save(output_path)
         return output_path
@@ -394,8 +394,12 @@ async def test_build_scene_spec_async_with_template(tmp_path):
             keywords=["python"],
         )
         agent = VideoComposeAgent(size=(1080, 1920))
-        agent._current_title = "Python异步编程"
-        spec = await agent._build_scene_spec_async(scene, 0, {}, tmp_path)
+        style_dict = {"bg_gradient": ["#1a1a2e", "#16213e"], "text_color": "#ffffff"}
+        spec = await agent._build_scene_spec_async(
+            scene, 0, {}, tmp_path,
+            title="Python异步编程",
+            style_dict=style_dict,
+        )
 
         assert spec is not None, "Template path should produce a spec"
         assert len(calls) == 1, f"Expected 1 call, got {len(calls)}"

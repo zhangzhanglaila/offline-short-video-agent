@@ -658,6 +658,7 @@ async def render_template_frame(
     context: Dict[str, Any],
     output_path: str,
     fallback_func: Optional[Callable] = None,
+    renderer=None,
 ):
     """Render an HTML template frame for the video generation pipeline.
 
@@ -666,14 +667,20 @@ async def render_template_frame(
         context: Values passed to the template.
         output_path: Destination PNG path.
         fallback_func: Optional async function called with output_path on failure.
+        renderer: Optional TemplateRenderer instance (caller manages lifecycle).
 
     Returns:
         The PNG path. Returns fallback result if fallback_func is provided and
         template rendering fails.
     """
-    renderer = TemplateRenderer()
+    should_close = renderer is None
+    if renderer is None:
+        renderer = TemplateRenderer()
+
     try:
-        return await renderer.render(template_name, context, Path(output_path))
+        return await renderer.render_with_fallback(
+            template_name, context, Path(output_path), fallback_func
+        )
     except Exception as e:
         if fallback_func is not None:
             logger.warning(
@@ -683,4 +690,5 @@ async def render_template_frame(
             return await fallback_func(output_path)
         raise
     finally:
-        await renderer.close()
+        if should_close:
+            await renderer.close()

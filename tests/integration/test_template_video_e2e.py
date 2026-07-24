@@ -33,13 +33,15 @@ async def test_real_video_generation_with_template(tmp_path):
     material_map = {}  # 无素材 → 用空 image 占位
 
     agent = VideoComposeAgent(size=(1080, 1920))
-    agent._current_title = content.title
-    agent._current_style = content.style
     agent._content_counter = 0
 
     work_dir = tmp_path / "work"
     work_dir.mkdir()
-    spec = await agent._build_scene_spec_async(scene, 0, material_map, work_dir)
+    spec = await agent._build_scene_spec_async(
+        scene, 0, material_map, work_dir,
+        title=content.title,
+        style_dict=agent._load_style(content.style),
+    )
 
     # 验证
     assert spec is not None, "Template path should produce a spec"
