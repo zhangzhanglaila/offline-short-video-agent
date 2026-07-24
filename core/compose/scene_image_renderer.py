@@ -8,13 +8,17 @@
 输出的每张图对应视频的一个场景画面。
 """
 
+import logging
 import os
 from pathlib import Path
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from services.template import TemplateRenderer
+
+
+logger = logging.getLogger(__name__)
 
 
 # 中文字体候选路径（按优先级）
@@ -653,6 +657,7 @@ async def render_template_frame(
     template_name: str,
     context: Dict[str, Any],
     output_path: str,
+    fallback_func: Optional[Callable] = None,
 ):
     """Render an HTML template frame for the video generation pipeline.
 
@@ -660,12 +665,22 @@ async def render_template_frame(
         template_name: Registered template name.
         context: Values passed to the template.
         output_path: Destination PNG path.
+        fallback_func: Optional async function called with output_path on failure.
 
     Returns:
-        The path returned by :class:`TemplateRenderer`.
+        The PNG path. Returns fallback result if fallback_func is provided and
+        template rendering fails.
     """
     renderer = TemplateRenderer()
     try:
         return await renderer.render(template_name, context, Path(output_path))
+    except Exception as e:
+        if fallback_func is not None:
+            logger.warning(
+                f"Template '{template_name}' render failed ({e}); using fallback"
+            )
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            return await fallback_func(output_path)
+        raise
     finally:
         await renderer.close()
