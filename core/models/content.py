@@ -42,6 +42,7 @@ class Scene:
     duration: float
     keywords: List[str] = field(default_factory=list)
     narration: Optional[str] = None
+    template: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式。"""
@@ -52,6 +53,7 @@ class Scene:
             "duration": self.duration,
             "keywords": self.keywords,
             "narration": self.narration,
+            "template": self.template,
         }
 
     @classmethod
@@ -71,6 +73,7 @@ class Scene:
             duration=float(data.get("duration", 3.0)),
             keywords=list(data.get("keywords", [])),
             narration=data.get("narration"),
+            template=data.get("template"),
         )
 
     def is_text_only(self) -> bool:
