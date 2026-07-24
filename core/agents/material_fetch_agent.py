@@ -5,6 +5,7 @@
 - 消费内容分析Agent产出的ContentStructure
 - 为每个内容场景（非纯文字场景）检索匹配素材
 - 多源搜索（Pexels / Pixabay / Unsplash）
+- AI 生图（E2: Bailian WanX / OpenAI DALL-E）
 - 下载并缓存素材
 - 质量评分
 - 降级：无结果或下载失败时生成占位符
@@ -16,6 +17,7 @@
 """
 
 import os
+import asyncio
 import time
 import hashlib
 from pathlib import Path
@@ -120,6 +122,10 @@ class MaterialFetchAgent(BaseAgent):
         self.prefer_video = prefer_video
         self._video_module = video_module
         self._video_disabled = video_module is False
+        # E2: AI 生图
+        self._ai_image_enabled = True  # 默认启用 AI 生图
+        self._ai_generator = None
+        self._ai_disabled = False
 
     # ---------- 惰性加载API管理器 ----------
 
@@ -131,6 +137,28 @@ class MaterialFetchAgent(BaseAgent):
         if self._api_manager is None:
             self._api_manager = self._build_api_manager()
         return self._api_manager
+
+    @property
+    def ai_generator(self):
+        """惰性构建AI生图器（E2）。"""
+        if not self._ai_image_enabled or self._ai_disabled:
+            return None
+        if self._ai_generator is None:
+            try:
+                from services.ai_image import BailianImageGenerator, AIImageRequest, ImageSize
+
+                api_key = os.environ.get("DASHSCOPE_API_KEY", "")
+                if not api_key:
+                    self.logger.info("未配置 DASHSCOPE_API_KEY，跳过 AI 生图")
+                    self._ai_disabled = True
+                    return None
+
+                self._ai_generator = BailianImageGenerator(api_key=api_key)
+                self.logger.info("AI 生图器已启用（Bailian WanX）")
+            except Exception as e:
+                self.logger.warning(f"无法加载AI生图模块: {e}")
+                self._ai_disabled = True
+        return self._ai_generator
 
     def _build_api_manager(self):
         """从环境变量构建API管理器。
@@ -257,6 +285,12 @@ class MaterialFetchAgent(BaseAgent):
     def _fetch_for_scene(self, scene: Scene) -> List[MaterialAsset]:
         """为单个场景检索素材。
 
+        检索顺序:
+        1. 视频素材（D5，如果启用）
+        2. AI 生图（E2，如果启用）
+        3. 素材库搜索（Pexels/Pixabay/Unsplash）
+        4. 占位符（降级）
+
         Args:
             scene: 内容场景
 
@@ -270,6 +304,12 @@ class MaterialFetchAgent(BaseAgent):
             video_asset = self._fetch_video_for_scene(scene, queries)
             if video_asset is not None:
                 return [video_asset]
+
+        # E2: AI 生图（在素材库搜索之前尝试）
+        if self._ai_image_enabled and self.enable_download:
+            ai_asset = self._fetch_ai_image_for_scene(scene, queries)
+            if ai_asset is not None:
+                return [ai_asset]
 
         # 图片素材
         manager = self.api_manager
@@ -355,6 +395,85 @@ class MaterialFetchAgent(BaseAgent):
                         is_placeholder=False,
                     )
         return None
+
+    # ---------- AI 生图（E2） ----------
+
+    def _fetch_ai_image_for_scene(
+        self, scene: Scene, queries: List[str]
+    ) -> Optional[MaterialAsset]:
+        """使用 AI 为场景生成图片。
+
+        Args:
+            scene: 场景
+            queries: 检索查询列表（用于构建 prompt）
+
+        Returns:
+            MaterialAsset，失败返回 None
+        """
+        generator = self.ai_generator
+        if generator is None:
+            return None
+
+        try:
+            # 构建 prompt（使用第一个查询）
+            prompt = queries[0] if queries else scene.text
+            if not prompt:
+                return None
+
+            # 确定尺寸（根据视频分辨率）
+            from services.ai_image.base import ImageSize
+            size = ImageSize.PORTRAIT_1080x1920  # 默认竖屏
+
+            # 异步调用生图
+            from services.ai_image import AIImageRequest, AIProvider
+
+            request = AIImageRequest(
+                prompt=prompt,
+                provider=AIProvider.BAILIAN,
+                model="wan2.6-t2i",
+                size=size,
+                n=1,
+            )
+
+            # 在同步上下文中运行异步函数
+            try:
+                loop = asyncio.get_running_loop()
+                # 如果已有运行中的 loop，使用 create_task
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    future = pool.submit(
+                        asyncio.run, generator.generate(request)
+                    )
+                    result = future.result(timeout=120)
+            except RuntimeError:
+                # 没有运行中的 loop，直接使用 asyncio.run
+                result = asyncio.run(generator.generate(request))
+
+            if result.success and result.image_path:
+                self.logger.info(
+                    f"场景 {scene.scene_id} AI 生图成功: {result.image_path}"
+                )
+                return MaterialAsset(
+                    asset_id=f"ai_image_{scene.scene_id}",
+                    scene_id=scene.scene_id,
+                    source="bailian",
+                    media_type="image",
+                    url=result.image_url or "",
+                    download_url=result.image_url or "",
+                    local_path=result.image_path,
+                    width=1080,
+                    height=1920,
+                    quality_score=0.95,
+                    keywords=scene.keywords,
+                    is_placeholder=False,
+                )
+            else:
+                self.logger.debug(f"AI 生图失败: {result.error}")
+                return None
+        except Exception as e:
+            self.logger.warning(f"AI 生图异常: {e}")
+            return None
 
     def _build_queries(self, scene: Scene) -> List[str]:
         """构建场景的检索查询列表（按优先级）。
