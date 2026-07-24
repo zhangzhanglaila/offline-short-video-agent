@@ -88,8 +88,19 @@ tests/integration/test_template_video_e2e.py          1 passed
 - CLI 当前只支持单一全局 `--template`，Week 4 可加 `--scene-template "1:cover,2:content"` 这样的逐场景覆盖（如果选 A 方向，可一并实现）
 - `TemplateRegistry` 的 31 个模板多数是 1080x1920，1080x1080 / 1920x1080 的覆盖偏少，下周补齐素材
 
+## 已知遗留（E1 Week 3.1 simplify 候选）
+
+经 peer review 识别，4 项 simplification 未在本周处理（按"保守推进"原则留作下一轮）：
+
+1. **生命周期浪费**（peer #5）：每场景 `render_template_frame` 内部 `TemplateRenderer()` 新建、扫一次 `templates/`、开闭一次 Chromium。多场景视频累积开销大。改进：让 `VideoComposeAgent` 持有 `TemplateRenderer` 单例，整个 `execute()` 复用，结束时统一 `close()`。
+2. **execute() 死代码**（peer #1）：line 121 构造 `SceneImageRenderer` 但 `execute()` 切到 `_build_scene_spec_async` 后该 renderer 永不传给 helper。改进：要么删掉，要么把它连同 style 一起传进 helper。
+3. **状态/参数重构**（peer #2）：`_current_title` / `_current_style` 是每请求的可变暂存，跨消息不安全。改进：把 `content: ContentStructure`（已在 `execute()` 作用域内）显式传给 `_build_scene_spec_async`。
+4. **wrapper 重复**（peer #3）：`render_template_frame` 重复实现了 `TemplateRenderer.render_with_fallback` 的 try/fallback 逻辑。改进：让 wrapper 仅负责生命周期（实例化/关闭），调用 `renderer.render_with_fallback`。
+
+> 这 4 项属于内部 cleanup，不影响功能。E1 Week 4 启动前可以一次性处理。
+
 ---
 
 **E1 Week 3 状态**: ✅ DONE
-**Commit 数**: 6 个（含 2 个 fix、1 个 test、3 个 feat）
+**Commit 数**: 9 个（4 个 feat、3 个 fix、1 个 test、1 个 refactor）
 **下一里程碑**: Week 4 — 前端模板选择器 / E2 AI 出图
