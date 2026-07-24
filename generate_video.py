@@ -202,13 +202,13 @@ def main() -> int:
             "category": args.category,
             "style": args.style,
             "duration": max(5, min(300, args.duration)),
-            "template": args.template,
         }
     else:
         params = interactive_input()
-        # 交互模式下也允许通过 --template 传入
-        if args.template:
-            params["template"] = args.template
+
+    # 模板选择（CLI 优先于交互模式返回值）
+    if args.template:
+        params["template"] = args.template
 
     size = (1920, 1080) if args.horizontal else (1080, 1920)
 
