@@ -1,7 +1,7 @@
 """模板注册表：扫描、索引、查询"""
 import re
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from .exceptions import TemplateNotFoundError
 from .models import TemplateInfo
@@ -18,7 +18,7 @@ class TemplateRegistry:
 
     def __init__(self, templates_dir: Path = Path("templates")):
         self.templates_dir = templates_dir
-        self._cache: Dict[str, TemplateInfo] = {}
+        self._cache: Dict[Tuple[str, str], TemplateInfo] = {}
 
     def scan(self) -> List[TemplateInfo]:
         """扫描 templates_dir 下所有 HTML 模板"""
@@ -38,15 +38,16 @@ class TemplateRegistry:
             # 扫描该画幅下的所有 HTML
             for html_file in aspect_dir.glob("*.html"):
                 info = self._parse_template(html_file, aspect_ratio)
-                self._cache[info.name] = info
+                self._cache[(info.aspect_ratio, info.name)] = info
 
         return list(self._cache.values())
 
     def get(self, name: str) -> TemplateInfo:
-        """根据模板名称获取信息"""
-        if name not in self._cache:
-            raise TemplateNotFoundError(f"Template not found: {name}")
-        return self._cache[name]
+        """根据模板名称获取信息(返回首次扫描到的同名模板,画幅目录按字典序)"""
+        for info in self._cache.values():
+            if info.name == name:
+                return info
+        raise TemplateNotFoundError(f"Template not found: {name}")
 
     def list_by_aspect(self, aspect: str) -> List[TemplateInfo]:
         """按画幅筛选"""

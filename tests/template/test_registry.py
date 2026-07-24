@@ -71,3 +71,24 @@ def test_list_by_aspect():
 
         assert len(portrait) == 1
         assert portrait[0].name == "image_default"
+
+
+def test_same_name_different_aspects_both_registered():
+    """同名模板在不同画幅下都应被注册(回归测试:修复前因_dict_key冲突仅保留一个)"""
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        (tmp_path / "1080x1920").mkdir()
+        (tmp_path / "1920x1080").mkdir()
+        # 关键:两个画幅下都有 image_book.html
+        (tmp_path / "1080x1920" / "image_book.html").write_text("<html></html>")
+        (tmp_path / "1920x1080" / "image_book.html").write_text("<html></html>")
+
+        registry = TemplateRegistry(templates_dir=tmp_path)
+        templates = registry.scan()
+
+        # 必须有两个模板(修复前会因为 name 冲突只保留一个)
+        assert len(templates) == 2
+        aspects = {t.aspect_ratio for t in templates}
+        assert aspects == {"1080x1920", "1920x1080"}
+        # 两个模板同名
+        assert all(t.name == "image_book" for t in templates)
