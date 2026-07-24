@@ -1,7 +1,3 @@
 """模板渲染服务模块"""
 
-from .renderer import TemplateRenderer
-from .registry import TemplateRegistry
-from .models import TemplateInfo
-
-__all__ = ["TemplateRenderer", "TemplateRegistry", "TemplateInfo"]
+# 模块导入在 Task 8 统一处理（避免早期 import 未实现模块）
