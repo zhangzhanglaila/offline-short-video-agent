@@ -6,6 +6,7 @@
 - 为每个内容场景（非纯文字场景）检索匹配素材
 - 多源搜索（Pexels / Pixabay / Unsplash）
 - AI 生图（E2: Bailian WanX / OpenAI DALL-E）
+- AI 生视频（E3: DashScope Wan / Kling）
 - 下载并缓存素材
 - 质量评分
 - 降级：无结果或下载失败时生成占位符
@@ -126,6 +127,10 @@ class MaterialFetchAgent(BaseAgent):
         self._ai_image_enabled = True  # 默认启用 AI 生图
         self._ai_generator = None
         self._ai_disabled = False
+        # E3: AI 生视频
+        self._ai_video_enabled = True  # 默认启用 AI 生视频
+        self._ai_video_generator = None
+        self._ai_video_disabled = False
 
     # ---------- 惰性加载API管理器 ----------
 
@@ -159,6 +164,28 @@ class MaterialFetchAgent(BaseAgent):
                 self.logger.warning(f"无法加载AI生图模块: {e}")
                 self._ai_disabled = True
         return self._ai_generator
+
+    @property
+    def ai_video_generator(self):
+        """惰性构建AI生视频器（E3）。"""
+        if not self._ai_video_enabled or self._ai_video_disabled:
+            return None
+        if self._ai_video_generator is None:
+            try:
+                from services.ai_video import DashScopeVideoGenerator, VideoGenerationRequest, VideoProvider, VideoSize
+
+                api_key = os.environ.get("DASHSCOPE_API_KEY", "")
+                if not api_key:
+                    self.logger.info("未配置 DASHSCOPE_API_KEY，跳过 AI 生视频")
+                    self._ai_video_disabled = True
+                    return None
+
+                self._ai_video_generator = DashScopeVideoGenerator(api_key=api_key)
+                self.logger.info("AI 生视频器已启用（DashScope Wan）")
+            except Exception as e:
+                self.logger.warning(f"无法加载AI生视频模块: {e}")
+                self._ai_video_disabled = True
+        return self._ai_video_generator
 
     def _build_api_manager(self):
         """从环境变量构建API管理器。
@@ -287,9 +314,10 @@ class MaterialFetchAgent(BaseAgent):
 
         检索顺序:
         1. 视频素材（D5，如果启用）
-        2. AI 生图（E2，如果启用）
-        3. 素材库搜索（Pexels/Pixabay/Unsplash）
-        4. 占位符（降级）
+        2. AI 生视频（E3，如果启用）
+        3. AI 生图（E2，如果启用）
+        4. 素材库搜索（Pexels/Pixabay/Unsplash）
+        5. 占位符（降级）
 
         Args:
             scene: 内容场景
@@ -304,6 +332,12 @@ class MaterialFetchAgent(BaseAgent):
             video_asset = self._fetch_video_for_scene(scene, queries)
             if video_asset is not None:
                 return [video_asset]
+
+        # E3: AI 生视频（在 AI 生图之前尝试）
+        if self._ai_video_enabled and self.enable_download:
+            ai_video_asset = self._fetch_ai_video_for_scene(scene, queries)
+            if ai_video_asset is not None:
+                return [ai_video_asset]
 
         # E2: AI 生图（在素材库搜索之前尝试）
         if self._ai_image_enabled and self.enable_download:
@@ -473,6 +507,129 @@ class MaterialFetchAgent(BaseAgent):
                 return None
         except Exception as e:
             self.logger.warning(f"AI 生图异常: {e}")
+            return None
+
+    # ---------- AI 生视频（E3） ----------
+
+    def _fetch_ai_video_for_scene(
+        self, scene: Scene, queries: List[str]
+    ) -> Optional[MaterialAsset]:
+        """使用 AI 为场景生成视频。
+
+        Args:
+            scene: 场景
+            queries: 检索查询列表（用于构建 prompt）
+
+        Returns:
+            MaterialAsset，失败返回 None
+        """
+        generator = self.ai_video_generator
+        if generator is None:
+            return None
+
+        try:
+            # 构建 prompt（使用第一个查询）
+            prompt = queries[0] if queries else scene.text
+            if not prompt:
+                return None
+
+            # 确定尺寸（根据视频分辨率）
+            from services.ai_video.base import VideoSize
+
+            size = VideoSize.PORTRAIT_9_16  # 默认竖屏
+
+            # 异步调用生视频
+            from services.ai_video import VideoGenerationRequest, VideoProvider
+
+            request = VideoGenerationRequest(
+                prompt=prompt,
+                provider=VideoProvider.DASHSCOPE,
+                model="wan2.7-t2v",
+                size=size,
+                duration=5,  # 默认 5 秒
+            )
+
+            # 在同步上下文中运行异步生成器
+            import concurrent.futures
+
+            try:
+                loop = asyncio.get_running_loop()
+                # 如果已有运行中的 loop，使用 ThreadPoolExecutor
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    def run_generator():
+                        import asyncio
+                        # 收集所有进度更新
+                        results = []
+                        async def collect():
+                            async for progress in generator.generate(request):
+                                results.append(progress)
+                                if progress.video_path:
+                                    return results
+                        asyncio.run(collect())
+                        return results
+
+                    future = pool.submit(run_generator)
+                    results = future.result(timeout=300)  # 视频生成可能需要更长时间
+
+                    # 找到最后一个成功的结果
+                    if results:
+                        last = results[-1]
+                        if hasattr(last, 'video_path') and last.video_path:
+                            video_path = last.video_path
+                            self.logger.info(
+                                f"场景 {scene.scene_id} AI 生视频成功: {video_path}"
+                            )
+                            return MaterialAsset(
+                                asset_id=f"ai_video_{scene.scene_id}",
+                                scene_id=scene.scene_id,
+                                source="dashscope",
+                                media_type="video",
+                                url=last.video_url if hasattr(last, 'video_url') else "",
+                                download_url=last.video_url if hasattr(last, 'video_url') else "",
+                                local_path=video_path,
+                                width=1080,
+                                height=1920,
+                                quality_score=0.98,
+                                keywords=scene.keywords,
+                                is_placeholder=False,
+                            )
+
+            except RuntimeError:
+                # 没有运行中的 loop，直接使用 asyncio.run
+                results = []
+                async def collect():
+                    async for progress in generator.generate(request):
+                        results.append(progress)
+                        if progress.video_path:
+                            return results
+                asyncio.run(collect())
+
+                if results:
+                    last = results[-1]
+                    if hasattr(last, 'video_path') and last.video_path:
+                        video_path = last.video_path
+                        self.logger.info(
+                            f"场景 {scene.scene_id} AI 生视频成功: {video_path}"
+                        )
+                        return MaterialAsset(
+                            asset_id=f"ai_video_{scene.scene_id}",
+                            scene_id=scene.scene_id,
+                            source="dashscope",
+                            media_type="video",
+                            url=last.video_url if hasattr(last, 'video_url') else "",
+                            download_url=last.video_url if hasattr(last, 'video_url') else "",
+                            local_path=video_path,
+                            width=1080,
+                            height=1920,
+                            quality_score=0.98,
+                            keywords=scene.keywords,
+                            is_placeholder=False,
+                        )
+
+            self.logger.debug(f"AI 生视频失败: 无结果")
+            return None
+        except Exception as e:
+            self.logger.warning(f"AI 生视频异常: {e}")
             return None
 
     def _build_queries(self, scene: Scene) -> List[str]:
