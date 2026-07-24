@@ -429,7 +429,7 @@ class VideoComposeAgent(BaseAgent):
             )
 
         # 非模板路径 → 走原方法
-        style = getattr(self, "_current_style", None)
+        style = self._load_style(self._current_style) if hasattr(self, "_current_style") else None
         renderer = SceneImageRenderer(style=style, size=self.size)
         return self._build_scene_spec(scene, idx, material_map, renderer, work_dir)
 
