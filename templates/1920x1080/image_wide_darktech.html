@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>视频模板 - 横屏科技风格</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+        }
+        
+        body {
+            background: #0a0f1f;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            grid-template-rows: auto 1fr auto;
+            padding: 60px 80px;
+            position: relative;
+            color: #ffffff;
+        }
+        
+        /* 背景装饰 */
+        .bg-decoration {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+        }
+        
+        .grid-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(59, 130, 246, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.08) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+        
+        .glow-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+        }
+        
+        .orb-1 {
+            width: 800px;
+            height: 800px;
+            background: rgba(59, 130, 246, 0.2);
+            top: -400px;
+            right: 200px;
+        }
+        
+        .orb-2 {
+            width: 600px;
+            height: 600px;
+            background: rgba(147, 51, 234, 0.15);
+            bottom: -200px;
+            left: -100px;
+        }
+        
+        .hexagon {
+            position: absolute;
+            width: 120px;
+            height: 69px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.08));
+            border: 2px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .hexagon::before,
+        .hexagon::after {
+            content: "";
+            position: absolute;
+            width: 0;
+            border-left: 60px solid transparent;
+            border-right: 60px solid transparent;
+        }
+        
+        .hexagon::before {
+            bottom: 100%;
+            border-bottom: 34.64px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .hexagon::after {
+            top: 100%;
+            border-top: 34.64px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .hex-1 { top: 20%; right: 150px; transform: rotate(30deg); }
+        .hex-2 { bottom: 15%; right: 300px; transform: rotate(-20deg); }
+        
+        /* 左侧内容区 */
+        .left-content {
+            grid-column: 1;
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            z-index: 2;
+            padding-right: 60px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 12px 28px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(147, 51, 234, 0.1));
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            border-radius: 30px;
+            font-size: 18px;
+            color: #60a5fa;
+            margin-bottom: 30px;
+            font-weight: 600;
+            letter-spacing: 2px;
+        }
+        
+        .main-title {
+            font-size: 96px;
+            font-weight: 900;
+            line-height: 1.1;
+            background: linear-gradient(135deg, #ffffff 0%, #93c5fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 30px;
+            letter-spacing: -3px;
+            filter: drop-shadow(0 0 40px rgba(59, 130, 246, 0.3));
+        }
+        
+        .main-title::after {
+            content: '';
+            display: block;
+            width: 150px;
+            height: 6px;
+            background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+            margin-top: 30px;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+        }
+        
+        .description {
+            font-size: 48px;
+            line-height: 1.8;
+            color: #cbd5e1;
+            margin-top: 60px;
+            font-weight: 400;
+        }
+        
+        /* 右侧图片区 */
+        .right-image {
+            grid-column: 2;
+            grid-row: 1 / 3;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .image-wrapper {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .image-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.6));
+            border-radius: 24px;
+            overflow: hidden;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            box-shadow: 
+                0 30px 80px rgba(0, 0, 0, 0.6),
+                0 0 120px rgba(59, 130, 246, 0.2),
+                inset 0 0 60px rgba(59, 130, 246, 0.05);
+        }
+        
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* 科技角标 */
+        /* .image-container::before,
+        .image-container::after {
+            content: '';
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border: 4px solid #3b82f6;
+            z-index: 10;
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.8);
+        }
+        
+        .image-container::before {
+            top: 40px;
+            left: 40px;
+            border-right: none;
+            border-bottom: none;
+            border-radius: 12px 0 0 0;
+        } */
+        
+        .image-container::after {
+            bottom: 40px;
+            right: 40px;
+            border-left: none;
+            border-top: none;
+            border-radius: 0 0 12px 0;
+        }
+        
+        /* 底部装饰 */
+        .footer {
+            grid-column: 1 / 3;
+            grid-row: 3;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 40px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .footer-left {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .footer-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #3b82f6;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+        }
+        
+        .footer-right {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .accent-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #3b82f6, #9333ea);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+        }
+        
+        .bar-1 { width: 120px; }
+        .bar-2 { width: 80px; }
+        .bar-3 { width: 100px; }
+    </style>
+</head>
+<body>
+    <div class="bg-decoration">
+        <div class="grid-overlay"></div>
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+        <div class="hexagon hex-1"></div>
+        <div class="hexagon hex-2"></div>
+    </div>
+    
+    <!-- 左侧内容 -->
+    <div class="left-content">
+        <div class="badge">PROTOTYPE</div>
+        <div class="main-title">{{title}}</div>
+        <div class="description">{{text}}</div>
+    </div>
+    
+    <!-- 右侧图片 -->
+    <div class="right-image">
+        <div class="image-wrapper">
+            <div class="image-container">
+                <img src="{{image}}" alt="内容图片">
+            </div>
+        </div>
+    </div>
+    
+    <!-- 底部装饰 -->
+    <div class="footer">
+        <div class="footer-left">
+            <div class="footer-dot"></div>
+            <div class="footer-dot"></div>
+            <div class="footer-dot"></div>
+        </div>
+        <div class="footer-right">
+            <div class="accent-bar bar-1"></div>
+            <div class="accent-bar bar-2"></div>
+            <div class="accent-bar bar-3"></div>
+        </div>
+    </div>
+</body>
+</html>
+

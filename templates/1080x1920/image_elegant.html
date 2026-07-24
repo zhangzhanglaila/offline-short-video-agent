@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <style>
+        html {
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            width: 1080px;
+            background: #f5f7fa;
+            font-family: 'PingFang SC', 'Source Han Sans', 'Microsoft YaHei', sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .page-container {
+            width: 1080px;
+            height: 1920px;
+            padding: 80px 70px 75px 70px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Background artistic elements */
+        .bg-decoration {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        
+        /* Soft gradient orbs */
+        .orb-1 {
+            position: absolute;
+            width: 700px;
+            height: 700px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 40% 40%, rgba(165, 180, 252, 0.45), transparent 70%);
+            top: -280px;
+            left: -250px;
+            filter: blur(80px);
+        }
+        
+        .orb-2 {
+            position: absolute;
+            width: 550px;
+            height: 550px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 60% 60%, rgba(244, 114, 182, 0.4), transparent 70%);
+            top: 40%;
+            right: -200px;
+            filter: blur(90px);
+        }
+        
+        .orb-3 {
+            position: absolute;
+            width: 450px;
+            height: 450px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 50% 50%, rgba(196, 181, 253, 0.42), transparent 70%);
+            bottom: -100px;
+            left: 20%;
+            filter: blur(70px);
+        }
+        
+        /* Flowing wave lines */
+        .wave-line-1 {
+            position: absolute;
+            width: 800px;
+            height: 3px;
+            top: 18%;
+            left: -100px;
+            background: linear-gradient(90deg, transparent, rgba(165, 180, 252, 0.6), transparent);
+            border-radius: 10px;
+            transform: rotate(-8deg);
+            filter: blur(1px);
+        }
+        
+        .wave-line-2 {
+            position: absolute;
+            width: 650px;
+            height: 2px;
+            top: 65%;
+            right: -80px;
+            background: linear-gradient(90deg, transparent, rgba(244, 114, 182, 0.55), transparent);
+            border-radius: 10px;
+            transform: rotate(12deg);
+            filter: blur(1px);
+        }
+        
+        /* Minimal geometric shapes */
+        .geo-rect-1 {
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            top: 25%;
+            right: 50px;
+            border: 2px solid rgba(165, 180, 252, 0.45);
+            border-radius: 50%;
+            transform: rotate(25deg);
+        }
+        
+        .geo-rect-2 {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            bottom: 20%;
+            left: 80px;
+            border: 2px solid rgba(244, 114, 182, 0.4);
+            border-radius: 20px;
+            transform: rotate(-15deg);
+        }
+        
+        /* Floating dots pattern */
+        .dot-cluster-1, .dot-cluster-2 {
+            position: absolute;
+            display: flex;
+            gap: 20px;
+        }
+        
+        .dot-cluster-1 {
+            top: 12%;
+            left: 120px;
+            flex-direction: column;
+        }
+        
+        .dot-cluster-2 {
+            bottom: 15%;
+            right: 100px;
+            flex-direction: row;
+        }
+        
+        .floating-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(165, 180, 252, 0.6), rgba(196, 181, 253, 0.5));
+        }
+        
+        /* Header section with elegant typography */
+        .topic-wrapper {
+            position: relative;
+            text-align: center;
+            padding: 40px 0;
+        }
+        
+        .topic-accent {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 5px;
+            background: linear-gradient(90deg, transparent, rgba(165, 180, 252, 0.8), transparent);
+            border-radius: 10px;
+        }
+        
+        .topic {
+            font-size: 78px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #7c87f5 0%, #b87ef9 50%, #f06ba8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.25;
+            letter-spacing: 2px;
+            padding: 25px 0;
+            position: relative;
+            display: inline-block;
+            filter: drop-shadow(0 4px 20px rgba(165, 180, 252, 0.25));
+        }
+        
+        .topic::before,
+        .topic::after {
+            content: '';
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(165, 180, 252, 0.5), rgba(196, 181, 253, 0.45));
+        }
+        
+        .topic::before {
+            top: -15px;
+            left: -25px;
+            width: 25px;
+            height: 25px;
+        }
+        
+        .topic::after {
+            bottom: -10px;
+            right: -20px;
+            width: 30px;
+            height: 30px;
+        }
+        
+        /* Elegant image frame */
+        .image-wrapper {
+            position: relative;
+            padding: 25px;
+        }
+        
+        .image-frame-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.65) 0%, 
+                rgba(255, 255, 255, 0.45) 50%, 
+                rgba(255, 255, 255, 0.55) 100%);
+            border-radius: 30px;
+            backdrop-filter: blur(20px);
+            z-index: 0;
+        }
+        
+        .image-container {
+            width: 100%;
+            height: 900px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            border-radius: 22px;
+            object-fit: cover;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.12),
+                        0 10px 30px rgba(165, 180, 252, 0.2);
+        }
+        
+        /* Elegant corner accents */
+        .corner-accent {
+            position: absolute;
+            z-index: 2;
+        }
+        
+        .corner-accent.tl {
+            top: 10px;
+            left: 10px;
+            width: 70px;
+            height: 70px;
+            border-top: 4px solid rgba(165, 180, 252, 0.8);
+            border-left: 4px solid rgba(165, 180, 252, 0.8);
+            border-radius: 22px 0 0 0;
+        }
+        
+        .corner-accent.br {
+            bottom: 10px;
+            right: 10px;
+            width: 70px;
+            height: 70px;
+            border-bottom: 4px solid rgba(244, 114, 182, 0.75);
+            border-right: 4px solid rgba(244, 114, 182, 0.75);
+            border-radius: 0 0 22px 0;
+        }
+        
+        .corner-accent.tr {
+            top: 10px;
+            right: 10px;
+            width: 40px;
+            height: 40px;
+            border-top: 3px solid rgba(196, 181, 253, 0.75);
+            border-right: 3px solid rgba(196, 181, 253, 0.75);
+            border-radius: 0 22px 0 0;
+        }
+        
+        .corner-accent.bl {
+            bottom: 10px;
+            left: 10px;
+            width: 40px;
+            height: 40px;
+            border-bottom: 3px solid rgba(165, 180, 252, 0.75);
+            border-left: 3px solid rgba(165, 180, 252, 0.75);
+            border-radius: 0 0 0 22px;
+        }
+        
+        /* Side minimal indicators */
+        .side-indicator {
+            position: absolute;
+            display: flex;
+            gap: 18px;
+            z-index: 2;
+        }
+        
+        .side-indicator.left {
+            left: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            flex-direction: column;
+        }
+        
+        .side-indicator.right {
+            right: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            flex-direction: column;
+        }
+        
+        .indicator-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(165, 180, 252, 0.7), rgba(196, 181, 253, 0.6));
+            box-shadow: 0 0 15px rgba(165, 180, 252, 0.5);
+        }
+        
+        .indicator-dot.accent {
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, rgba(244, 114, 182, 0.8), rgba(244, 114, 182, 0.7));
+            box-shadow: 0 0 20px rgba(244, 114, 182, 0.6);
+        }
+        
+        /* Text section with elegant design */
+        .text-wrapper {
+            position: relative;
+            padding: 45px 0;
+        }
+        
+        .text-bg {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            height: 100%;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.6) 0%, 
+                rgba(255, 255, 255, 0.45) 50%,
+                rgba(255, 255, 255, 0.5) 100%);
+            border-radius: 30px;
+            backdrop-filter: blur(15px);
+            z-index: 0;
+        }
+        
+        .text {
+            font-size: 48px;
+            color: #1e293b;
+            text-align: center;
+            line-height: 1.75;
+            padding: 40px 80px;
+            position: relative;
+            height: 237.6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+        
+        /* Quote marks - elegant style */
+        .quote-mark {
+            position: absolute;
+            font-size: 120px;
+            font-weight: 700;
+            font-family: Georgia, serif;
+            opacity: 0.12;
+            line-height: 1;
+            z-index: 0;
+        }
+        
+        .quote-mark.open {
+            top: 15px;
+            left: 50px;
+            color: #a5b4fc;
+        }
+        
+        .quote-mark.close {
+            bottom: 15px;
+            right: 50px;
+            color: #f4a3c7;
+        }
+        
+        /* Minimal side bars */
+        .text-accent-bar {
+            position: absolute;
+            width: 5px;
+            height: 140px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-radius: 10px;
+            z-index: 1;
+        }
+        
+        .text-accent-bar.left {
+            left: 35px;
+            background: linear-gradient(180deg, 
+                rgba(165, 180, 252, 0.8) 0%, 
+                rgba(165, 180, 252, 0.35) 100%);
+        }
+        
+        .text-accent-bar.right {
+            right: 35px;
+            background: linear-gradient(180deg, 
+                rgba(244, 114, 182, 0.75) 0%, 
+                rgba(244, 114, 182, 0.35) 100%);
+        }
+        
+        /* Footer with minimal design */
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 30px 15px;
+            position: relative;
+        }
+        
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                rgba(165, 180, 252, 0.75) 0%, 
+                rgba(196, 181, 253, 0.65) 50%, 
+                rgba(244, 114, 182, 0.75) 100%);
+            border-radius: 10px;
+        }
+        
+        .footer::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 5px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(165, 180, 252, 0.8), 
+                transparent);
+            border-radius: 10px;
+            filter: blur(2px);
+        }
+        
+        .author {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .author-name {
+            font-size: 38px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #8b96f7 0%, #c4a8fa 70%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .author-icon {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        
+        .author-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(165, 180, 252, 0.9), rgba(196, 181, 253, 0.8));
+        }
+        
+        .author-dot.large {
+            width: 14px;
+            height: 14px;
+        }
+        
+        .author-desc {
+            font-size: 27px;
+            color: #475569;
+            line-height: 1.4;
+            font-weight: 500;
+        }
+        
+        .logo-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+        }
+        
+        .logo {
+            font-size: 30px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f191bc 0%, #f8a7cb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 1.5px;
+            position: relative;
+            padding-right: 22px;
+        }
+        
+        .logo::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(244, 114, 182, 0.9), rgba(244, 114, 182, 0.8));
+            box-shadow: 0 0 15px rgba(244, 114, 182, 0.7);
+        }
+        
+        .logo-indicator {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        
+        .logo-bar {
+            width: 35px;
+            height: 4px;
+            border-radius: 10px;
+            background: linear-gradient(90deg, 
+                rgba(165, 180, 252, 0.75), 
+                rgba(244, 114, 182, 0.7));
+        }
+        
+        .logo-bar:nth-child(2) {
+            width: 25px;
+        }
+        
+        .logo-bar:nth-child(3) {
+            width: 18px;
+        }
+        
+    </style>
+</head>
+<body>
+    <!-- Background decorative elements -->
+    <div class="bg-decoration">
+        <div class="orb-1"></div>
+        <div class="orb-2"></div>
+        <div class="orb-3"></div>
+        <div class="wave-line-1"></div>
+        <div class="wave-line-2"></div>
+        <div class="geo-rect-1"></div>
+        <div class="geo-rect-2"></div>
+        
+        <div class="dot-cluster-1">
+            <div class="floating-dot"></div>
+            <div class="floating-dot"></div>
+            <div class="floating-dot"></div>
+        </div>
+        <div class="dot-cluster-2">
+            <div class="floating-dot"></div>
+            <div class="floating-dot"></div>
+            <div class="floating-dot"></div>
+        </div>
+    </div>
+    
+    <div class="page-container">
+        <!-- Header Section -->
+        <div class="topic-wrapper">
+            <div class="topic-accent"></div>
+            <div class="topic">{{title}}</div>
+        </div>
+        
+        <!-- Image Section -->
+        <div class="image-wrapper">
+            <div class="image-frame-bg"></div>
+            
+            <div class="corner-accent tl"></div>
+            <div class="corner-accent br"></div>
+            <div class="corner-accent tr"></div>
+            <div class="corner-accent bl"></div>
+            
+            <div class="side-indicator left">
+                <div class="indicator-dot"></div>
+                <div class="indicator-dot accent"></div>
+                <div class="indicator-dot"></div>
+            </div>
+            <div class="side-indicator right">
+                <div class="indicator-dot"></div>
+                <div class="indicator-dot accent"></div>
+                <div class="indicator-dot"></div>
+            </div>
+            
+            <div class="image-container">
+                <img src="{{image}}" alt="Frame Image">
+            </div>
+        </div>
+        
+        <!-- Text Section -->
+        <div class="text-wrapper">
+            <div class="text-bg"></div>
+            <div class="quote-mark open">"</div>
+            <div class="quote-mark close">"</div>
+            <div class="text-accent-bar left"></div>
+            <div class="text-accent-bar right"></div>
+            <div class="text">{{text}}</div>
+        </div>
+        
+        <!-- Footer Section -->
+        <div class="footer">
+            <div class="author">
+                <div class="author-name">
+                    <div class="author-icon">
+                        <div class="author-dot"></div>
+                        <div class="author-dot large"></div>
+                        <div class="author-dot"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="logo-wrapper">
+                <div class="logo-indicator">
+                    <div class="logo-bar"></div>
+                    <div class="logo-bar"></div>
+                    <div class="logo-bar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

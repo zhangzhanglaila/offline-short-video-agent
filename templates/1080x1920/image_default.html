@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <meta name="template:name" content="image_default">
+    <meta name="template:type" content="image">
+    <meta name="template:style" content="default">
+    <meta name="template:aspect-ratio" content="9:16">
+    <!--
+    Template: 默认图片模板
+    Description: 简约风格，适合知识科普、教育讲解、生活感悟类内容
+    Parameters:
+      - title: 场景标题
+      - image: 背景图片路径
+      - text: 旁白文本
+      - author: 作者名称（可选）
+      - describe: 作者描述（可选）
+      - brand: 品牌名称（可选）
+    -->
+    <style>
+        html {
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            width: 1080px;
+            background: #fafafa;
+            font-family: 'PingFang SC', 'Source Han Sans', 'Microsoft YaHei', sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .page-container {
+            width: 1080px;
+            height: 1920px;
+            padding: 80px 60px 90px 60px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 60px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Background minimal decorations */
+        .bg-decoration {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        
+        /* Subtle circles */
+        .circle-outline-1 {
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            border-radius: 50%;
+            border: 2px solid rgba(44, 62, 80, 0.12);
+            top: 10%;
+            right: -100px;
+        }
+        
+        .circle-outline-2 {
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            border: 2px solid rgba(44, 62, 80, 0.1);
+            bottom: 15%;
+            left: -80px;
+        }
+        
+        .circle-outline-3 {
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            border: 2px solid rgba(149, 165, 166, 0.15);
+            top: 50%;
+            left: 100px;
+        }
+        
+        /* Subtle lines */
+        .line-decoration {
+            position: absolute;
+            height: 2px;
+            background: rgba(149, 165, 166, 0.25);
+        }
+        
+        .line-1 {
+            width: 250px;
+            top: 20%;
+            left: 80px;
+            transform: rotate(-5deg);
+        }
+        
+        .line-2 {
+            width: 180px;
+            top: 55%;
+            right: 120px;
+            transform: rotate(8deg);
+        }
+        
+        .line-3 {
+            width: 200px;
+            bottom: 25%;
+            left: 120px;
+            transform: rotate(-3deg);
+        }
+        
+        /* Small accent squares */
+        .square-minimal {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: rgba(149, 165, 166, 0.35);
+        }
+        
+        .square-1 { top: 15%; left: 50px; }
+        .square-2 { top: 45%; right: 80px; }
+        .square-3 { bottom: 20%; left: 100px; transform: rotate(45deg); }
+        
+        /* Video title section */
+        .video-title-wrapper {
+            position: relative;
+            max-width: 800px;
+            text-align: center;
+        }
+        
+        .video-title-ornament-top {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .ornament-line {
+            width: 40px;
+            height: 2px;
+            background: rgba(149, 165, 166, 0.55);
+        }
+        
+        .ornament-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: rgba(149, 165, 166, 0.65);
+        }
+        
+        .video-title {
+            font-size: 68px;
+            font-weight: 600;
+            color: #1a252f;
+            line-height: 1.4;
+            letter-spacing: 2px;
+            position: relative;
+        }
+        
+        .video-title::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 2px;
+            background: rgba(149, 165, 166, 0.4);
+        }
+        
+        /* Image section */
+        .image-wrapper {
+            width: 100%;
+            max-width: 900px;
+            position: relative;
+        }
+        
+        .image-container {
+            width: 100%;
+            height: 900px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.06);
+            object-fit: cover;
+        }
+        
+        /* L-shaped corner marks (different from modern) */
+        .corner-mark {
+            position: absolute;
+        }
+        
+        .corner-mark.tl {
+            top: -18px;
+            left: -18px;
+            width: 50px;
+            height: 3px;
+            background: rgba(149, 165, 166, 0.45);
+        }
+        
+        .corner-mark.tl::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 3px;
+            height: 50px;
+            background: rgba(149, 165, 166, 0.45);
+        }
+        
+        .corner-mark.tr {
+            top: -18px;
+            right: -18px;
+            width: 50px;
+            height: 3px;
+            background: rgba(149, 165, 166, 0.45);
+        }
+        
+        .corner-mark.tr::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 3px;
+            height: 50px;
+            background: rgba(149, 165, 166, 0.45);
+        }
+        
+        .corner-mark.bl {
+            bottom: -18px;
+            left: -18px;
+            width: 50px;
+            height: 3px;
+            background: rgba(149, 165, 166, 0.45);
+        }
+        
+        .corner-mark.bl::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 3px;
+            height: 50px;
+            background: rgba(149, 165, 166, 0.45);
+        }
+        
+        .corner-mark.br {
+            bottom: -18px;
+            right: -18px;
+            width: 50px;
+            height: 3px;
+            background: rgba(149, 165, 166, 0.45);
+        }
+        
+        .corner-mark.br::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 3px;
+            height: 50px;
+            background: rgba(149, 165, 166, 0.45);
+        }
+        
+        /* Side dots */
+        .side-dots {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .side-dots.left { left: -30px; }
+        .side-dots.right { right: -30px; }
+        
+        .side-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: rgba(149, 165, 166, 0.4);
+        }
+        
+        .side-dot.active {
+            background: rgba(149, 165, 166, 0.65);
+            width: 10px;
+            height: 10px;
+        }
+        
+        /* Text section */
+        .content {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            max-width: 850px;
+            width: 100%;
+            position: relative;
+        }
+        
+        .text-wrapper {
+            position: relative;
+        }
+        
+        .text {
+            font-size: 42px;
+            color: #2c3e50;
+            text-align: center;
+            line-height: 1.9;
+            font-weight: 500;
+            padding: 20px 40px;
+            position: relative;
+            height: 239.4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Minimal quote marks */
+        .quote-minimal {
+            position: absolute;
+            opacity: 0.25;
+        }
+        
+        .quote-minimal.left {
+            top: -10px;
+            left: 0;
+            transform: rotate(180deg);
+        }
+        
+        .quote-minimal.right {
+            bottom: -10px;
+            right: 0;
+        }
+        
+        /* Decorative dividers */
+        .divider-set {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin: 10px 0;
+        }
+        
+        .divider {
+            height: 2px;
+            background: rgba(149, 165, 166, 0.35);
+        }
+        
+        .divider.short { width: 40px; }
+        .divider.long { width: 80px; }
+        
+        .divider-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(149, 165, 166, 0.45);
+        }
+        
+        /* Footer */
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 850px;
+            padding: 25px 10px 0 10px;
+            border-top: 2px solid rgba(149, 165, 166, 0.3);
+            position: relative;
+        }
+        
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70px;
+            height: 3px;
+            background: rgba(149, 165, 166, 0.55);
+        }
+        
+        .author {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .author-name {
+            font-size: 30px;
+            font-weight: 600;
+            color: #1a252f;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .author-mark {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(149, 165, 166, 0.7);
+        }
+        
+        .author-desc {
+            font-size: 22px;
+            color: #5d6d7e;
+            line-height: 1.3;
+            font-weight: 400;
+        }
+        
+        .logo-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: 500;
+            color: #707b7c;
+            letter-spacing: 2px;
+        }
+        
+        .logo-marks {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .logo-mark {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(149, 165, 166, 0.45);
+        }
+        
+        .logo-mark.active {
+            background: rgba(149, 165, 166, 0.75);
+        }
+        
+    </style>
+</head>
+<body>
+    <!-- Background minimal decorations -->
+    <div class="bg-decoration">
+        <div class="circle-outline-1"></div>
+        <div class="circle-outline-2"></div>
+        <div class="circle-outline-3"></div>
+        <div class="line-decoration line-1"></div>
+        <div class="line-decoration line-2"></div>
+        <div class="line-decoration line-3"></div>
+        <div class="square-minimal square-1"></div>
+        <div class="square-minimal square-2"></div>
+        <div class="square-minimal square-3"></div>
+    </div>
+    
+    <div class="page-container">
+        <div class="video-title-wrapper">
+            <!-- Top ornament -->
+            <div class="video-title-ornament-top">
+                <div class="ornament-line"></div>
+                <div class="ornament-dot"></div>
+                <div class="ornament-line"></div>
+            </div>
+            
+            <div class="video-title">{{title}}</div>
+        </div>
+        
+        <div class="image-wrapper">
+            <!-- Corner marks -->
+            <div class="corner-mark tl"></div>
+            <div class="corner-mark tr"></div>
+            <div class="corner-mark bl"></div>
+            <div class="corner-mark br"></div>
+            
+            <!-- Side dots -->
+            <div class="side-dots left">
+                <div class="side-dot"></div>
+                <div class="side-dot active"></div>
+                <div class="side-dot"></div>
+            </div>
+            <div class="side-dots right">
+                <div class="side-dot"></div>
+                <div class="side-dot active"></div>
+                <div class="side-dot"></div>
+            </div>
+            
+            <div class="image-container">
+                <img src="{{image}}" alt="Frame Image">
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="text-wrapper">
+                <!-- Minimal quote marks -->
+                <svg class="quote-minimal left" width="60" height="60" viewBox="0 0 24 24" fill="#95a5a6">
+                    <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
+                </svg>
+                <svg class="quote-minimal right" width="60" height="60" viewBox="0 0 24 24" fill="#95a5a6">
+                    <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
+                </svg>
+                
+                <div class="text">{{text}}</div>
+            </div>
+            
+            <!-- Decorative dividers -->
+            <div class="divider-set">
+                <div class="divider short"></div>
+                <div class="divider-dot"></div>
+                <div class="divider long"></div>
+                <div class="divider-dot"></div>
+                <div class="divider short"></div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div class="author">
+                <div class="author-name">
+                    <span class="author-mark"></span>
+                    <div class="logo">{{author}}</div>
+                </div>
+                <div class="author-desc">{{describe}}</div>
+            </div>
+            <div class="logo-section">
+                <div class="logo">{{brand}}</div>
+                <div class="logo-marks">
+                    <div class="logo-mark"></div>
+                    <div class="logo-mark active"></div>
+                    <div class="logo-mark"></div>
+                    <div class="logo-mark"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

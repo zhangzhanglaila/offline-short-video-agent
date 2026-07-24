@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <meta name="viewport" content="width=1080, height=1920">
+    <title>图书摘抄 - 1080x1920</title>
+    <!-- Google Fonts - 中文字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600&family=Ma+Shan+Zheng&family=ZCOOL+KuaiLe&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 1080px;
+            height: 1920px;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Noto Serif SC', serif;
+            color: #2a2a2a;
+            position: relative;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            padding: 80px 100px;
+        }
+
+        /* 背景遮罩层 */
+        body::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(232, 229, 224, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 0;
+        }
+
+        /* 顶部标题 */
+        .header {
+            position: relative;
+            z-index: 1;
+            margin-bottom: 80px;
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: 500;
+            font-family: 'Ma Shan Zheng', 'ZCOOL KuaiLe', cursive;
+            color: #2a2a2a;
+            letter-spacing: 8px;
+            text-align: left;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #2a2a2a;
+        }
+
+        /* 正文区域 */
+        .content {
+            position: relative;
+            z-index: 1;
+            /* flex: 1; */
+            margin-bottom: 60px;
+        }
+
+        .excerpt {
+            font-size: 36px;
+            font-weight: 400;
+            line-height: 2.0;
+            font-family: 'Noto Serif SC', serif;
+            color: #2a2a2a;
+            text-align: justify;
+            text-indent: 2em;
+            letter-spacing: 1px;
+            white-space: pre-line;
+        }
+
+
+        /* 署名 */
+        .author {
+            position: relative;
+            z-index: 1;
+            text-align: right;
+            font-size: 32px;
+            font-family: 'Noto Serif SC', serif;
+            color: #2a2a2a;
+            font-weight: 400;
+        }
+
+        .signature {
+            position: absolute;
+            font-size: 24px;
+            font-family: 'Liu Jian Mao Cao', 'ZCOOL KuaiLe', cursive;
+            color: #333;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 顶部标题 -->
+    <div class="header">
+        <div class="title">{{title}}</div>
+    </div>
+
+    <!-- 正文内容 -->
+    <div class="content">
+        <div class="excerpt">{{text}}</div>
+    </div>
+
+    <!-- 作者 -->
+    <div class="author">——{{author=Pixelle.AI}}</div>
+
+    <!-- 署名 -->
+    <div class="signature">{{signature=@Pixelle.AI}}</div>
+</body>
+
+</html>

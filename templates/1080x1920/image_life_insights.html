@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    <style>
+        html {
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            width: 1080px;
+            height: 1920px;
+            background: #000000;
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Source Han Sans', 'Microsoft YaHei', sans-serif;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        /* 顶部标题区域 */
+        .top-title {
+            width: 100%;
+            text-align: center;
+            padding: 240px 60px 40px 60px;
+            box-sizing: border-box;
+            z-index: 1;
+        }
+        
+        .top-title-text {
+            font-size: 80px;
+            font-weight: 400;
+            color: #FFFFFF;
+            letter-spacing: 2px;
+            font-family: 'Ma Shan Zheng', cursive;
+        }
+        
+        /* 中间图片区域 */
+        .image-section {
+            width: 100%;
+            height: auto;
+            display: flex;
+            justify-content: center;
+            padding: 0 40px;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .image-frame {
+            width: 1000px;
+            height: 800px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #FFFFFF;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        
+        /* 图片边框 - 白色，带老旧胶片感 */
+        .image-frame::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 3px solid #FFFFFF;
+            border-radius: 0;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+            z-index: 2;
+            pointer-events: none;
+        }
+        
+        /* 图片容器 - 固定尺寸，强制裁剪 */
+        .image-container {
+            width: 984px;
+            height: 784px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .image-container img {
+            width: 984px;
+            height: 784px;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+        }
+        
+        /* 底部文字区域 */
+        .bottom-text-section {
+            width: 100%;
+            padding: 0 60px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            z-index: 1;
+        }
+        
+        /* 人生感悟 - 大红色粗体 */
+        .highlight-text {
+            font-size: 40px;
+            color: #FFFFFF;
+            font-weight: 400;
+            letter-spacing: 3px;
+            text-align: center;
+            line-height: 1.2;
+            font-family: 'ZCOOL KuaiLe', cursive;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部标题 -->
+    <div class="top-title">
+        <div class="top-title-text">{{title}}</div>
+    </div>
+    
+    <!-- 中间图片区域 -->
+    <div class="image-section">
+        <div class="image-frame">
+            <div class="image-container">
+                <img src="{{image}}" alt="Frame Image">
+            </div>
+        </div>
+    </div>
+    
+    <!-- 底部文字区域 -->
+    <div class="bottom-text-section">
+        <div class="highlight-text">{{text}}</div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <meta name="viewport" content="width=1080, height=1920">
+    <title>长文本 - 1080x1920</title>
+    <!-- Google Fonts - 中文字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Noto+Serif+SC:wght@400&display=swap" rel="stylesheet">
+    <style>
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body { width: 1080px; height: 1920px; overflow: hidden; }
+
+        body {
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Source Han Sans', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #000;
+            position: relative;
+            background: #e8e8e8;
+            background-image: url("{{image}}");
+            background-size: cover;
+            background-position: center;
+            /* 背景模糊效果 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0 60px;
+        }
+
+        /* 背景遮罩层 */
+        body::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(220, 220, 220, 0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 0;
+        }
+
+        /* 顶部标题 */
+        .title {
+            position: relative;
+            z-index: 1;
+            font-size: 110px;
+            font-weight: 900;
+            line-height: 1.2;
+            font-family: 'Noto Sans SC', sans-serif;
+            color: #000;
+            letter-spacing: 0;
+            text-align: center;
+            margin-top: 80px;
+            margin-bottom: 100px;
+            /* 白色描边 */
+            text-shadow: -2px -2px 0 #fff,
+                        2px -2px 0 #fff,
+                        -2px 2px 0 #fff,
+                        2px 2px 0 #fff;
+        }
+
+        /* 正文区域 */
+        .content {
+            width: 100%;
+            position: relative;
+            z-index: 1;
+            font-size: 56px;
+            font-weight: 400;
+            line-height: 4;
+            font-family: 'Noto Sans SC', 'Noto Serif SC', serif;
+            color: #000;
+            text-align: center;
+            letter-spacing: 0.5px;
+            /* 白色描边 */
+            text-shadow: -1px -1px 0 #fff,
+                        1px -1px 0 #fff,
+                        -1px 1px 0 #fff,
+                        1px 1px 0 #fff;
+            /* 保留换行符 */
+            white-space: pre-line;
+        }
+
+        .content p {
+            margin-bottom: 0;
+        }
+
+        .author {
+            position: absolute;
+            font-size: 24px;
+            font-family: 'Liu Jian Mao Cao', 'ZCOOL KuaiLe', cursive;
+            color: #333;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+    </style>
+</head>
+<body>
+    <!-- 标题 -->
+    <div class="title">{{title}}</div>
+    
+    <!-- 正文 -->
+    <div class="content">{{text}}</div>
+
+    <!-- 作者 -->
+    <div class="author">{{author=@Pixelle.AI}}</div>
+</body>
+</html>

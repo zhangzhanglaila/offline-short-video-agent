@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <meta name="viewport" content="width=1080, height=1920">
+    <title>人生感悟 - 1080x1920</title>
+    <!-- Google Fonts - 中文字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body { 
+            width: 1080px; 
+            height: 1920px; 
+            overflow: hidden; 
+        }
+
+        body {
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Source Han Sans', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #F5F1E8; /* 浅色温暖的米黄色背景 */
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* 背景花纹装饰层 */
+        .bg-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        /* 点状纹理图案 */
+        .dot-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle, rgba(120, 90, 70, 0.15) 1.5px, transparent 1.5px),
+                radial-gradient(circle, rgba(100, 75, 60, 0.12) 1px, transparent 1px);
+            background-size: 40px 40px, 80px 80px;
+            background-position: 0 0, 20px 20px;
+            opacity: 0.8;
+        }
+
+        /* 网格纹理图案 */
+        .grid-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(110, 85, 65, 0.12) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(110, 85, 65, 0.12) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.7;
+        }
+
+        /* 装饰性圆形元素 */
+        .decorative-circle {
+            position: absolute;
+            border-radius: 50%;
+            border: 1.5px solid rgba(110, 85, 65, 0.15);
+            background: rgba(140, 110, 90, 0.08);
+        }
+
+        .circle-1 {
+            width: 400px;
+            height: 400px;
+            top: -150px;
+            right: -100px;
+        }
+
+        .circle-2 {
+            width: 300px;
+            height: 300px;
+            bottom: -100px;
+            left: -80px;
+        }
+
+        .circle-3 {
+            width: 200px;
+            height: 200px;
+            top: 50%;
+            left: -50px;
+            transform: translateY(-50%);
+        }
+
+        /* 波浪纹理（可选，更柔和） */
+        .wave-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 10px,
+                    rgba(110, 85, 65, 0.08) 10px,
+                    rgba(110, 85, 65, 0.08) 20px
+                );
+            opacity: 0.6;
+        }
+
+        /* 顶部标题区域 */
+        .header {
+            margin-top: 200px;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .title {
+            font-size: 80px;
+            font-weight: 900;
+            line-height: 1.4;
+            color: #1A1611; /* 深棕色/黑色 */
+            letter-spacing: 3px;
+            text-shadow: 
+                1px 1px 0 rgba(0, 0, 0, 0.2),
+                2px 2px 2px rgba(0, 0, 0, 0.15);
+            /* 模拟略微纹理效果 */
+            background: linear-gradient(135deg, #1A1611 0%, #2C2416 50%, #1A1611 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: contrast(1.1) brightness(0.9);
+        }
+
+        .content {
+            display: flex;
+            flex: 1;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .content img {
+            width: 600px;
+            height: 600px;
+            object-fit: contain;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 底部文字区域 */
+        .bottom-section {
+            /* padding: 60px 80px 160px; */
+            padding: 0 40px;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+            margin-bottom: 200px;
+        }
+
+        .content-text {
+            font-size: 50px;
+            font-weight: 400;
+            color: #000;
+            line-height: 1.8;
+            margin-bottom: 30px;
+        }
+
+        .author {
+            width: 100%;
+            font-size: 30px;
+            font-family: 'Liu Jian Mao Cao', 'ZCOOL KuaiLe', cursive;
+            text-shadow: -1px -1px 0 #000,
+                        1px -1px 0 #000,
+                        -1px 1px 0 #000,
+                        1px 1px 0 #000;
+            margin : 0 20px 20px 0;
+            text-align: right;
+            position: relative;
+            z-index: 2;
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景花纹层 -->
+    <div class="bg-pattern">
+        <!-- 点状纹理 -->
+        <div class="dot-pattern"></div>
+        <!-- 网格纹理 -->
+        <div class="grid-pattern"></div>
+        <!-- 波浪纹理（可选，如需更柔和效果可取消注释） -->
+        <!-- <div class="wave-pattern"></div> -->
+        <!-- 装饰性圆形 -->
+        <div class="decorative-circle circle-1"></div>
+        <div class="decorative-circle circle-2"></div>
+        <div class="decorative-circle circle-3"></div>
+    </div>
+
+    <!-- 顶部标题 -->
+    <div class="header">
+        <div class="title">{{title}}</div>
+    </div>
+
+    <!-- 中央插图 -->
+    <div class="content">
+        <img 
+            src="{{image}}"
+        />
+    </div>
+
+    <!-- 底部文字 -->
+    <div class="bottom-section">
+        <div class="content-text">{{text}}</div>
+    </div>
+
+    <div class="author">{{author=@Pixelle.AI}}</div>
+</body>
+</html>

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="512">
+    <meta name="template:media-height" content="288">
+    <style>
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100vh;
+            font-family: 'PingFang SC', 'Source Han Sans', 'Microsoft YaHei', sans-serif;
+            overflow: hidden;
+            /* background-color: #000; */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* 主容器 - 居中并包含所有内容 */
+        .main-container {
+            position: relative;
+            width: 1080px;
+            height: 1920px;
+        }
+        
+        /* Background image layer (customizable using <img> tag) */
+        .background-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        /* Video overlay - 相对于main-container居中 */
+        .video-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 1080px;
+            height: 607px;
+            /* background: #f00; */
+            z-index: 1;
+        }
+        
+        /* Title section - positioned above video */
+        .video-title-wrapper {
+            position: absolute;
+            top: calc(50% - 607px / 2 - 130px);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+        }
+        
+        .video-title {
+            width: 900px;
+            text-align: center;
+            /* 初始字体大小，JavaScript 会根据文本长度自动调整 */
+            font-size: 72px;
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1.3;
+            letter-spacing: 3px;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+            /* 确保文本不会溢出 */
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: nowrap;
+        }
+        
+        /* 字幕区域 - 对齐视频底部 */
+        .content {
+            position: absolute;
+            bottom: calc(50% - 607px / 2 + 0px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 900px;
+            z-index: 4;
+        }
+        
+        .text {
+            font-size: 40px;
+            color: #ffffff;
+            text-align: center;
+            line-height: 1.6;
+            font-weight: 500;
+            text-shadow: 
+                2px 2px 4px rgba(0, 0, 0, 0.9),
+                0 0 8px rgba(0, 0, 0, 0.8),
+                0 0 16px rgba(0, 0, 0, 0.6);
+            padding: 10px 0px;
+            /* background-color: aqua; */
+        }
+        
+        /* Footer - positioned below video */
+        .footer {
+            position: absolute;
+            top: calc(50% + 607px / 2 + 50px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 900px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 40px;
+            border-top: 2px solid rgba(255, 255, 255, 0.3);
+            z-index: 2;
+        }
+        
+        .author-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .author {
+            font-size: 32px;
+            font-weight: 600;
+            color: #ffffff;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .author-desc {
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 400;
+        }
+        
+        .logo-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+        }
+        
+        .logo {
+            font-size: 28px;
+            font-weight: 600;
+            color: #ffffff;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- 主容器 - 所有元素都在这里面，相对于video-overlay定位 -->
+    <div class="main-container">
+        <!-- Background image layer (customizable via background parameter) -->
+        <div class="background-image">
+            
+        </div>
+        
+        <!-- Video overlay - 居中参考点 -->
+        <div class="video-overlay"></div>
+        
+        <!-- Video title - positioned above video -->
+        <div class="video-title-wrapper">
+            <div class="video-title">{{title}}</div>
+        </div>
+        
+        <!-- 字幕区域 - 独立定位在视频底部 -->
+        <div class="content">
+            <div class="text">{{text}}</div>
+        </div>
+        
+        <!-- Footer - positioned below video -->
+        <div class="footer">
+            <div class="author-section">
+                <div class="author">{{author=@Pixelle.AI}}</div>
+                <div class="author-desc">{{describe=Open Source Omnimodal AI Creative Agent}}</div>
+            </div>
+            <div class="logo-section">
+                <div class="logo">{{brand=Pixelle-Video}}</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        /**
+         * 根据文本宽度自动调整字体大小
+         * @param {HTMLElement} element - 要调整的元素
+         * @param {number} maxWidth - 最大宽度（px）
+         * @param {number} minFontSize - 最小字体大小（px）
+         * @param {number} maxFontSize - 最大字体大小（px）
+         */
+        function autoFitFontSize(element, maxWidth, minFontSize, maxFontSize) {
+            try {
+                if (!element || !element.textContent || !element.textContent.trim()) {
+                    return;
+                }
+                
+                if (!document.body) {
+                    return;
+                }
+                
+                // 创建一个临时的测量元素
+                const measure = document.createElement('span');
+                measure.style.visibility = 'hidden';
+                measure.style.position = 'absolute';
+                measure.style.top = '-9999px';
+                measure.style.left = '-9999px';
+                measure.style.whiteSpace = 'nowrap';
+                
+                // 复制元素的样式
+                const computedStyle = window.getComputedStyle(element);
+                measure.style.fontFamily = computedStyle.fontFamily;
+                measure.style.fontSize = computedStyle.fontSize;
+                measure.style.fontWeight = computedStyle.fontWeight;
+                measure.style.letterSpacing = computedStyle.letterSpacing;
+                measure.textContent = element.textContent;
+                
+                document.body.appendChild(measure);
+                
+                // 二分查找合适的字体大小
+                let low = minFontSize;
+                let high = maxFontSize;
+                let bestSize = maxFontSize;
+                
+                // 先检查最大字体是否合适
+                measure.style.fontSize = maxFontSize + 'px';
+                if (measure.offsetWidth <= maxWidth) {
+                    bestSize = maxFontSize;
+                } else {
+                    // 使用二分查找
+                    while (high - low > 0.5) {
+                        const mid = (low + high) / 2;
+                        measure.style.fontSize = mid + 'px';
+                        
+                        if (measure.offsetWidth <= maxWidth) {
+                            bestSize = mid;
+                            low = mid;
+                        } else {
+                            high = mid;
+                        }
+                    }
+                }
+                
+                // 应用找到的字体大小
+                element.style.fontSize = bestSize + 'px';
+                
+                // 清理临时元素
+                if (measure.parentNode) {
+                    document.body.removeChild(measure);
+                }
+            } catch (error) {
+                console.error('自动调整字体大小出错:', error);
+            }
+        }
+        
+        // 页面加载完成后自动调整字体大小
+        function initAutoFit() {
+            try {
+                const titleElement = document.querySelector('.video-title');
+                if (titleElement) {
+                    // 获取容器的实际宽度
+                    const wrapper = document.querySelector('.video-title-wrapper');
+                    const maxWidth = wrapper ? wrapper.offsetWidth : 900;
+                    
+                    // 自动调整字体大小：最小12px，最大72px
+                    autoFitFontSize(titleElement, maxWidth, 12, 72);
+                }
+            } catch (error) {
+                console.error('初始化自动调整字体大小出错:', error);
+            }
+        }
+        
+        // 等待 DOM 加载完成
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initAutoFit);
+        } else {
+            // DOM 已经加载完成
+            initAutoFit();
+        }
+        
+        // 如果内容是通过模板引擎动态插入的，可以监听内容变化
+        // 使用 MutationObserver 监听文本变化
+        if (typeof MutationObserver !== 'undefined') {
+            try {
+                const observer = new MutationObserver(function(mutations) {
+                    let shouldUpdate = false;
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'childList' || mutation.type === 'characterData') {
+                            shouldUpdate = true;
+                        }
+                    });
+                    
+                    if (shouldUpdate) {
+                        // 延迟执行，避免频繁调用
+                        setTimeout(initAutoFit, 100);
+                    }
+                });
+                
+                // 等待 body 元素存在后再观察
+                if (document.body) {
+                    observer.observe(document.body, {
+                        childList: true,
+                        subtree: true,
+                        characterData: true
+                    });
+                } else {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        if (document.body) {
+                            observer.observe(document.body, {
+                                childList: true,
+                                subtree: true,
+                                characterData: true
+                            });
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('设置 MutationObserver 出错:', error);
+            }
+        }
+    </script>
+</body>
+</html>

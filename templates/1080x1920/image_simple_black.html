@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <meta name="viewport" content="width=1080, height=1920">
+    <title>黑白简单风格 - 1080x1920</title>
+    <!-- Google Fonts - 中文字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Noto+Serif+SC:wght@400;700;900&family=Liu+Jian+Mao+Cao&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+    <style>
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body { width: 1080px; height: 1920px; overflow: hidden; }
+
+        body {
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Source Han Sans', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #fff;
+            position: relative;
+            background: #000;
+        }
+
+        .title {
+            position: absolute;
+            top: 26%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 90px;
+            font-weight: 900;
+            line-height: 1.2;
+            text-shadow: 0 6px 22px rgba(0,0,0,0.6),
+                        -2px -2px 0 #000,
+                        2px -2px 0 #000,
+                        -2px 2px 0 #000,
+                        2px 2px 0 #000;
+            letter-spacing: 4px;
+            text-align: left;
+        }
+
+        /* 中部图片区（图片居中，填满宽度） */
+        .image-center {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 40%;
+            z-index: 2;
+            padding: 0 0; /* 无左右内边距 */
+        }
+
+        /* Footer */
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 25px 20px 0 20px;
+            position: absolute;
+            bottom: 20px;
+            color: #fff;
+            text-shadow: -1px -1px 0 #000,
+                        1px -1px 0 #000,
+                        -1px 1px 0 #000,
+                        1px 1px 0 #000;
+        }
+        
+        .author {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            letter-spacing: 2px;
+        }
+        
+        .author-name {
+            font-size: 30px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .author-mark {
+            width: 8px;
+            height: 8px;
+            /* border-radius: 50%; */
+            /* background: rgba(149, 165, 166, 0.7); */
+        }
+        
+        .author-desc {
+            font-size: 22px;
+            /* color: #5d6d7e; */
+            line-height: 1.3;
+            font-weight: 400;
+        }
+        
+        .logo-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: 500;
+        }
+        
+        .logo-marks {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .logo-mark {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(149, 165, 166, 0.45);
+        }
+        
+        .logo-mark.active {
+            background: rgba(149, 165, 166, 0.75);
+        }
+    </style>
+</head>
+<body>
+    <div class="title">{{title}}</div>
+    <image src="{{image}}" class="image-center" />
+    <div class="footer">
+        <div class="author">
+            <div class="author-name">
+                <span class="author-mark"></span>
+                <div class="logo">{{author=@Pixelle.AI}}</div>
+            </div>
+            <div class="author-desc">{{describe=Open Source Omnimodal AI Creative Agent}}</div>
+        </div>
+        <div class="logo-section">
+            <div class="logo">{{brand=Pixelle-Video}}</div>
+            <div class="logo-marks">
+                <div class="logo-mark"></div>
+                <div class="logo-mark active"></div>
+                <div class="logo-mark"></div>
+                <div class="logo-mark"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <meta name="viewport" content="width=1080, height=1920">
+    <title>心理卡片风 - 1080x1920</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body { width: 1080px; height: 1920px; overflow: hidden; }
+
+        body {
+            font-family: 'PingFang SC', 'Source Han Sans', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0a0a;
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+            position: relative; /* 作为整页定位上下文 */
+        }
+
+        /* 顶部黑底标题区 */
+        .top {
+            height: 20%;
+            background: #0a0a0a;
+            padding: 100px 70px 40px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .title {
+            max-width: 920px;
+            font-size: 96px;
+            font-weight: 900;
+            line-height: 1.2;
+            letter-spacing: 2px;
+            color: #ffffff;
+            text-shadow: 0 6px 22px rgba(0,0,0,0.5);
+        }
+
+        /* 中部容器可保持为空壳，仅用于分区 */
+        .middle { height: 70%; }
+
+        /* 将图片中心对齐到整页正中心（与标题无关） */
+        .media {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 86%;
+            max-height: 58%;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+        .media img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+        /* 字幕移动到上方红框区域（大致页面下部的上方位置） */
+        .caption {
+            position: absolute;
+            left: 50%;
+            bottom: 320px; /* 向上移动至上方槽位 */
+            transform: translateX(-50%);
+            width: 86%; /* 与图片宽度对齐 */
+            max-width: 930px;
+            text-align: center;
+            font-size: 54px;
+            font-weight: 900;
+            line-height: 1.2;
+            color: #fefefe;
+            text-shadow: 0 0 0 #000,
+                         -3px -3px 0 #000,
+                          3px -3px 0 #000,
+                         -3px  3px 0 #000,
+                          3px  3px 0 #000;
+        }
+
+        @media (max-width: 1080px) { .title { font-size: 84px; } .caption { font-size: 48px; bottom: 600px; } }
+    </style>
+</head>
+<body>
+    <div class="top">
+        <div class="title">{{title}}</div>
+    </div>
+
+    <div class="middle"></div>
+
+    <div class="media"><img src="{{image}}" alt="内容图片"></div>
+    <div class="caption">{{text}}</div>
+</body>
+</html>

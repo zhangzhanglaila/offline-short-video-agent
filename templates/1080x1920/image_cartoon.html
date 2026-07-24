@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Comic Sans MS', 'Marker Felt', 'Arial Rounded MT Bold', sans-serif;
+        }
+        
+        body {
+            width: 1080px;
+            height: 1920px;
+            background-image: url('https://lmg.jj20.com/up/allimg/sj02/210122142U11054-0-lp.jpg');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 40px 20px 0 20px;
+            gap: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 卡通装饰元素 */
+        .cloud {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            z-index: -1;
+        }
+        
+        .cloud:before, .cloud:after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+        }
+        
+        .cloud-1 {
+            width: 120px;
+            height: 60px;
+            top: 10%;
+            left: 5%;
+        }
+        
+        .cloud-1:before {
+            width: 70px;
+            height: 70px;
+            top: -30px;
+            left: 10px;
+        }
+        
+        .cloud-1:after {
+            width: 50px;
+            height: 50px;
+            top: -20px;
+            right: 10px;
+        }
+        
+        .cloud-2 {
+            width: 150px;
+            height: 70px;
+            bottom: 15%;
+            right: 5%;
+        }
+        
+        .cloud-2:before {
+            width: 80px;
+            height: 80px;
+            top: -35px;
+            left: 15px;
+        }
+        
+        .cloud-2:after {
+            width: 60px;
+            height: 60px;
+            top: -25px;
+            right: 20px;
+        }
+        
+        /* 标题样式 */
+        .title-container {
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 20px 40px;
+            border-radius: 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            border: 5px solid #FF9ED8;
+            max-width: 90%;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .title-container h1 {
+            font-size: 48px;
+            color: #FF5BAE;
+            text-shadow: 3px 3px 0 #FFC2E9;
+            margin: 0;
+        }
+        
+        /* 图片容器 */
+        .image-container {
+            width: 1024px;
+            height: 1024px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 8px solid #A6E3FF;
+            overflow: hidden;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .image-container img {
+            max-width: 95%;
+            max-height: 95%;
+            border-radius: 15px;
+            object-fit: contain;
+        }
+        
+        /* 字幕样式 */
+        .caption-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 25px 40px;
+            border-radius: 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            border: 5px solid #B5FFA6;
+            max-width: 90%;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .caption-container p {
+            font-size: 36px;
+            color: #5BAE5B;
+            line-height: 1.4;
+            text-shadow: 2px 2px 0 #C2FFC2;
+            margin: 0;
+        }
+        
+        /* 装饰元素 */
+        .decoration {
+            position: absolute;
+            z-index: 5;
+        }
+        
+        .star {
+            width: 30px;
+            height: 30px;
+            background-color: #FFF9A6;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+        }
+        
+        .star-1 {
+            top: 15%;
+            right: 10%;
+            transform: rotate(15deg);
+        }
+        
+        .star-2 {
+            bottom: 20%;
+            left: 8%;
+            transform: rotate(-10deg);
+            width: 40px;
+            height: 40px;
+        }
+        
+        .heart {
+            width: 40px;
+            height: 40px;
+            background-color: #FF9ED8;
+            transform: rotate(-45deg);
+            position: absolute;
+        }
+        
+        .heart:before, .heart:after {
+            content: '';
+            width: 40px;
+            height: 40px;
+            background-color: #FF9ED8;
+            border-radius: 50%;
+            position: absolute;
+        }
+        
+        .heart:before {
+            top: -20px;
+            left: 0;
+        }
+        
+        .heart:after {
+            top: 0;
+            left: 20px;
+        }
+        
+        .heart-1 {
+            top: 12%;
+            left: 12%;
+        }
+        
+        .heart-2 {
+            bottom: 25%;
+            right: 12%;
+            width: 30px;
+            height: 30px;
+        }
+        
+        .heart-2:before, .heart-2:after {
+            width: 30px;
+            height: 30px;
+        }
+        
+        .heart-2:before {
+            top: -15px;
+        }
+        
+        .heart-2:after {
+            left: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 装饰元素 -->
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    
+    <div class="decoration star star-1"></div>
+    <div class="decoration star star-2"></div>
+    
+    <div class="decoration heart heart-1"></div>
+    <div class="decoration heart heart-2"></div>
+    
+    <!-- 标题区域 -->
+    <div class="title-container">
+        <h1>{{title}}</h1>
+    </div>
+    
+    <!-- 图片区域 -->
+    <div class="image-container">
+        <img src="{{image}}" alt="卡通图片">
+    </div>
+    
+    <!-- 字幕区域 -->
+    <div class="caption-container">
+        <p>{{text}}</p>
+    </div>
+</body>
+</html>

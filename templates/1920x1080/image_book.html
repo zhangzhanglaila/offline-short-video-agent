@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <meta name="viewport" content="width=1920, height=1080">
+    <!-- Google Fonts - 手写艺术字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Liu+Jian+Mao+Cao&family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            background-image: url("{{image}}");
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+
+        .container {
+            position: relative;
+            min-height: 100vh;
+            width: 100%;
+        }
+
+        /* Stars background */
+        .stars {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+        }
+
+        .star {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+
+        /* Title */
+        .title {
+            position: absolute;
+            top: 32px;
+            right: 32px;
+            z-index: 10;
+            font-size: 50px;
+            text-align: right;
+            /* 黑色描边 */
+            text-shadow: 0 0 0 #0e0a0a,
+                    -2px -2px 0 #0e0a0a,
+                    2px -2px 0 #0e0a0a,
+                    -2px  2px 0 #0e0a0a,
+                    2px  2px 0 #0e0a0a;
+        }
+
+        /* Main Content */
+        .main-content {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 32px;
+        }
+
+        /* Decorative blobs */
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.5;
+        }
+
+        .blob-1 {
+            top: 25%;
+            left: 25%;
+            width: 128px;
+            height: 192px;
+            background-color: #4a7c8c;
+        }
+
+        .blob-2 {
+            top: 33%;
+            right: 25%;
+            width: 160px;
+            height: 224px;
+            background-color: #8b3a3a;
+        }
+
+        .blob-3 {
+            bottom: 25%;
+            left: 33%;
+            width: 144px;
+            height: 176px;
+            background-color: #6b4423;
+            opacity: 0.4;
+        }
+
+        /* Text Content */
+        .text-content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+        }
+
+        .content {
+            font-size: 70px;
+            font-weight: 900;
+            color: white;
+            letter-spacing: 0.05em;
+            font-style: italic;
+            /* 黑色描边 6px */
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9),
+                        -4px -4px 4px #0e0a0a,
+                        4px -4px 4px #0e0a0a,
+                        -4px  4px 4px #0e0a0a,
+                        4px  4px 4px #0e0a0a,
+                        0 8px 16px rgba(0,0,0,0.5);
+            /* 手写艺术字体 */
+            font-family: 'ZCOOL XiaoWei', cursive, serif;
+        }
+
+        /* Footer */
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 25px 20px 0 20px;
+            position: absolute;
+            bottom: 32px;
+            color: #fff;
+        }
+        
+        .author {
+            font-size: 50px;
+            font-weight: 500;
+            color: gray;
+            /* 手写艺术字体 */
+            font-family: 'Liu Jian Mao Cao', cursive, serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Stars background -->
+        <div class="stars" id="stars"></div>
+
+        <!-- Title -->
+        <div class="title">{{title}}</div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Decorative blobs -->
+            <div class="blob blob-1"></div>
+            <div class="blob blob-2"></div>
+            <div class="blob blob-3"></div>
+
+            <!-- Text Content -->
+            <div class="text-content">
+                <p class="content">{{text}}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="author">{{author=@Pixelle.AI}}</div>
+    </div>
+
+    <script>
+        // Generate stars
+        const starsContainer = document.getElementById('stars');
+        for (let i = 0; i < 50; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            star.style.animationDelay = Math.random() * 3 + 's';
+            star.style.animationDuration = (2 + Math.random() * 3) + 's';
+            starsContainer.appendChild(star);
+        }
+    </script>
+</body>
+</html>

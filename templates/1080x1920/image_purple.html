@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <style>
+        html {
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            width: 1080px;
+            background: #302b63;
+            font-family: 'PingFang SC', 'Source Han Sans', 'Microsoft YaHei', sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .page-container {
+            width: 1080px;
+            height: 1920px;
+            padding: 60px 60px 70px 60px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Background decorative elements */
+        .bg-decoration {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        
+        /* Grid pattern background */
+        .dot-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(255, 165, 0, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 165, 0, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.4;
+        }
+        
+        .circle-1 {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 165, 0, 0.15), transparent);
+            top: -250px;
+            right: -200px;
+            border: 3px solid rgba(255, 165, 0, 0.2);
+            box-shadow: inset 0 0 120px rgba(255, 165, 0, 0.1),
+                        0 0 60px rgba(255, 165, 0, 0.2);
+        }
+        
+        .circle-2 {
+            position: absolute;
+            width: 450px;
+            height: 450px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 60% 60%, rgba(255, 215, 0, 0.2), transparent);
+            bottom: 50px;
+            left: -150px;
+            filter: blur(50px);
+        }
+        
+        .circle-3 {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 140, 0, 0.3);
+            background: transparent;
+            top: 35%;
+            right: 40px;
+            box-shadow: 0 0 40px rgba(255, 140, 0, 0.4);
+        }
+        
+        .triangle {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 180px solid transparent;
+            border-right: 180px solid transparent;
+            border-bottom: 300px solid rgba(255, 165, 0, 0.08);
+            top: 45%;
+            left: -60px;
+            transform: rotate(-35deg);
+            filter: blur(3px);
+        }
+        
+        .square-1 {
+            position: absolute;
+            width: 160px;
+            height: 160px;
+            background: linear-gradient(135deg, rgba(255, 165, 0, 0.12), transparent);
+            top: 15%;
+            right: -60px;
+            transform: rotate(35deg);
+            border: 3px solid rgba(255, 165, 0, 0.25);
+            box-shadow: 0 0 30px rgba(255, 165, 0, 0.2);
+        }
+        
+        .square-2 {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border: 4px solid rgba(255, 215, 0, 0.4);
+            background: transparent;
+            bottom: 25%;
+            left: 60px;
+            transform: rotate(-15deg);
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.3);
+        }
+        
+        /* Glowing lines */
+        .line-1, .line-2, .line-3 {
+            position: absolute;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(255, 165, 0, 0.6), transparent);
+            box-shadow: 0 0 15px rgba(255, 165, 0, 0.4);
+        }
+        
+        .line-1 {
+            width: 400px;
+            top: 20%;
+            right: 100px;
+            transform: rotate(15deg);
+        }
+        
+        .line-2 {
+            width: 280px;
+            top: 55%;
+            left: 100px;
+            transform: rotate(-20deg);
+        }
+        
+        .line-3 {
+            width: 320px;
+            bottom: 18%;
+            right: 120px;
+            transform: rotate(10deg);
+        }
+        
+        /* Hexagon decorations */
+        .hexagon-1, .hexagon-2 {
+            position: absolute;
+            width: 80px;
+            height: 46px;
+            background: rgba(255, 165, 0, 0.1);
+            border-left: 3px solid rgba(255, 165, 0, 0.4);
+            border-right: 3px solid rgba(255, 165, 0, 0.4);
+        }
+        
+        .hexagon-1::before, .hexagon-2::before,
+        .hexagon-1::after, .hexagon-2::after {
+            content: "";
+            position: absolute;
+            width: 0;
+            border-left: 40px solid transparent;
+            border-right: 40px solid transparent;
+        }
+        
+        .hexagon-1::before, .hexagon-2::before {
+            bottom: 100%;
+            border-bottom: 23px solid rgba(255, 165, 0, 0.4);
+        }
+        
+        .hexagon-1::after, .hexagon-2::after {
+            top: 100%;
+            border-top: 23px solid rgba(255, 165, 0, 0.4);
+        }
+        
+        .hexagon-1 {
+            top: 25%;
+            left: 120px;
+        }
+        
+        .hexagon-2 {
+            bottom: 30%;
+            right: 140px;
+            transform: rotate(30deg);
+        }
+        
+        /* Header with tech decoration */
+        .topic-wrapper {
+            position: relative;
+            text-align: center;
+            padding: 40px 0;
+        }
+        
+        .topic-decoration {
+            position: absolute;
+            top: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .topic-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            box-shadow: 0 0 20px currentColor;
+        }
+        
+        .topic-dot:nth-child(1) { 
+            background: #FF8C00; 
+            color: #FF8C00;
+        }
+        .topic-dot:nth-child(2) { 
+            background: #FFD700; 
+            color: #FFD700;
+            width: 18px;
+            height: 18px;
+        }
+        .topic-dot:nth-child(3) { 
+            background: #FFA500; 
+            color: #FFA500;
+        }
+        
+        /* Title accent decoration */
+        .topic-accent {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 5px;
+            background: linear-gradient(90deg, transparent, rgba(255, 165, 0, 0.8), transparent);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(255, 165, 0, 0.5);
+        }
+        
+        .title {
+            font-size: 78px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF8C00 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.25;
+            letter-spacing: 2px;
+            padding: 25px 0;
+            position: relative;
+            display: inline-block;
+            filter: drop-shadow(0 4px 20px rgba(255, 165, 0, 0.4));
+        }
+        
+        .title::before,
+        .title::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255, 165, 0, 0.6), rgba(255, 215, 0, 0.5));
+            box-shadow: 0 0 25px rgba(255, 165, 0, 0.6);
+        }
+        
+        .title::before {
+            top: -15px;
+            left: -25px;
+            width: 25px;
+            height: 25px;
+        }
+        
+        .title::after {
+            bottom: -10px;
+            right: -20px;
+            width: 30px;
+            height: 30px;
+        }
+        
+        .topic {
+            font-size: 74px;
+            font-weight: bold;
+            color: #FFD700;
+            line-height: 1.3;
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.5), 
+                         0 4px 20px rgba(0,0,0,0.4);
+            padding: 20px 0;
+            position: relative;
+            display: inline-block;
+            letter-spacing: 3px;
+        }
+        
+        .topic::before,
+        .topic::after {
+            content: '';
+            position: absolute;
+            width: 90px;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, rgba(255, 165, 0, 0.8), rgba(255, 215, 0, 0.6));
+            top: 50%;
+            box-shadow: 0 0 15px rgba(255, 165, 0, 0.6);
+        }
+        
+        .topic::before {
+            left: -110px;
+            transform: scaleX(-1);
+        }
+        
+        .topic::after {
+            right: -110px;
+        }
+        
+        /* Tech badge decoration */
+        .bookmark-deco {
+            position: absolute;
+            top: -10px;
+            left: 70px;
+        }
+        
+        /* Image container with tech frame */
+        .image-wrapper {
+            position: relative;
+        }
+        
+        .image-container {
+            width: 100%;
+            height: 900px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+            object-fit: cover;
+            box-shadow: 0 0 60px rgba(255, 165, 0, 0.3),
+                        0 20px 60px rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(255, 165, 0, 0.3);
+        }
+        
+        /* Corner tech decorations */
+        .corner-deco {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border: 5px solid rgba(255, 165, 0, 0.8);
+            z-index: 2;
+            filter: drop-shadow(0 0 15px rgba(255, 165, 0, 0.5));
+        }
+        
+        .corner-deco.top-left {
+            top: -20px;
+            left: -20px;
+            border-right: none;
+            border-bottom: none;
+            border-radius: 16px 0 0 0;
+        }
+        
+        .corner-deco.bottom-right {
+            bottom: -20px;
+            right: -20px;
+            border-left: none;
+            border-top: none;
+            border-radius: 0 0 16px 0;
+        }
+        
+        .corner-deco.top-right {
+            top: -20px;
+            right: -20px;
+            border-left: none;
+            border-bottom: none;
+            border-radius: 0 16px 0 0;
+            width: 40px;
+            height: 40px;
+            border-color: rgba(255, 215, 0, 0.9);
+        }
+        
+        .corner-deco.bottom-left {
+            bottom: -20px;
+            left: -20px;
+            border-right: none;
+            border-top: none;
+            border-radius: 0 0 0 16px;
+            width: 40px;
+            height: 40px;
+            border-color: rgba(255, 140, 0, 0.9);
+        }
+        
+        /* Side tech indicators */
+        .side-badge-left, .side-badge-right {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .side-badge-left {
+            left: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .side-badge-right {
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .badge-circle {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 165, 0, 0.6);
+            background: transparent;
+            box-shadow: 0 0 12px rgba(255, 165, 0, 0.4);
+        }
+        
+        .badge-circle.filled {
+            background: rgba(255, 215, 0, 0.8);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+        }
+        
+        /* Quote section */
+        .text-wrapper {
+            position: relative;
+        }
+        
+        .text {
+            font-size: 46px;
+            color: #FFF8DC;
+            text-align: center;
+            line-height: 1.8;
+            padding: 35px 70px;
+            position: relative;
+            height: 237.6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-shadow: 0 2px 15px rgba(0, 0, 0, 0.4),
+                         0 0 20px rgba(255, 165, 0, 0.2);
+            letter-spacing: 1px;
+        }
+        
+        .quote-icon-left {
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            opacity: 0.25;
+            transform: rotate(180deg);
+            filter: drop-shadow(0 0 10px rgba(255, 165, 0, 0.4));
+        }
+        
+        .quote-icon-right {
+            position: absolute;
+            bottom: 0px;
+            right: 0px;
+            opacity: 0.25;
+            filter: drop-shadow(0 0 10px rgba(255, 165, 0, 0.4));
+        }
+        
+        /* Accent tech bars */
+        .accent-bar-left, .accent-bar-right {
+            position: absolute;
+            width: 6px;
+            height: 180px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-radius: 10px;
+        }
+        
+        .accent-bar-left {
+            left: 15px;
+            background: linear-gradient(180deg, rgba(255, 140, 0, 0.8), rgba(255, 140, 0, 0.2));
+            box-shadow: 0 0 25px rgba(255, 140, 0, 0.6);
+        }
+        
+        .accent-bar-right {
+            right: 15px;
+            background: linear-gradient(180deg, rgba(255, 215, 0, 0.8), rgba(255, 215, 0, 0.2));
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.6);
+        }
+        
+        /* Footer with tech design */
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 25px 5px;
+            border-top: 3px solid rgba(255, 165, 0, 0.5);
+            position: relative;
+        }
+        
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: 0;
+            width: 160px;
+            height: 5px;
+            background: linear-gradient(90deg, rgba(255, 165, 0, 0.9), transparent);
+            box-shadow: 0 0 15px rgba(255, 165, 0, 0.6);
+        }
+        
+        .footer::after {
+            content: '';
+            position: absolute;
+            top: -5px;
+            right: 0;
+            width: 100px;
+            height: 5px;
+            background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.9));
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+        }
+        
+        .author {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .author-name {
+            font-size: 36px;
+            font-weight: bold;
+            color: #FFD700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        
+        .author-badges {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .author-badge {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: 0 0 18px currentColor;
+        }
+        
+        .author-badge.cyan {
+            background: #FF8C00;
+            color: #FF8C00;
+        }
+        
+        .author-badge.pink {
+            background: #FFD700;
+            color: #FFD700;
+        }
+        
+        .author-desc {
+            font-size: 26px;
+            color: rgba(255, 248, 220, 0.9);
+            line-height: 1.3;
+            text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .logo-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+        
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #FFD700;
+            letter-spacing: 2px;
+            position: relative;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        
+        .logo::before {
+            content: '';
+            position: absolute;
+            left: -22px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            background: #FFA500;
+            border-radius: 50%;
+            box-shadow: 0 0 18px #FFA500;
+        }
+        
+        .logo-dots {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .logo-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: rgba(255, 165, 0, 0.6);
+            box-shadow: 0 0 10px rgba(255, 165, 0, 0.5);
+        }
+        
+    </style>
+</head>
+<body>
+    <!-- Background decorations -->
+    <div class="bg-decoration">
+        <div class="dot-pattern"></div>
+        <div class="circle-1"></div>
+        <div class="circle-2"></div>
+        <div class="circle-3"></div>
+        <div class="triangle"></div>
+        <div class="square-1"></div>
+        <div class="square-2"></div>
+        <div class="line-1"></div>
+        <div class="line-2"></div>
+        <div class="line-3"></div>
+        <div class="hexagon-1"></div>
+        <div class="hexagon-2"></div>
+    </div>
+    
+    <div class="page-container">
+        <div class="topic-wrapper">
+            <div class="topic-accent"></div>
+            <div class="topic-decoration">
+                <div class="topic-dot"></div>
+                <div class="topic-dot"></div>
+                <div class="topic-dot"></div>
+            </div>
+            
+            <!-- Tech badge decoration -->
+            <svg class="bookmark-deco" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="rgba(255, 165, 0, 0.6)" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            
+            <div class="title">{{title}}</div>
+        </div>
+        
+        <div class="image-wrapper">
+            <div class="corner-deco top-left"></div>
+            <div class="corner-deco bottom-right"></div>
+            <div class="corner-deco top-right"></div>
+            <div class="corner-deco bottom-left"></div>
+            
+            <!-- Side badges -->
+            <div class="side-badge-left">
+                <div class="badge-circle filled"></div>
+                <div class="badge-circle"></div>
+                <div class="badge-circle"></div>
+            </div>
+            <div class="side-badge-right">
+                <div class="badge-circle"></div>
+                <div class="badge-circle filled"></div>
+                <div class="badge-circle"></div>
+            </div>
+            
+            <div class="image-container">
+                <img src="{{image}}" alt="Frame Image">
+            </div>
+        </div>
+        
+        <div class="text-wrapper">
+            <!-- Quote SVG icons -->
+            <svg class="quote-icon-left" width="90" height="90" viewBox="0 0 24 24" fill="rgba(255, 165, 0, 0.6)">
+                <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
+            </svg>
+            <svg class="quote-icon-right" width="90" height="90" viewBox="0 0 24 24" fill="rgba(255, 165, 0, 0.6)">
+                <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
+            </svg>
+            
+            <!-- Accent bars -->
+            <div class="accent-bar-left"></div>
+            <div class="accent-bar-right"></div>
+            
+            <div class="text">{{text}}</div>
+        </div>
+        
+        <div class="footer">
+            <div class="author">
+                <div class="author-name">
+                    <div class="author-badges">
+                        <div class="author-badge cyan"></div>
+                        <div class="author-badge pink"></div>
+                    </div>
+                    {{author=@Pixelle.AI}}
+                </div>
+                <div class="author-desc">{{describe=Open Source Omnimodal AI Creative Agent}}</div>
+            </div>
+            <div class="logo-wrapper">
+                <div class="logo">{{brand=Pixelle-Video}}</div>
+                <div class="logo-dots">
+                    <div class="logo-dot"></div>
+                    <div class="logo-dot"></div>
+                    <div class="logo-dot"></div>
+                    <div class="logo-dot"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

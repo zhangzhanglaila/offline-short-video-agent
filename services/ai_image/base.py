@@ -10,6 +10,7 @@ class AIProvider(str, Enum):
     """AI 生图供应商"""
     OPENAI = "openai"
     DASHSCOPE = "dashscope"
+    BAILIAN = "bailian"
 
 
 class ImageSize(str, Enum):
@@ -91,10 +92,15 @@ class AIGenerationService(ABC):
         pass
 
     def _get_cache_path(self, prompt: str, size: str) -> Path:
-        """生成缓存路径（基于 prompt hash）"""
+        """生成缓存路径（基于 prompt hash）
+
+        将 size 中的 * 替换为 x 以兼容 Windows 文件系统
+        """
         import hashlib
+        # WanX 使用 W*H 格式，Windows 文件名不允许 *
+        size_safe = size.replace("*", "x")
         prompt_hash = hashlib.md5(prompt.encode()).hexdigest()[:12]
-        filename = f"{self.get_provider_name()}_{size}_{prompt_hash}.png"
+        filename = f"{self.get_provider_name()}_{size_safe}_{prompt_hash}.png"
         return self._cache_dir / filename
 
     def get_provider_name(self) -> str:

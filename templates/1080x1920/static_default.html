@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <style>
+        html {
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            width: 1080px;
+            font-family: 'PingFang SC', 'Source Han Sans', 'Microsoft YaHei', sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Background image layer (customizable using <img> tag) */
+        .background-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        .background-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }
+        
+        /* Gradient overlay on top of background */
+        .gradient-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.5) 0%, rgba(118, 75, 162, 0.6) 100%);
+            z-index: 1;
+        }
+        
+        .page-container {
+            width: 1080px;
+            height: 1920px;
+            padding: 120px 80px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 80px;
+            position: relative;
+            z-index: 3;
+        }
+        
+        /* Decorative background elements */
+        .bg-decoration {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        
+        .circle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .circle-1 {
+            width: 400px;
+            height: 400px;
+            top: -150px;
+            right: -100px;
+        }
+        
+        .circle-2 {
+            width: 300px;
+            height: 300px;
+            bottom: -100px;
+            left: -80px;
+        }
+        
+        .circle-3 {
+            width: 200px;
+            height: 200px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.5;
+        }
+        
+        /* Title section */
+        .video-title-wrapper {
+            position: relative;
+            max-width: 900px;
+            text-align: center;
+        }
+        
+        .video-title {
+            font-size: 72px;
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1.3;
+            letter-spacing: 3px;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            margin-bottom: 40px;
+        }
+        
+        .title-underline {
+            width: 150px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.8);
+            margin: 0 auto;
+            border-radius: 2px;
+        }
+        
+        /* Content section */
+        .content {
+            display: flex;
+            flex-direction: column;
+            gap: 60px;
+            max-width: 900px;
+            width: 100%;
+            position: relative;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 80px 60px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .text-wrapper {
+            position: relative;
+        }
+        
+        .text {
+            font-size: 48px;
+            color: #ffffff;
+            text-align: center;
+            line-height: 2.0;
+            font-weight: 500;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            position: relative;
+            min-height: 288px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            white-space: pre-line;  /* Preserve line breaks from \n */
+        }
+        
+        /* Quote marks */
+        .quote-mark {
+            position: absolute;
+            font-size: 120px;
+            font-family: Georgia, serif;
+            color: rgba(255, 255, 255, 0.3);
+            font-weight: bold;
+            line-height: 1;
+        }
+        
+        .quote-mark.left {
+            top: -30px;
+            left: -20px;
+        }
+        
+        .quote-mark.right {
+            bottom: -50px;
+            right: -20px;
+        }
+        
+        /* Footer */
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding-top: 40px;
+            border-top: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .author-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .author {
+            font-size: 32px;
+            font-weight: 600;
+            color: #ffffff;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .author-desc {
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 400;
+        }
+        
+        .logo-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+        }
+        
+        .logo {
+            font-size: 28px;
+            font-weight: 600;
+            color: #ffffff;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .logo-subtitle {
+            font-size: 20px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 400;
+        }
+    </style>
+</head>
+<body>
+    <!-- Background image layer (customizable via background parameter) -->
+    <div class="background-image">
+        <img src="{{background=https://img.alicdn.com/imgextra/i2/O1CN01TngrfY1NTZK1xwuWd_!!6000000001571-0-tps-690-1494.jpg}}" alt="Background">
+    </div>
+    
+    <!-- Gradient overlay -->
+    <div class="gradient-overlay"></div>
+    
+    <!-- Background decorations -->
+    <div class="bg-decoration">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+        <div class="circle circle-3"></div>
+    </div>
+    
+    <div class="page-container">
+        <!-- Video title -->
+        <div class="video-title-wrapper">
+            <div class="video-title">{{title}}</div>
+            <div class="title-underline"></div>
+        </div>
+        
+        <!-- Content card -->
+        <div class="content">
+            <div class="text-wrapper">
+                <div class="quote-mark left">"</div>
+                <div class="text">{{text}}</div>
+                <div class="quote-mark right">"</div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <div class="author-section">
+                <div class="author">{{author=@Pixelle.AI}}</div>
+                <div class="author-desc">{{describe=Open Source Omnimodal AI Creative Agent}}</div>
+            </div>
+            <div class="logo-section">
+                <div class="logo">{{brand=Pixelle-Video}}</div>
+                <div class="logo-subtitle">Text-Only Template</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

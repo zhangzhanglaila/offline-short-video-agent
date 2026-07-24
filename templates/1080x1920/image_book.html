@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="template:media-width" content="1024">
+    <meta name="template:media-height" content="1024">
+    <meta name="viewport" content="width=1080, height=1920">
+    <title>图书解读 - 1080x1920</title>
+    <!-- Google Fonts - 中文字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Dancing+Script:wght@400;700&family=Liu+Jian+Mao+Cao&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    <style>
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body { width: 1080px; height: 1920px; overflow: hidden; }
+
+        body {
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Source Han Sans', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #fff;
+            position: relative;
+            background: #1a1a1a;
+            background-image: url("{{image}}");
+            background-size: cover;
+            background-position: center bottom 400px;
+        }
+
+        /* 顶部区域 */
+        .top-section {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            width: 90%;
+        }
+
+        .image {
+            position: absolute;
+            top: 400px;
+            left: 50%;
+            transform: translate(-50%);
+        }   
+
+        .title {
+            font-size: 100px;
+            font-weight: 900;
+            line-height: 1.1;
+            font-family: 'Noto Sans SC', sans-serif;
+            color: #000;
+            text-shadow: -3px -3px 0 #fff,
+                        3px -3px 0 #fff,
+                        -3px 3px 0 #fff,
+                        3px 3px 0 #fff;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+
+        .subtitle {
+            font-size: 30px;
+            font-weight: 500;
+            font-family: 'Noto Sans SC', sans-serif;
+            color: #000;
+            text-shadow: -2px -2px 0 #fff,
+                        2px -2px 0 #fff,
+                        -2px 2px 0 #fff,
+                        2px 2px 0 #fff;
+            letter-spacing: 2px;
+        }
+
+        /* 底部文字区域 */
+        .bottom-section {
+            position: absolute;
+            top: 1000px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            width: 90%;
+        }
+
+        .main-text {
+            font-size: 50px;
+            font-weight: 700;
+            font-family: 'Noto Sans SC', sans-serif;
+            text-shadow: -2px -2px 0 #000,
+                        2px -2px 0 #000,
+                        -2px 2px 0 #000,
+                        2px 2px 0 #000;
+            margin-bottom: 15px;
+            letter-spacing: 3px;
+        }
+
+        .author {
+            font-size: 30px;
+            font-family: 'Liu Jian Mao Cao', 'ZCOOL KuaiLe', cursive;
+            text-shadow: -1px -1px 0 #000,
+                        1px -1px 0 #000,
+                        -1px 1px 0 #000,
+                        1px 1px 0 #000;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部标题区 -->
+    <div class="top-section">
+        <div class="title">{{title}}</div>
+        <div class="subtitle">{{subtitle=作者}}</div>
+    </div>
+
+    <!-- <img class="img" src="{{image}}" alt="内容图片"> -->
+    
+    <!-- 底部文字区 -->
+    <div class="bottom-section">
+        <div class="main-text">{{text}}</div>
+        <div class="author">{{author=@Pixelle.AI}}</div>
+    </div>
+</body>
+</html>
