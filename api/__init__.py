@@ -13,6 +13,7 @@ from . import dual_mode_api
 from . import thinking_api
 from . import timeline_api
 from . import ecom_api
+from . import template_api
 
 __all__ = [
     'agent_api',
@@ -26,4 +27,5 @@ __all__ = [
     'thinking_api',
     'timeline_api',
     'ecom_api',
+    'template_api',
 ]

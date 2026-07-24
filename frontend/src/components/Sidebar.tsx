@@ -4,6 +4,7 @@ const links = [
   { to: '/', label: '仪表盘', icon: '📊' },
   { to: '/products', label: '商品管理', icon: '📦' },
   { to: '/products/new', label: '录入商品', icon: '➕' },
+  { to: '/templates', label: '模板库', icon: '🎨' },
   { to: '/generate', label: '一键生成', icon: '🎬' },
   { to: '/videos', label: '视频列表', icon: '🎥' },
   { to: '/analytics', label: '数据分析', icon: '📈' },

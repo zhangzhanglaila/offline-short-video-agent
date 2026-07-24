@@ -7,6 +7,7 @@ import GenerateVideo from './pages/GenerateVideo'
 import VideoList from './pages/VideoList'
 import AnalyticsDashboard from './pages/AnalyticsDashboard'
 import TimelineEditor from './pages/TimelineEditor'
+import TemplateGallery from './pages/TemplateGallery'
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/videos" element={<VideoList />} />
         <Route path="/analytics" element={<AnalyticsDashboard />} />
         <Route path="/editor" element={<TimelineEditor />} />
+        <Route path="/templates" element={<TemplateGallery />} />
       </Route>
     </Routes>
   )
