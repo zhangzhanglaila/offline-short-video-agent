@@ -64,6 +64,13 @@ def parse_args() -> argparse.Namespace:
                         help="竖屏1080x1920(默认)")
     parser.add_argument("--horizontal", action="store_true",
                         help="横屏1920x1080")
+    parser.add_argument(
+        "--template",
+        "-t",
+        type=str,
+        default=None,
+        help="HTML 模板名（如 image_default / image_modern / video_default），用模板生成场景背景",
+    )
     return parser.parse_args()
 
 
@@ -143,6 +150,13 @@ async def run(params: dict, output_path: str = None, size=(1080, 1920)) -> int:
         duration=params["duration"],
     )
 
+    # 透传模板选择（CLI --template）：通过 metadata 流向下游 Agent。
+    # 注：当前 ContentAnalysisAgent 尚未读取该字段；该字段由后续任务
+    # 在 content_analysis_agent 中识别并应用到 Scene.template。
+    template_name = params.get("template")
+    if template_name:
+        request.metadata["template"] = template_name
+
     if not request.validate():
         print("\n❌ 输入参数无效，请检查分类/风格/时长")
         return 1
@@ -189,9 +203,13 @@ def main() -> int:
             "category": args.category,
             "style": args.style,
             "duration": max(5, min(300, args.duration)),
+            "template": args.template,
         }
     else:
         params = interactive_input()
+        # 交互模式下也允许通过 --template 传入
+        if args.template:
+            params["template"] = args.template
 
     size = (1920, 1080) if args.horizontal else (1080, 1920)
 
