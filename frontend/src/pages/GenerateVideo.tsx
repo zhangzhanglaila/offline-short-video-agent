@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useGenerateStore } from '../stores/generateStore'
 import { fetchGenerateMeta } from '../api/generate'
 import StoryboardPreview from '../components/StoryboardPreview'
@@ -70,8 +70,9 @@ function getStatusText(pipelineStep: string, generating: boolean, ttsGenerating:
 
 export default function GenerateVideo() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
-  const [topic, setTopic] = useState('')
+  const [topic, setTopic] = useState(searchParams.get('topic') || '')
   const [category, setCategory] = useState('短视频')
   const [categories, setCategories] = useState<string[]>([])
   const [style, setStyle] = useState('soft_sell')

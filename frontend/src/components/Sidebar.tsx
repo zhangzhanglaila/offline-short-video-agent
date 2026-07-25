@@ -2,12 +2,9 @@ import { NavLink } from 'react-router-dom'
 
 const links = [
   { to: '/', label: '仪表盘', icon: '📊' },
-  { to: '/products', label: '商品管理', icon: '📦' },
-  { to: '/products/new', label: '录入商品', icon: '➕' },
   { to: '/templates', label: '模板库', icon: '🎨' },
   { to: '/generate', label: '一键生成', icon: '🎬' },
-  { to: '/videos', label: '视频列表', icon: '🎥' },
-  { to: '/analytics', label: '数据分析', icon: '📈' },
+  { to: '/videos', label: '历史记录', icon: '🎥' },
   { to: '/editor', label: '时间线编辑', icon: '🎞️' },
 ]
 
@@ -20,7 +17,7 @@ export default function Sidebar() {
             🎬
           </div>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#232529' }}>AIGC 带货视频</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#232529' }}>AI 短视频</div>
             <div style={{ fontSize: 11, color: '#9499A0' }}>智能短视频生成系统</div>
           </div>
         </div>
@@ -45,7 +42,7 @@ export default function Sidebar() {
         ))}
       </nav>
       <div style={{ padding: '12px 16px', borderTop: '1px solid #E3E5E7', fontSize: 11, color: '#9499A0' }}>
-        v2.0 E-Commerce
+        v2.1
       </div>
     </aside>
   )

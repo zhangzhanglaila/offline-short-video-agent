@@ -1,16 +1,22 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fetchEcomVideos, deleteEcomVideo, deleteAllEcomVideos, type EcomVideo } from '../api/ecom'
 
 const pink = '#FB7299'
 const statusMap: Record<string, { label: string; bg: string; color: string }> = {
   draft: { label: '草稿', bg: '#F5F5F5', color: '#999' },
+  script_ready: { label: '待编辑', bg: '#FFF7E6', color: '#D48806' },
+  script_edited: { label: '待配音', bg: '#FFF7E6', color: '#D48806' },
+  tts_ready: { label: '待渲染', bg: '#E6F7FF', color: '#1890FF' },
   generating: { label: '生成中', bg: '#E3F2FD', color: '#1976D2' },
+  rendering: { label: '渲染中', bg: '#E3F2FD', color: '#1976D2' },
   generated: { label: '已生成', bg: '#E8F5E9', color: '#4CAF50' },
   done: { label: '已完成', bg: '#E8F5E9', color: '#4CAF50' },
   failed: { label: '失败', bg: '#FFF3F0', color: '#FF4D4F' },
 }
 
 export default function VideoList() {
+  const navigate = useNavigate()
   const [videos, setVideos] = useState<EcomVideo[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -30,6 +36,11 @@ export default function VideoList() {
   }, [page, statusFilter])
 
   useEffect(() => { loadVideos() }, [loadVideos])
+
+  const handleRegenerate = (v: EcomVideo) => {
+    const t = v.topic || ''
+    navigate(t ? `/generate?topic=${encodeURIComponent(t)}` : '/generate')
+  }
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('确认删除该视频？')) return
@@ -61,13 +72,13 @@ export default function VideoList() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#232529' }}>视频列表</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#232529' }}>历史记录</h1>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }} style={{ padding: '6px 12px', border: '1px solid #E3E5E7', borderRadius: 4, fontSize: 13 }}>
             <option value="">全部状态</option>
-            <option value="draft">草稿</option>
-            <option value="generating">生成中</option>
-            <option value="generated">已生成</option>
+            <option value="script_ready">待编辑</option>
+            <option value="tts_ready">待渲染</option>
+            <option value="rendering">渲染中</option>
             <option value="done">已完成</option>
             <option value="failed">失败</option>
           </select>
@@ -98,6 +109,7 @@ export default function VideoList() {
             {videos.map(v => {
               const st = statusMap[v.status] || statusMap.draft
               const isDeleting = deletingId === v.id
+              const title = v.topic || v.product_name || `视频 #${v.id}`
               return (
                 <div key={v.id} style={{ background: '#fff', borderRadius: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', overflow: 'hidden', transition: 'box-shadow 0.2s', opacity: isDeleting ? 0.5 : 1, pointerEvents: isDeleting ? 'none' : 'auto' }}
                   onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)')}
@@ -131,18 +143,22 @@ export default function VideoList() {
                   <div style={{ padding: 14 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
                       <p style={{ fontSize: 14, fontWeight: 600, color: '#232529', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {v.product_name || `商品 #${v.product_id}`}
+                        {title}
                       </p>
                       <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 3, fontSize: 11, background: st.bg, color: st.color, flexShrink: 0 }}>
                         {st.label}
                       </span>
                     </div>
-                    <div style={{ display: 'flex', gap: 12, fontSize: 13, color: '#606773' }}>
-                      <span>{v.platform}</span>
-                      <span>{v.style}</span>
-                      {v.duration && <span>{Math.round(v.duration)}s</span>}
+                    <div style={{ display: 'flex', gap: 12, fontSize: 13, color: '#606773', flexWrap: 'wrap' }}>
+                      {v.category && <span style={{ padding: '1px 8px', background: '#F0F1F3', borderRadius: 3, fontSize: 12 }}>{v.category}</span>}
+                      {v.duration ? <span>{Math.round(v.duration)}s</span> : null}
                     </div>
-                    <p style={{ fontSize: 11, color: '#C9CDD4', marginTop: 8 }}>{v.created_at?.slice(0, 10)}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                      <p style={{ fontSize: 11, color: '#C9CDD4' }}>{v.created_at?.slice(0, 10)}</p>
+                      <button onClick={() => handleRegenerate(v)} style={{ padding: '4px 10px', background: '#fff', border: `1px solid ${pink}`, color: pink, borderRadius: 4, fontSize: 12, cursor: 'pointer' }}>
+                        重新生成
+                      </button>
+                    </div>
                   </div>
                 </div>
               )

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchProductStats, fetchEcomVideos, fetchEcomAnalytics } from '../api/ecom'
+import { fetchEcomVideos } from '../api/ecom'
 
 const s = {
   card: { background: '#fff', borderRadius: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', padding: 20 } as React.CSSProperties,
@@ -9,27 +9,23 @@ const s = {
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [stats, setStats] = useState({ total: 0, active: 0, categories: 0 })
   const [videoCount, setVideoCount] = useState(0)
-  const [agg, setAgg] = useState<Record<string, number>>({})
+  const [doneCount, setDoneCount] = useState(0)
 
   useEffect(() => {
-    fetchProductStats().then(setStats)
-    fetchEcomVideos({ page_size: 1 }).then(res => setVideoCount(res.total))
-    fetchEcomAnalytics({}).then(res => setAgg(res.aggregated))
+    fetchEcomVideos({ page_size: 1 }).then(res => setVideoCount(res.total)).catch(() => {})
+    fetchEcomVideos({ page_size: 1, status: 'done' }).then(res => setDoneCount(res.total)).catch(() => {})
   }, [])
 
   const metricCards = [
-    { label: '商品总数', value: stats.total, icon: '📦', gradient: 'linear-gradient(135deg, #667eea, #764ba2)' },
-    { label: '已生成视频', value: videoCount, icon: '🎬', gradient: 'linear-gradient(135deg, #FB7299, #FFA4C4)' },
-    { label: '总展示量', value: (agg.impressions || 0).toLocaleString(), icon: '👁️', gradient: 'linear-gradient(135deg, #43e97b, #38f9d7)' },
-    { label: '平均CTR', value: `${((agg.ctr || 0) * 100).toFixed(1)}%`, icon: '📈', gradient: 'linear-gradient(135deg, #fa709a, #fee140)' },
+    { label: '视频总数', value: videoCount, icon: '🎬', gradient: 'linear-gradient(135deg, #FB7299, #FFA4C4)' },
+    { label: '已完成', value: doneCount, icon: '✅', gradient: 'linear-gradient(135deg, #43e97b, #38f9d7)' },
   ]
 
   const quickActions = [
-    { icon: '📦', title: '录入商品', desc: '添加商品信息和核心卖点', to: '/products/new' },
-    { icon: '🎬', title: '一键生成', desc: 'AI 自动生成带货短视频', to: '/generate' },
-    { icon: '📈', title: '查看数据', desc: '分析视频表现和转化率', to: '/analytics' },
+    { icon: '🎬', title: '一键生成', desc: '输入主题，AI 自动生成短视频', to: '/generate' },
+    { icon: '🎨', title: '模板库', desc: '浏览和选择视频模板', to: '/templates' },
+    { icon: '🎥', title: '历史记录', desc: '查看和管理生成的视频', to: '/videos' },
   ]
 
   return (
