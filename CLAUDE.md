@@ -423,14 +423,15 @@ services/               # 新增服务层
 
 | 阶段 | 内容 |
 |------|------|
-| **U1** | 后端主题驱动入口 `POST /api/generate` (`api/topic_video_api.py` + `core/topic_adapter.py`);视频表加 `topic`/`category` 列 |
+| **U1** | 后端主题驱动入口 `POST /api/topic/generate` (`api/topic_video_api.py` + `core/topic_adapter.py`);视频表加 `topic`/`category` 列 |
 | **U2** | 前端 `GenerateVideo` 改为"主题输入 + 分类选择",移除商品表单 |
 | **U3** | 删除商品/数据分析页与 `product_module`/`ecom_adapter`;`VideoList`→通用历史;精简 `ecom_api` 为通用视频管线 |
 
 **重要遗留命名**: 后端管线端点仍用 `/api/ecom/videos/*` 前缀、数据表仍名 `ecom_videos`
-(为兼容未入库的 `main_fastapi.py` 注册与历史数据),**但已与电商无关,是通用视频管线**。
+(为兼容历史数据),**但已与电商无关,是通用视频管线**。
 
-**联调前置**: `main_fastapi.py`(本地/未入库)需注册 `app.include_router(topic_video_api.router)`。
+**主应用**: `main_fastapi.py`(端口 5001)自动挂载 `api/__all__` 中所有路由 + 静态文件
+`/static/output`,启动即初始化数据库。运行 `python main_fastapi.py`。
 
 详见: `docs/28-unify-generation-design.md`
 

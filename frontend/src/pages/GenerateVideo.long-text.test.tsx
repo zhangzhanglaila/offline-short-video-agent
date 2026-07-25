@@ -53,7 +53,7 @@ describe('GenerateVideo long text rendering', () => {
 
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/generate/meta') {
+      if (url === '/api/topic/generate/meta') {
         return jsonResponse({ categories: ['教育讲解', '短视频'], platforms: ['抖音'], visual_styles: {} })
       }
       if (url === '/api/system/config') {

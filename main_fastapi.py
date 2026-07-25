@@ -1,0 +1,81 @@
+# -*- coding: utf-8 -*-
+"""
+主 FastAPI 应用 - 挂载所有 api/ 路由，服务前端 (vite 代理 /api、/static → :5001)。
+
+统一化重构后：主题驱动生成入口 /api/generate 由 api/topic_video_api.py 提供，
+视频管线端点 /api/ecom/videos/* 由 api/ecom_api.py 提供（命名遗留，已与电商无关）。
+
+运行:
+    python main_fastapi.py            # 默认 0.0.0.0:5001
+    uvicorn main_fastapi:app --port 5001 --reload
+"""
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+import config
+import api
+
+
+def _init_database():
+    """确保数据库表结构就绪（含 ecom_videos 的 topic/category 迁移列）。"""
+    try:
+        from core.db_init import init_topics_db
+        conn = init_topics_db()
+        try:
+            conn.close()
+        except Exception:
+            pass
+    except Exception as e:  # pragma: no cover - 启动期容错
+        print(f"[main_fastapi] 数据库初始化警告: {e}")
+
+
+def create_app() -> FastAPI:
+    """构建并返回 FastAPI 应用（挂载全部 api 路由 + 静态文件）。"""
+    app = FastAPI(title="AI 短视频生成系统", version="2.1")
+
+    # 开发期跨域放开（生产由 vite / 反向代理同源，无碍）
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # 挂载 api 包下所有带 router 的模块
+    included = []
+    for mod_name in getattr(api, "__all__", []):
+        module = getattr(api, mod_name, None)
+        router = getattr(module, "router", None)
+        if router is not None:
+            app.include_router(router)
+            included.append(mod_name)
+    app.state.included_routers = included
+
+    # 静态文件：/static/output/... → output/...（视频、素材等）
+    output_dir = Path(config.OUTPUT_DIR)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/static/output", StaticFiles(directory=str(output_dir)), name="static-output")
+
+    @app.get("/api/health")
+    async def health():
+        return {"status": "ok", "routers": included}
+
+    return app
+
+
+_init_database()
+app = create_app()
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", "5001"))
+    uvicorn.run("main_fastapi:app", host="0.0.0.0", port=port, log_level="info")

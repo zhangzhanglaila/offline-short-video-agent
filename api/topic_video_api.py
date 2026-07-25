@@ -27,7 +27,7 @@ from core.pipeline_helpers import (
 router = APIRouter()
 
 
-@router.post("/api/generate")
+@router.post("/api/topic/generate")
 async def api_generate(data: dict):
     """
     主题驱动生成脚本（Step 1，不启动渲染）。
@@ -124,18 +124,22 @@ async def api_generate(data: dict):
     })
 
 
-@router.get("/api/generate/meta")
+@router.get("/api/topic/generate/meta")
 async def api_generate_meta():
     """返回通用生成的元数据（分类列表、平台、视觉风格）。"""
+    name_cn = {
+        'minimal': '极简', 'vibrant': '撞色', 'cinematic': '电影感',
+        'tech': '科技', 'manga': '日式漫画',
+    }
     return JSONResponse({
         'categories': CATEGORIES,
         'platforms': list(PLATFORM_MAP.keys()),
         'visual_styles': {
             k: {
-                "name_cn": v["name_cn"],
-                "paper_color": v["paper_color"],
-                "accent_red": v["accent_red"],
-                "text_c": v["text_c"],
+                "name_cn": v.get("name_cn", name_cn.get(k, k)),
+                "paper_color": v.get("paper_color", "#FFFFFF"),
+                "accent_red": v.get("accent_red", "#E04040"),
+                "text_c": v.get("text_c", "#1A1A2E"),
             }
             for k, v in config.VISUAL_STYLES.items()
         },

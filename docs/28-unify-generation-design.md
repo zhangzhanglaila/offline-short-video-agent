@@ -1,11 +1,12 @@
 # 统一化重构设计:主题→AI生图→视频
 
 **日期**: 2026-07-25
-**状态**: ✅ U1/U2/U3 已实现并提交（U1 851d232 / U2 e980491 / U3 见后续提交）
+**状态**: ✅ U1/U2/U3 已实现并提交;主应用 `main_fastapi.py` 已创建并联调通过
 **背景**: 移除独立的电商带货子系统,把"输入主题/描述 → AI 生图 → 合成视频"作为系统的唯一核心流程。
 
-> ⚠️ **联调前手动步骤**:主服务器 `main_fastapi.py` 不在仓库(本地运行)。需在其中加入
-> `app.include_router(topic_video_api.router)`(仿照 `ecom_api.router` 的注册),`/api/generate` 才会生效。
+> **端点路径**:主题生成入口为 `POST /api/topic/generate` 与 `GET /api/topic/generate/meta`
+> (原拟用 `/api/generate`,但与 `generate_api.py` 既有的 `POST /api/generate` V2 端点冲突,故改前缀)。
+> `main_fastapi.py` 自动挂载 `api/__all__` 中所有带 `router` 的模块,启动即注册,无需手动。
 
 ---
 

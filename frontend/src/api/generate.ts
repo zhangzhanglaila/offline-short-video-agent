@@ -22,7 +22,7 @@ export interface GenerateMeta {
 }
 
 export async function fetchGenerateMeta(): Promise<GenerateMeta> {
-  const res = await fetch(`${BASE}/api/generate/meta`)
+  const res = await fetch(`${BASE}/api/topic/generate/meta`)
   return safeJson(res) as never
 }
 
@@ -40,7 +40,7 @@ export interface GenerateParams {
 export async function generateVideo(
   data: GenerateParams
 ): Promise<{ success: boolean; video_id: number; script: Record<string, unknown> }> {
-  const res = await fetch(`${BASE}/api/generate`, {
+  const res = await fetch(`${BASE}/api/topic/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
