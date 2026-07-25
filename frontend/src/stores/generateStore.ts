@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import {
-  generateEcomVideo, fetchVideoStatus,
+  fetchVideoStatus,
   updateVideoScript, generateVideoTts, uploadVideoMaterial, renderVideo,
 } from '../api/ecom'
+import { generateVideo, type GenerateParams } from '../api/generate'
 
 /** 清洗 LLM 返回的可能带 JSON 转义的字符串 */
 function cleanStr(v: unknown): string {
@@ -71,7 +72,7 @@ interface GenerateState {
   _pollTimer: ReturnType<typeof setInterval> | null
 
   // Actions
-  generate: (data: { product_id: number; style: string; platform: string; duration: number; animation_style?: 'contain' | 'side'; orientation?: 'portrait' | 'landscape' }) => Promise<void>
+  generate: (data: GenerateParams) => Promise<void>
   setAnimationStyle: (value: 'contain' | 'side') => void
   setOrientation: (value: 'portrait' | 'landscape') => void
   setVisualStyle: (value: string) => void
@@ -110,7 +111,7 @@ export const useGenerateStore = create<GenerateState>((set, get) => ({
   generate: async (data) => {
     set({ generating: true, error: '', videoId: null, pipelineStep: 'init', videoUrl: '', ttsAudioUrl: '' })
     try {
-      const res = await generateEcomVideo(data)
+      const res = await generateVideo(data)
       if (res.success) {
         const script = res.script as Record<string, unknown>
         const mergedParsed =

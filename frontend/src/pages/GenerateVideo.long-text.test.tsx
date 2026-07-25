@@ -53,30 +53,8 @@ describe('GenerateVideo long text rendering', () => {
 
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.startsWith('/api/ecom/products?')) {
-        return jsonResponse({
-          total: 1,
-          page: 1,
-          page_size: 100,
-          items: [{
-            id: 1,
-            name: 'Long Text Test Product',
-            category: 'test',
-            price: 9.99,
-            currency: 'USD',
-            description: 'A product used for long text rendering validation.',
-            selling_points: ['Long copy support'],
-            images: [],
-            source_url: '',
-            platform: 'TikTok Shop',
-            status: 'active',
-            created_at: '',
-            updated_at: '',
-          }],
-        })
-      }
-      if (url === '/api/ecom/meta') {
-        return jsonResponse({ styles: { soft_sell: 'Soft sell' }, platforms: ['TikTok'] })
+      if (url === '/api/generate/meta') {
+        return jsonResponse({ categories: ['教育讲解', '短视频'], platforms: ['抖音'], visual_styles: {} })
       }
       if (url === '/api/system/config') {
         return jsonResponse({ api_key: 'test-key', api_base: 'http://example.test', api_model: 'test-model' })
@@ -92,7 +70,7 @@ describe('GenerateVideo long text rendering', () => {
 
   it('renders the comic storyboard editor with large generated copy instead of blanking', async () => {
     const { container } = render(
-      <MemoryRouter initialEntries={['/generate?product_id=1']}>
+      <MemoryRouter initialEntries={['/generate']}>
         <GenerateVideo />
       </MemoryRouter>
     )

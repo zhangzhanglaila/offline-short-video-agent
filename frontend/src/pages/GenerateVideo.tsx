@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useGenerateStore } from '../stores/generateStore'
-import { fetchProducts, type Product, fetchEcomMeta, createProduct, fetchProductCategories } from '../api/ecom'
+import { fetchGenerateMeta } from '../api/generate'
 import StoryboardPreview from '../components/StoryboardPreview'
 import { fetchConfig, type ApiConfig } from '../api/backend'
 
@@ -69,38 +69,21 @@ function getStatusText(pipelineStep: string, generating: boolean, ttsGenerating:
 }
 
 export default function GenerateVideo() {
-  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const presetProductId = searchParams.get('product_id')
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [productId, setProductId] = useState(presetProductId || '')
+  const [topic, setTopic] = useState('')
+  const [category, setCategory] = useState('短视频')
+  const [categories, setCategories] = useState<string[]>([])
   const [style, setStyle] = useState('soft_sell')
-  const [platform, setPlatform] = useState('TikTok')
+  const [platform, setPlatform] = useState('抖音')
   const [duration, setDuration] = useState(30)
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait')
   const [visualStyle, setVisualStyleLocal] = useState('manga')
-  const [styles, setStyles] = useState<Record<string, string>>({})
   const [visualStyles, setVisualStyles] = useState<Record<string, { name_cn: string; paper_color: string; accent_red: string; text_c: string }>>({})
   const [platforms, setPlatforms] = useState<string[]>([])
   const [showApiConfig, setShowApiConfig] = useState(false)
   const [apiConfig, setApiConfig] = useState<ApiConfig>({ api_key: '', api_base: '', api_model: '' })
   const [ttsPulse, setTtsPulse] = useState(false)
-
-  // 添加新商品弹窗
-  const [showAddProduct, setShowAddProduct] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newCategory, setNewCategory] = useState('')
-  const [newCategoryOptions, setNewCategoryOptions] = useState<string[]>([])
-  const [newIsCustomCat, setNewIsCustomCat] = useState(false)
-  const [newPrice, setNewPrice] = useState('')
-  const [newCurrency, setNewCurrency] = useState('USD')
-  const [newDescription, setNewDescription] = useState('')
-  const [newSellingPoints, setNewSellingPoints] = useState('')
-  const [newPlatform, setNewPlatform] = useState('TikTok Shop')
-  const [newSourceUrl, setNewSourceUrl] = useState('')
-  const [newSaving, setNewSaving] = useState(false)
-  const [newError, setNewError] = useState('')
 
   // 各区域 ref，用于点击进度条跳转
   const scriptSectionRef = useRef<HTMLDivElement>(null)
@@ -118,8 +101,11 @@ export default function GenerateVideo() {
   } = useGenerateStore()
 
   useEffect(() => {
-    fetchProducts({ page_size: 100 }).then(res => setProducts(res.items))
-    fetchEcomMeta().then(meta => { setStyles(meta.styles); setPlatforms(meta.platforms); if (meta.visual_styles) setVisualStyles(meta.visual_styles) })
+    fetchGenerateMeta().then(meta => {
+      setCategories(meta.categories || [])
+      setPlatforms(meta.platforms || [])
+      if (meta.visual_styles) setVisualStyles(meta.visual_styles)
+    }).catch(() => {})
     fetchConfig().then(setApiConfig).catch(() => {})
   }, [])
 
@@ -142,7 +128,7 @@ export default function GenerateVideo() {
   }, [pipelineStep, videoUrl])
 
   const handleGenerate = async () => {
-    if (!productId) return
+    if (!topic.trim()) return
     try {
       const cfg = await fetchConfig()
       if (!cfg.api_key || cfg.api_key.trim() === '') {
@@ -156,7 +142,7 @@ export default function GenerateVideo() {
     }
     setStoreOrientation(orientation)
     setStoreVisualStyle(visualStyle)
-    generate({ product_id: Number(productId), style, platform, duration, animation_style: animationStyle, orientation, visual_style: visualStyle })
+    generate({ topic: topic.trim(), category, style, platform, duration, animation_style: animationStyle, orientation, visual_style: visualStyle })
   }
 
   const handleSaveApiConfig = async () => {
@@ -168,7 +154,7 @@ export default function GenerateVideo() {
         setShowApiConfig(false)
         setStoreOrientation(orientation)
         setStoreVisualStyle(visualStyle)
-        generate({ product_id: Number(productId), style, platform, duration, animation_style: animationStyle, orientation, visual_style: visualStyle })
+        generate({ topic: topic.trim(), category, style, platform, duration, animation_style: animationStyle, orientation, visual_style: visualStyle })
       }
     } catch (e) {
       alert('保存配置失败: ' + String(e))
@@ -190,49 +176,14 @@ export default function GenerateVideo() {
   }
 
   // 打开添加商品弹窗
-  const openAddProduct = () => {
-    setNewName(''); setNewCategory(''); setNewPrice(''); setNewCurrency('USD')
-    setNewDescription(''); setNewSellingPoints(''); setNewPlatform('TikTok Shop')
-    setNewSourceUrl(''); setNewError(''); setNewIsCustomCat(false)
-    fetchProductCategories().then(res => setNewCategoryOptions(res.categories || [])).catch(() => {})
-    setShowAddProduct(true)
-  }
-
-  // 保存新商品
-  const handleSaveNewProduct = async () => {
-    if (!newName.trim()) { setNewError('商品名称不能为空'); return }
-    const points = newSellingPoints.split('\n').map(s => s.trim()).filter(Boolean)
-    if (points.length === 0) { setNewError('请至少填写一个核心卖点'); return }
-    setNewSaving(true); setNewError('')
-    try {
-      const res = await createProduct({
-        name: newName.trim(), category: newCategory.trim(),
-        price: parseFloat(newPrice) || 0, currency: newCurrency,
-        description: newDescription.trim(), selling_points: points,
-        platform: newPlatform, source_url: newSourceUrl.trim(),
-      })
-      if (res.success) {
-        setShowAddProduct(false)
-        // 刷新列表并自动选中新商品
-        const list = await fetchProducts({ page_size: 100 })
-        setProducts(list.items)
-        setProductId(String(res.id))
-      }
-    } catch (e) {
-      setNewError(String(e))
-    } finally {
-      setNewSaving(false)
-    }
-  }
   const scrollToStep = (stepIdx: number) => {
     const refs = [scriptSectionRef, scriptSectionRef, ttsSectionRef, renderSectionRef, doneSectionRef]
     setTimeout(() => refs[stepIdx]?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
   }
 
-  const selectedProduct = products.find(p => p.id === Number(productId))
   const currentStepIdx = pipelineStep === 'failed' ? PIPELINE_STEPS.length - 2 : stepIndex(pipelineStep)
 
-  // style / platform 中文映射
+  // 脚本风格中文映射
   const styleLabel = (key: string) => {
     const map: Record<string, string> = { soft_sell: '温和种草', hard_sell: '硬核带货', story: '故事型', tutorial: '教程型' }
     return map[key] || key.replace('_', ' ')
@@ -243,7 +194,7 @@ export default function GenerateVideo() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 24, fontWeight: 700, color: '#232529', marginBottom: 24 }}>一键生成带货视频</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 700, color: '#232529', marginBottom: 24 }}>一键生成视频</h1>
 
       {/* 右下角浮动状态提示 */}
       {statusText && videoId && (
@@ -293,27 +244,33 @@ export default function GenerateVideo() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, marginBottom: 20 }}>
           <div style={cardStyle}>
             <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>选择商品 *</label>
-              <select
-                value={productId}
-                onChange={e => {
-                  if (e.target.value === '__add__') { openAddProduct() }
-                  else { setProductId(e.target.value) }
-                }}
-                style={inputStyle}
-              >
-                <option value="">-- 请选择商品 --</option>
-                {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.currency} {p.price})</option>)}
-                <option value="__add__" style={{ color: pink, fontWeight: 600 }}>+ 添加新商品</option>
-              </select>
+              <label style={labelStyle}>视频主题 / 描述 *</label>
+              <AutoTextarea value={topic} onChange={setTopic} minRows={3} style={{ fontSize: 15 }} />
+              <p style={{ fontSize: 12, color: '#9499A0', marginTop: 4 }}>例：讲解什么是区块链 / 三分钟看懂黑洞 / 一款降噪耳机的种草短片</p>
             </div>
             <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>视频风格</label>
+              <label style={labelStyle}>分类</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
+                {(categories.length > 0 ? categories : ['教育讲解', '短视频', '纪录片', '商业宣传']).map(cat => (
+                  <div key={cat} onClick={() => setCategory(cat)}
+                    style={{ padding: '10px 12px', border: `2px solid ${category === cat ? pink : '#E3E5E7'}`, borderRadius: 8, cursor: 'pointer', background: category === cat ? 'rgba(251,114,153,0.04)' : '#fff', textAlign: 'center', transition: 'all 0.2s', fontSize: 13, fontWeight: 600, color: category === cat ? pink : '#232529' }}>
+                    {cat}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>脚本风格</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {Object.entries(styles).map(([key, desc]) => (
+                {[
+                  { key: 'soft_sell', desc: '温和种草，娓娓道来' },
+                  { key: 'hard_sell', desc: '硬核直给，突出重点' },
+                  { key: 'story', desc: '故事型，有代入感' },
+                  { key: 'tutorial', desc: '教程型，清晰讲解' },
+                ].map(({ key, desc }) => (
                   <div key={key} onClick={() => setStyle(key)}
                     style={{ padding: 12, border: `1px solid ${style === key ? pink : '#E3E5E7'}`, borderRadius: 6, cursor: 'pointer', background: style === key ? 'rgba(251,114,153,0.04)' : '#fff', transition: 'all 0.2s' }}>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: style === key ? pink : '#232529' }}>{key.replace('_', ' ')}</p>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: style === key ? pink : '#232529' }}>{styleLabel(key)}</p>
                     <p style={{ fontSize: 12, color: '#606773', marginTop: 2 }}>{desc}</p>
                   </div>
                 ))}
@@ -405,8 +362,8 @@ export default function GenerateVideo() {
                 <option value="side">侧栏裁切</option>
               </select>
             </div>
-            <button onClick={handleGenerate} disabled={!productId || generating}
-              style={{ width: '100%', padding: '12px 0', background: pink, color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: (!productId || generating) ? 0.5 : 1 }}>
+            <button onClick={handleGenerate} disabled={!topic.trim() || generating}
+              style={{ width: '100%', padding: '12px 0', background: pink, color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: (!topic.trim() || generating) ? 0.5 : 1 }}>
               {generating ? '脚本生成中...' : '开始生成'}
             </button>
             {generating && (
@@ -421,39 +378,35 @@ export default function GenerateVideo() {
           </div>
 
           <div style={cardStyle}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#232529', marginBottom: 12 }}>商品预览</h3>
-            {selectedProduct ? (
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#232529', marginBottom: 12 }}>配置预览</h3>
+            {topic.trim() ? (
               <div>
-                <p style={{ fontSize: 16, fontWeight: 700, color: '#232529' }}>{selectedProduct.name}</p>
-                <p style={{ fontSize: 20, fontWeight: 700, color: pink, margin: '8px 0' }}>{selectedProduct.currency} {selectedProduct.price}</p>
-                <p style={{ fontSize: 14, color: '#606773', marginBottom: 12 }}>{selectedProduct.description}</p>
-                {Array.isArray(selectedProduct.selling_points) && selectedProduct.selling_points.length > 0 && (
-                  <div>
-                    <p style={{ fontSize: 13, color: '#9499A0', marginBottom: 6 }}>核心卖点:</p>
-                    {selectedProduct.selling_points.map((sp, i) => (
-                      <div key={i} style={{ fontSize: 14, color: '#232529', padding: '4px 0', display: 'flex', gap: 6 }}>
-                        <span style={{ color: pink }}>{'•'}</span> {sp}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <p style={{ fontSize: 13, color: '#9499A0', marginBottom: 4 }}>主题:</p>
+                <p style={{ fontSize: 15, fontWeight: 600, color: '#232529', marginBottom: 12, lineHeight: 1.5 }}>{topic.trim()}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: '#606773' }}>
+                  <span>分类: <b style={{ color: '#232529' }}>{category}</b></span>
+                  <span>脚本风格: <b style={{ color: '#232529' }}>{styleLabel(style)}</b></span>
+                  <span>视觉风格: <b style={{ color: '#232529' }}>{visualStyles[visualStyle]?.name_cn || visualStyle}</b></span>
+                  <span>平台: <b style={{ color: '#232529' }}>{platform}</b></span>
+                  <span>时长: <b style={{ color: '#232529' }}>{duration}s</b> · {orientation === 'portrait' ? '竖屏' : '横屏'}</span>
+                </div>
               </div>
             ) : (
-              <p style={{ color: '#9499A0', fontSize: 13 }}>请先选择商品</p>
+              <p style={{ color: '#9499A0', fontSize: 13 }}>请先输入视频主题</p>
             )}
           </div>
         </div>
       ) : (
         /* 生成后的折叠摘要 */
         <div style={{ ...cardStyle, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          {selectedProduct && (
+          {topic.trim() && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 200 }}>
-              <span style={{ fontSize: 14, color: '#9499A0' }}>商品:</span>
-              <span style={{ fontSize: 15, fontWeight: 600, color: '#232529' }}>{selectedProduct.name}</span>
-              <span style={{ fontSize: 14, color: pink, fontWeight: 600 }}>{selectedProduct.currency} {selectedProduct.price}</span>
+              <span style={{ fontSize: 14, color: '#9499A0' }}>主题:</span>
+              <span style={{ fontSize: 15, fontWeight: 600, color: '#232529' }}>{topic.trim()}</span>
             </div>
           )}
           <div style={{ display: 'flex', gap: 16 }}>
+            <span style={{ fontSize: 13, color: '#606773' }}>分类: <b>{category}</b></span>
             <span style={{ fontSize: 13, color: '#606773' }}>风格: <b>{styleLabel(style)}</b></span>
             <span style={{ fontSize: 13, color: '#606773' }}>视觉: <b>{visualStyles[visualStyle]?.name_cn || visualStyle}</b></span>
             <span style={{ fontSize: 13, color: '#606773' }}>平台: <b>{platform}</b></span>
@@ -650,90 +603,6 @@ export default function GenerateVideo() {
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={reset} style={{ padding: '8px 20px', background: '#fff', border: '1px solid #E3E5E7', borderRadius: 4, fontSize: 14, cursor: 'pointer', color: '#606773' }}>重新开始</button>
             <button onClick={() => navigate('/videos')} style={{ padding: '8px 20px', background: pink, color: '#fff', border: 'none', borderRadius: 4, fontSize: 14, cursor: 'pointer', fontWeight: 500 }}>查看视频列表</button>
-          </div>
-        </div>
-      )}
-
-      {/* 添加新商品弹窗 */}
-      {showAddProduct && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setShowAddProduct(false)}>
-          <div style={{ background: '#fff', borderRadius: 8, padding: 24, width: 520, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, color: '#232529', marginBottom: 16 }}>添加新商品</h3>
-            {newError && <div style={{ padding: '10px 14px', background: '#FFF3F0', border: '1px solid #FFCCC7', borderRadius: 4, color: '#FF4D4F', fontSize: 13, marginBottom: 16 }}>{newError}</div>}
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>商品名称 *</label>
-              <input value={newName} onChange={e => setNewName(e.target.value)} style={inputStyle} placeholder="例: 无线蓝牙耳机" />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div>
-                <label style={labelStyle}>分类</label>
-                <select
-                  value={newIsCustomCat ? '__custom__' : newCategory}
-                  onChange={e => {
-                    if (e.target.value === '__custom__') { setNewIsCustomCat(true); setNewCategory('') }
-                    else { setNewIsCustomCat(false); setNewCategory(e.target.value) }
-                  }}
-                  style={inputStyle}
-                >
-                  <option value="">-- 选择分类 --</option>
-                  {newCategoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                  <option value="__custom__">自定义...</option>
-                </select>
-                {newIsCustomCat && (
-                  <input value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ ...inputStyle, marginTop: 6 }} placeholder="输入自定义分类" autoFocus />
-                )}
-              </div>
-              <div>
-                <label style={labelStyle}>平台</label>
-                <select value={newPlatform} onChange={e => setNewPlatform(e.target.value)} style={inputStyle}>
-                  <option>TikTok Shop</option>
-                  <option>Shopee</option>
-                  <option>AliExpress</option>
-                  <option>Amazon</option>
-                  <option>其他</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div>
-                <label style={labelStyle}>价格</label>
-                <input type="number" step="0.01" value={newPrice} onChange={e => setNewPrice(e.target.value)} style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>货币</label>
-                <select value={newCurrency} onChange={e => setNewCurrency(e.target.value)} style={inputStyle}>
-                  <option>USD</option>
-                  <option>CNY</option>
-                  <option>EUR</option>
-                  <option>GBP</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>商品描述</label>
-              <textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} placeholder="简要描述商品功能和特点..." />
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>核心卖点（每行一个） *</label>
-              <textarea value={newSellingPoints} onChange={e => setNewSellingPoints(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical' }} placeholder={"降噪续航40小时\n蓝牙5.3低延迟\nIPX5防水"} />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>商品链接（可选）</label>
-              <input value={newSourceUrl} onChange={e => setNewSourceUrl(e.target.value)} style={inputStyle} placeholder="https://..." />
-            </div>
-
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={handleSaveNewProduct} disabled={newSaving} style={{ flex: 1, padding: '10px 0', background: pink, color: '#fff', border: 'none', borderRadius: 4, fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: newSaving ? 0.6 : 1 }}>
-                {newSaving ? '保存中...' : '保存商品'}
-              </button>
-              <button onClick={() => setShowAddProduct(false)} style={{ padding: '10px 20px', background: '#fff', border: '1px solid #E3E5E7', borderRadius: 4, fontSize: 14, cursor: 'pointer', color: '#606773' }}>取消</button>
-            </div>
           </div>
         </div>
       )}
