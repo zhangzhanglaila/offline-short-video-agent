@@ -11,6 +11,7 @@ class AIProvider(str, Enum):
     OPENAI = "openai"
     DASHSCOPE = "dashscope"
     BAILIAN = "bailian"
+    COMFYUI = "comfyui"
 
 
 class ImageSize(str, Enum):

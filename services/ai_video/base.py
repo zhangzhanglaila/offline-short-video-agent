@@ -10,6 +10,7 @@ class VideoProvider(str, Enum):
     """AI 生视频供应商"""
     DASHSCOPE = "dashscope"  # 通义万相
     KLING = "kling"  # 可灵
+    COMFYUI = "comfyui"
 
 
 class VideoSize(str, Enum):
