@@ -10,6 +10,7 @@ from .base import (
     VideoTaskStatus,
 )
 from .dashscope_generator import DashScopeVideoGenerator
+from .comfyui_generator import ComfyUIVideoGenerator  # E5
 
 __all__ = [
     'AIVideoGenerationService',
@@ -21,4 +22,5 @@ __all__ = [
     'VideoResolution',
     'VideoTaskStatus',
     'DashScopeVideoGenerator',
+    'ComfyUIVideoGenerator',
 ]

@@ -10,6 +10,7 @@ from .base import (
 from .openai_generator import OpenAIImageGenerator
 from .dashscope_generator import DashscopeImageGenerator
 from .bailian_generator import BailianImageGenerator
+from .comfyui_generator import ComfyUIImageGenerator  # E5
 
 __all__ = [
     'AIGenerationService',
@@ -21,4 +22,5 @@ __all__ = [
     'OpenAIImageGenerator',
     'DashscopeImageGenerator',
     'BailianImageGenerator',
+    'ComfyUIImageGenerator',
 ]
