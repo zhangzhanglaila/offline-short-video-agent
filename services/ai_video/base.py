@@ -9,8 +9,8 @@ from typing import Optional, Dict, Any, AsyncGenerator
 class VideoProvider(str, Enum):
     """AI 生视频供应商"""
     DASHSCOPE = "dashscope"  # 通义万相
-    KLING = "kling"  # 可灵
     COMFYUI = "comfyui"
+    KLING = "kling"  # 可灵
 
 
 class VideoSize(str, Enum):
