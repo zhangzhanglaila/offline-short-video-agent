@@ -1,0 +1,54 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "inputs": {"unet_name": "flux1-dev.safetensors", "weight_dtype": "default"}
+    },
+    {
+      "id": 2,
+      "type": "DualCLIPLoader",
+      "inputs": {"clip_name1": "clip_l.safetensors", "clip_name2": "t5xxl_fp16.safetensors", "type": "flux"}
+    },
+    {
+      "id": 3,
+      "type": "CLIPTextEncode",
+      "inputs": {"text": "{{prompt}}", "clip": ["2", 0]}
+    },
+    {
+      "id": 4,
+      "type": "CLIPTextEncode",
+      "inputs": {"text": "", "clip": ["2", 0]}
+    },
+    {
+      "id": 5,
+      "type": "EmptyLatentImage",
+      "inputs": {"width": "{{width}}", "height": "{{height}}", "batch_size": 1}
+    },
+    {
+      "id": 6,
+      "type": "KSampler",
+      "inputs": {
+        "model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0],
+        "latent_image": ["5", 0], "seed": "{{seed}}",
+        "steps": "{{steps}}", "cfg": 1.0, "sampler_name": "euler",
+        "scheduler": "simple", "denoise": 1.0
+      }
+    },
+    {
+      "id": 7,
+      "type": "VAELoader",
+      "inputs": {"vae_name": "ae.safetensors"}
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "inputs": {"samples": ["6", 0], "vae": ["7", 0]}
+    },
+    {
+      "id": 9,
+      "type": "SaveImage",
+      "inputs": {"images": ["8", 0], "filename_prefix": "agent"}
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "_comment": "Wan 2.2 I2V - 图生视频工作流。",
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "inputs": {"image": "{{image_filename}}"}
+    },
+    {
+      "id": 2,
+      "type": "WanVideoModelLoader",
+      "inputs": {"model": "wan2.2_i2v_5B_fp16.safetensors"}
+    },
+    {
+      "id": 3,
+      "type": "CLIPLoader",
+      "inputs": {"clip_name": "umt5_xxl_fp8.safetensors", "type": "wan"}
+    },
+    {
+      "id": 4,
+      "type": "CLIPTextEncode",
+      "inputs": {"text": "{{prompt}}", "clip": ["3", 0]}
+    },
+    {
+      "id": 5,
+      "type": "WanVideoSampler",
+      "inputs": {
+        "model": ["2", 0], "positive": ["4", 0], "image": ["1", 0],
+        "width": "{{width}}", "height": "{{height}}",
+        "steps": "{{steps}}", "seed": "{{seed}}",
+        "frames": 81, "cfg": 5.0, "sampler": "uni_pc"
+      }
+    },
+    {
+      "id": 6,
+      "type": "WanVideoDecode",
+      "inputs": {"samples": ["5", 0]}
+    },
+    {
+      "id": 7,
+      "type": "SaveVideo",
+      "inputs": {"video": ["6", 0], "filename_prefix": "agent_i2v", "format": "mp4"}
+    }
+  ]
+}

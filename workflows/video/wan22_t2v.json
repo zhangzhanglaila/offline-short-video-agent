@@ -1,0 +1,39 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "type": "WanVideoModelLoader",
+      "inputs": {"model": "wan2.2_t2v_5B_fp16.safetensors"}
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "inputs": {"clip_name": "umt5_xxl_fp8.safetensors", "type": "wan"}
+    },
+    {
+      "id": 3,
+      "type": "CLIPTextEncode",
+      "inputs": {"text": "{{prompt}}", "clip": ["2", 0]}
+    },
+    {
+      "id": 4,
+      "type": "WanVideoSampler",
+      "inputs": {
+        "model": ["1", 0], "positive": ["3", 0],
+        "width": "{{width}}", "height": "{{height}}",
+        "steps": "{{steps}}", "seed": "{{seed}}",
+        "frames": 81, "cfg": 5.0, "sampler": "uni_pc"
+      }
+    },
+    {
+      "id": 5,
+      "type": "WanVideoDecode",
+      "inputs": {"samples": ["4", 0]}
+    },
+    {
+      "id": 6,
+      "type": "SaveVideo",
+      "inputs": {"video": ["5", 0], "filename_prefix": "agent_t2v", "format": "mp4"}
+    }
+  ]
+}

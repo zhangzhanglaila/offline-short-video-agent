@@ -1,42 +1,13 @@
-# Workflows 目录
+# Workflows
 
-AI 工作流配置，用于 ComfyUI 集成。
+ComfyUI 工作流模板。
 
-## 目录结构
+## 目录
+- `image/`   文生图(flux_dev.json)
+- `video/`   文生视频(wan22_t2v.json)、图生视频(wan22_i2v.json)
+- `tts/`     预留(TTS 不在 E5 范围)
 
-```
-workflows/
-├── tts/        # 文字转语音工作流
-├── image/      # AI 生图工作流
-└── video/      # AI 生视频工作流
-```
+## 占位符
+`{{prompt}}` `{{width}}` `{{height}}` `{{steps}}` `{{seed}}`
 
-## 工作流格式
-
-JSON 格式，使用 Jinja2 模板语法支持参数替换。
-
-## 示例
-
-```json
-{
-    "nodes": [
-        {
-            "type": "EdgeTTSTextToSpeech",
-            "inputs": {
-                "text": "{{text}}",
-                "voice": "{{voice}}"
-            }
-        }
-    ]
-}
-```
-
-## 使用方式
-
-工作流通过 `services/comfyui_service.py` 加载和执行。
-
-## 添加新工作流
-
-1. 将 JSON 文件放入对应类型目录
-2. 使用 `{{variable}}` 语法定义可替换参数
-3. 在配置文件中注册
+由 `services/comfyui/template.py` 在调用时插值。
