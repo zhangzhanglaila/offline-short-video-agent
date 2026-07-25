@@ -1,0 +1,13 @@
+# ===== E5: AI provider & ComfyUI =====
+ai:
+  image_provider: comfyui   # comfyui | bailian | openai
+  video_provider: comfyui   # comfyui | dashscope | kling
+
+comfyui:
+  base_url: "http://127.0.0.1:8188"
+  poll_interval_sec: 2
+  timeout_sec: 600
+  workflows:
+    image: "workflows/image/flux_dev.json"
+    video_t2v: "workflows/video/wan22_t2v.json"
+    video_i2v: "workflows/video/wan22_i2v.json"

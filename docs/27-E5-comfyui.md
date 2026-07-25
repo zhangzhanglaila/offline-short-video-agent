@@ -1,143 +1,89 @@
-# E5 阶段：ComfyUI 可选集成
+# E5 阶段：ComfyUI 集成
 
-**阶段目标**: 支持本地 ComfyUI 作为无成本 AI 生成选项。
-
-**预计周期**: 4 周
-
-**状态**: ⏳ 待开始
+**阶段目标**: 通过本地 ComfyUI 提供零成本、可控的 AI 生图与生视频能力。
+**状态**: ✅ 已完成
 
 ---
 
-## 技术方案
+## 概述
 
-### ComfyUI 集成方式
+E5 阶段在已有 Agent 系统和动态化管线基础上,接入本地 ComfyUI 作为
+默认的 AI 媒体生成后端(图像 + 视频),通过 HTTP API 提交 workflow
+JSON,轮询任务状态,获取生成的图像/视频产物并接入统一生成管线。
+上游调用方只需声明 provider 即可透明切换(`ai.image_provider` /
+`ai.video_provider`)。
 
-使用 `ComfyKit` SDK（类似 Pixelle-Video 的集成方式）调用本地 ComfyUI 服务。
+完整设计见 spec:
+[`docs/superpowers/specs/2026-08-02-e5-comfyui-integration-design.md`](../superpowers/specs/2026-08-02-e5-comfyui-integration-design.md)
 
-### 支持的工作流类型
+---
 
-| 类型 | 工作流位置 | 功能 |
-|------|-----------|------|
-| **TTS** | `workflows/tts/` | 文字转语音（Edge-TTS/Index-TTS） |
-| **图像** | `workflows/image/` | AI 生图（Flux/SDXL） |
-| **视频** | `workflows/video/` | AI 生视频（WAN/可灵本地版） |
+## 前置条件
 
-### 配置方式
+| 组件 | 要求 |
+|------|------|
+| **ComfyUI 服务** | 本机 `http://127.0.0.1:8188`,通过 `python main.py` 或桌面版启动 |
+| **GPU** | NVIDIA 显卡,显存 ≥ 12 GB(Flux Dev / WAN 2.2 推荐 24 GB) |
+| **模型清单** | 见 `workflows/` 下每个 JSON 的 `CheckpointLoaderSimple` / `VAELoader` 节点 |
+| **Python 依赖** | `requests`(`urllib` 即可,无第三方 SDK 强依赖) |
+
+启动 ComfyUI 后访问 `http://127.0.0.1:8188/system_stats` 应返回队列与设备信息,
+否则 `load_config` 之后的 `client.test_connection()` 会抛 `ComfyUIConnectionError`。
+
+---
+
+## 配置示例
+
+`config.yaml` 关键片段:
 
 ```yaml
+ai:
+  image_provider: comfyui   # comfyui | bailian | openai
+  video_provider: comfyui   # comfyui | dashscope | kling
+
 comfyui:
-  # 本地 ComfyUI 服务
-  local_url: "http://127.0.0.1:8188"
-  api_key: ""  # 可选
-
-  # 云端 RunningHub（可选）
-  runninghub_api_key: ""
-  runninghub_concurrent_limit: 1
+  base_url: "http://127.0.0.1:8188"
+  poll_interval_sec: 2
+  timeout_sec: 600
+  workflows:
+    image: "workflows/image/flux_dev.json"
+    video_t2v: "workflows/video/wan22_t2v.json"
+    video_i2v: "workflows/video/wan22_i2v.json"
 ```
+
+> provider 字段可独立切换: `image_provider: bailian` + `video_provider: comfyui` 也合法。
 
 ---
 
-## 开发计划
+## 工作流模板
 
-### Week 1: ComfyUI 基础集成
+| 路径 | 类型 | 占位符 |
+|------|------|--------|
+| `workflows/image/flux_dev.json` | Flux Dev 文生图 | `{{prompt}}` |
+| `workflows/video/wan22_t2v.json` | WAN 2.2 文生视频 | `{{prompt}}` |
+| `workflows/video/wan22_i2v.json` | WAN 2.2 图生视频 | `{{image}}`、`{{prompt}}` |
 
-**任务**:
-- [ ] 添加 `comfykit` 依赖
-- [ ] 创建 `services/comfyui_service.py`
-- [ ] 实现本地服务连接
-- [ ] 实现工作流加载与执行
-- [ ] 错误处理
-
-**核心接口**:
-```python
-class ComfyUIService:
-    async def execute_workflow(self, workflow_path: str, inputs: dict) -> dict
-    async def test_connection(self) -> bool
-    def get_workflow_info(self, workflow_path: str) -> WorkflowInfo
-```
-
-### Week 2: TTS 工作流
-
-**任务**:
-- [ ] 创建默认 TTS 工作流 `workflows/tts/edge_tts.json`
-- [ ] 集成到现有 `core/tts_module.py`
-- [ ] 添加工作流配置页面
-- [ ] 测试
-
-### Week 3: 图像/视频工作流
-
-**任务**:
-- [ ] 创建默认图像工作流 `workflows/image/flux_default.json`
-- [ ] 创建默认视频工作流 `workflows/video/wan_default.json`
-- [ ] 集成到 `services/ai_media_service.py`
-- [ ] 测试
-
-### Week 4: 配置页面与文档
-
-**任务**:
-- [ ] 添加 ComfyUI 配置页面
-- [ ] 添加连接状态显示
-- [ ] 编写 ComfyUI 部署文档
-- [ ] 编写工作流自定义文档
-- [ ] 完整测试
-- [ ] E5 阶段总结
+模板使用 `{{key}}` 占位符,由 `services/comfyui/workflow.py` 在提交前插值。
 
 ---
 
-## 工作流示例
+## 故障排查
 
-### TTS 工作流 (`workflows/tts/edge_tts.json`)
-
-```json
-{
-    "nodes": [
-        {
-            "type": "EdgeTTSTextToSpeech",
-            "inputs": {
-                "text": "{{text}}",
-                "voice": "{{voice}}"
-            }
-        }
-    ]
-}
-```
-
-### 图像工作流 (`workflows/image/flux_default.json`)
-
-```json
-{
-    "nodes": [
-        {
-            "type": "FluxTextToImage",
-            "inputs": {
-                "prompt": "{{prompt}}",
-                "width": 1024,
-                "height": 1024
-            }
-        }
-    ]
-}
-```
+| 症状 | 原因 | 处置 |
+|------|------|------|
+| `ComfyUIConnectionError: refused` | 本机未启动 ComfyUI 或端口被占用 | 启动 ComfyUI,确认 8188 端口 |
+| `WorkflowTemplateNotFound` | `workflows/` 下缺模板 | 检查 `comfyui.workflows.*` 路径是否相对项目根 |
+| `ComfyUIJobTimeoutError` | 模型加载慢 / 任务超时 | 增大 `timeout_sec`,或简化 workflow |
+| 生成图全黑 | Checkpoint / VAE 路径错 | 检查 ComfyUI 控制台模型加载日志 |
+| 占位符未替换 | `{{xxx}}` 在 JSON 中含空格或大小写不符 | 工作流模板与代码常量必须完全一致 |
 
 ---
 
 ## 降级策略
 
-```
-ComfyUI 不可用 → 降级到 API 直连
-API 直连失败 → 降级到真实素材库
-```
+`ComfyUIJobError` 抛出时,generator 层根据 `ai.*_provider` 配置自动回退:
+`comfyui` → `bailian`/`dashscope` → 真实素材库。详见 spec §6。
 
 ---
 
-## 优势
-
-- ✅ 完全免费（本地运行）
-- ✅ 支持自定义工作流
-- ✅ 离线可用
-- ⚠️ 需要本地 GPU
-- ⚠️ 需要手动部署 ComfyUI
-
----
-
-*创建时间: 2026-07-24*
+*最后更新: 2026-07-25*
