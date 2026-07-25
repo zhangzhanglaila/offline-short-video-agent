@@ -1,7 +1,11 @@
 import pytest
 import requests
 from unittest.mock import MagicMock
-from services.comfyui import ComfyUIClient, ComfyUIConnectionError
+from services.comfyui import (
+    ComfyUIClient,
+    ComfyUIConnectionError,
+    WorkflowOutput,
+)
 
 
 def _mock_session(json_responses):
@@ -58,3 +62,67 @@ def test_submit_raises_on_connection_error():
     c = ComfyUIClient(session=sess)
     with pytest.raises(ComfyUIConnectionError):
         c.submit({"nodes": []})
+
+
+def test_wait_returns_outputs_on_success():
+    # /history 第一次 pending(empty), 第二次 outputs 就绪
+    outputs = {"9": {"outputs": {"12": {"images": [
+        {"filename": "out.png", "subfolder": "", "type": "output"}
+    ]}}}}
+    calls = {"n": 0}
+    def req(method, url, json=None, timeout=None, params=None):
+        calls["n"] += 1
+        resp = MagicMock()
+        resp.status_code = 200
+        if calls["n"] == 1:
+            resp.json.return_value = {}  # 还没好
+        else:
+            resp.json.return_value = outputs
+        return resp
+    sess = MagicMock(spec=requests.Session)
+    sess.request.side_effect = req
+    c = ComfyUIClient(session=sess, poll_interval_sec=0)
+    out = c.wait_for_completion("pid")
+    assert len(out) == 1
+    assert out[0].filename == "out.png"
+
+
+def test_wait_raises_execution_error_on_status_error():
+    sess = MagicMock(spec=requests.Session)
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = {"pid": {"status": {"error": True}}}
+    sess.request.return_value = resp
+    c = ComfyUIClient(session=sess, poll_interval_sec=0, timeout_sec=2)
+    from services.comfyui import ComfyUIExecutionError
+    with pytest.raises(ComfyUIExecutionError):
+        c.wait_for_completion("pid")
+
+
+def test_wait_raises_timeout_when_no_outputs():
+    sess = MagicMock(spec=requests.Session)
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = {}  # 永远空
+    sess.request.return_value = resp
+    c = ComfyUIClient(session=sess, poll_interval_sec=0, timeout_sec=0.1)
+    from services.comfyui import ComfyUITimeoutError
+    with pytest.raises(ComfyUITimeoutError):
+        c.wait_for_completion("pid")
+
+
+def test_download_outputs_saves_files(tmp_path):
+    # GET /view 返回二进制内容
+    sess = MagicMock(spec=requests.Session)
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.content = b"\x89PNG_FAKE"
+    resp.raise_for_status = MagicMock()
+    sess.request.return_value = resp
+    c = ComfyUIClient(session=sess)
+    paths = c.download_outputs(
+        [WorkflowOutput("out.png", "", "output")],
+        tmp_path,
+    )
+    assert paths[0].exists()
+    assert paths[0].read_bytes() == b"\x89PNG_FAKE"
