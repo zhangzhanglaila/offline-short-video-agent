@@ -1,8 +1,8 @@
 # 🚀 Offline-ShortVideo-Agent (Agent版) - 工作指南
 
-**项目状态**: Agent系统Phase 0-5已完成 → 进行"动态化视频"增强 (D系列)
+**项目状态**: Agent系统Phase 0-5已完成 → 动态化(D)+增强(E)已完成 → 统一化重构(U)已完成
 **当前版本**: 2.1-dev
-**最后更新**: 2026-07-26
+**最后更新**: 2026-07-25
 
 ---
 
@@ -413,4 +413,24 @@ services/               # 新增服务层
 
 - 记录位置: `devlog/daily/YYYY-MM-DD.md`
 - 记录内容: 完成事项、进行中、待办、阻塞问题
+
+---
+
+## 🔀 统一化重构 (U 系列, 2026-07-25 完成)
+
+**背景**: 曾并存两套系统 —— 通用 Agent 流程(主题→视频, 仅 CLI)与电商带货前端(商品→视频)。
+现已统一为单一核心流程: **输入主题/描述 → AI 生图 → 合成视频**。电商不再是独立子系统。
+
+| 阶段 | 内容 |
+|------|------|
+| **U1** | 后端主题驱动入口 `POST /api/generate` (`api/topic_video_api.py` + `core/topic_adapter.py`);视频表加 `topic`/`category` 列 |
+| **U2** | 前端 `GenerateVideo` 改为"主题输入 + 分类选择",移除商品表单 |
+| **U3** | 删除商品/数据分析页与 `product_module`/`ecom_adapter`;`VideoList`→通用历史;精简 `ecom_api` 为通用视频管线 |
+
+**重要遗留命名**: 后端管线端点仍用 `/api/ecom/videos/*` 前缀、数据表仍名 `ecom_videos`
+(为兼容未入库的 `main_fastapi.py` 注册与历史数据),**但已与电商无关,是通用视频管线**。
+
+**联调前置**: `main_fastapi.py`(本地/未入库)需注册 `app.include_router(topic_video_api.router)`。
+
+详见: `docs/28-unify-generation-design.md`
 
