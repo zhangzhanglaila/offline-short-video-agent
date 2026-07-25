@@ -21,6 +21,7 @@ import os
 import asyncio
 import time
 import hashlib
+import logging
 from pathlib import Path
 from typing import List, Optional, Callable, Any
 
@@ -32,6 +33,9 @@ from core.models import (
     MaterialAsset,
     SceneMaterialMap,
 )
+from services.config import load_config
+
+logger = logging.getLogger(__name__)
 
 
 # 默认缓存目录
@@ -131,6 +135,12 @@ class MaterialFetchAgent(BaseAgent):
         self._ai_video_enabled = True  # 默认启用 AI 生视频
         self._ai_video_generator = None
         self._ai_video_disabled = False
+        # E5: provider 选择走 config.yaml(ai.image_provider / ai.video_provider)
+        try:
+            self._config = load_config("config.yaml")
+        except Exception as e:  # pragma: no cover - 兜底
+            logger.warning(f"加载 config.yaml 失败,使用空配置: {e}")
+            self._config = {}
 
     # ---------- 惰性加载API管理器 ----------
 
@@ -145,46 +155,84 @@ class MaterialFetchAgent(BaseAgent):
 
     @property
     def ai_generator(self):
-        """惰性构建AI生图器（E2）。"""
-        if not self._ai_image_enabled or self._ai_disabled:
-            return None
-        if self._ai_generator is None:
-            try:
-                from services.ai_image import BailianImageGenerator, AIImageRequest, ImageSize
-
-                api_key = os.environ.get("DASHSCOPE_API_KEY", "")
+        """惰性构建AI生图器(E2/E5)。按 config["ai"]["image_provider"] 选择 provider。"""
+        if self._ai_generator is not None:
+            return self._ai_generator
+        provider = "bailian"  # 兜底默认,日志里也用到
+        try:
+            provider = self._config.get("ai", {}).get(
+                "image_provider", "bailian"
+            )
+            if provider == "comfyui":
+                # 本地 ComfyUI:不需要 API key
+                from services.ai_image.comfyui_generator import (
+                    ComfyUIImageGenerator,
+                )
+                self._ai_generator = ComfyUIImageGenerator()
+                logger.info("AI 生图器已启用（ComfyUI 本地）")
+            elif provider == "openai":
+                from services.ai_image import OpenAIImageGenerator
+                api_key = os.getenv("OPENAI_API_KEY", "")
                 if not api_key:
-                    self.logger.info("未配置 DASHSCOPE_API_KEY，跳过 AI 生图")
-                    self._ai_disabled = True
+                    logger.info("未配置 OPENAI_API_KEY,跳过 AI 生图")
                     return None
-
+                self._ai_generator = OpenAIImageGenerator(api_key=api_key)
+                logger.info("AI 生图器已启用（OpenAI）")
+            else:
+                # bailian / 其它未识别值都走 bailian 兜底,保持向后兼容
+                from services.ai_image import BailianImageGenerator
+                api_key = os.getenv("BAILIAN_API_KEY", "") or os.getenv(
+                    "DASHSCOPE_API_KEY", ""
+                )
+                if not api_key:
+                    logger.info(
+                        "未配置 BAILIAN_API_KEY/DASHSCOPE_API_KEY,跳过 AI 生图"
+                    )
+                    return None
                 self._ai_generator = BailianImageGenerator(api_key=api_key)
-                self.logger.info("AI 生图器已启用（Bailian WanX）")
-            except Exception as e:
-                self.logger.warning(f"无法加载AI生图模块: {e}")
-                self._ai_disabled = True
+                logger.info("AI 生图器已启用（Bailian WanX）")
+        except Exception as e:
+            logger.warning(
+                f"AI 生图 provider {provider} 初始化失败: {e}"
+            )
+            self._ai_generator = None
         return self._ai_generator
 
     @property
     def ai_video_generator(self):
-        """惰性构建AI生视频器（E3）。"""
-        if not self._ai_video_enabled or self._ai_video_disabled:
-            return None
-        if self._ai_video_generator is None:
-            try:
-                from services.ai_video import DashScopeVideoGenerator, VideoGenerationRequest, VideoProvider, VideoSize
-
-                api_key = os.environ.get("DASHSCOPE_API_KEY", "")
+        """惰性构建AI生视频器(E3/E5)。按 config["ai"]["video_provider"] 选择 provider。"""
+        if self._ai_video_generator is not None:
+            return self._ai_video_generator
+        provider = "dashscope"  # 兜底默认
+        try:
+            provider = self._config.get("ai", {}).get(
+                "video_provider", "dashscope"
+            )
+            if provider == "comfyui":
+                # 本地 ComfyUI:不需要 API key
+                from services.ai_video.comfyui_generator import (
+                    ComfyUIVideoGenerator,
+                )
+                self._ai_video_generator = ComfyUIVideoGenerator()
+                logger.info("AI 生视频器已启用（ComfyUI 本地）")
+            else:
+                # dashscope / 其它未识别值都走 dashscope 兜底,保持向后兼容
+                from services.ai_video import DashScopeVideoGenerator
+                api_key = os.getenv("DASHSCOPE_API_KEY", "")
                 if not api_key:
-                    self.logger.info("未配置 DASHSCOPE_API_KEY，跳过 AI 生视频")
-                    self._ai_video_disabled = True
+                    logger.info(
+                        "未配置 DASHSCOPE_API_KEY,跳过 AI 生视频"
+                    )
                     return None
-
-                self._ai_video_generator = DashScopeVideoGenerator(api_key=api_key)
-                self.logger.info("AI 生视频器已启用（DashScope Wan）")
-            except Exception as e:
-                self.logger.warning(f"无法加载AI生视频模块: {e}")
-                self._ai_video_disabled = True
+                self._ai_video_generator = DashScopeVideoGenerator(
+                    api_key=api_key
+                )
+                logger.info("AI 生视频器已启用（DashScope Wan）")
+        except Exception as e:
+            logger.warning(
+                f"AI 生视频 provider {provider} 初始化失败: {e}"
+            )
+            self._ai_video_generator = None
         return self._ai_video_generator
 
     def _build_api_manager(self):
